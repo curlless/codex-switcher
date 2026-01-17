@@ -1,95 +1,186 @@
-<h1 align="center">Codex CLI Profiles</h1>
+<h1 align="center">Codex Profiles</h1>
 
-<p align="center">Manage multiple Codex auth profiles by saving and restoring <code>~/.codex/auth.json</code>.</p>
+<p align="center">Manage multiple Codex CLI profiles and switch between them instantly.</p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/last-commit/midhunmonachan/codex-cli-profiles" alt="Last commit" />
-  <img src="https://img.shields.io/github/issues/midhunmonachan/codex-cli-profiles" alt="Issues" />
+  <img src="https://img.shields.io/github/stars/midhunmonachan/codex-profiles" alt="Stars" />
+  <img src="https://img.shields.io/github/v/release/midhunmonachan/codex-profiles" alt="Release" />
+  <img src="https://img.shields.io/github/issues/midhunmonachan/codex-profiles" alt="Issues" />
+  <img src="https://img.shields.io/github/license/midhunmonachan/codex-profiles" alt="License" />
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> •
+  <a href="#install">Install</a> •
+  <a href="#uninstall">Uninstall</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#faq">FAQ</a>
 </p>
 
 ---
 
-## Requirements
+## Overview
 
-- `bash`, `date`, `jq`, `node`, and `codex` (Codex CLI)
-- Tested on Ubuntu 24.04 with Codex CLI 0.79.0
-- Expected to work on other Linux distributions, but unverified
+Codex Profiles helps you manage multiple Codex CLI logins on a single machine.
+It saves the current login and lets you switch in seconds, making it ideal for
+personal and team accounts across multiple organizations.
 
 ## Install
 
-```sh
-./install.sh
+> [!IMPORTANT]
+> Requires [Codex CLI](https://developers.openai.com/codex/cli/).
+
+> [!WARNING]
+> Codex CLI is not included with the ChatGPT Free plan.
+
+### npm (recommended)
+
+```bash
+npm install -g codex-profiles
 ```
 
-Optional custom command name:
+### bun
 
-```sh
-./install.sh --name mycmd
+```bash
+bun install -g codex-profiles
 ```
 
-## Quickstart
+The npm/bun installers pull a small JS launcher plus a platform-specific binary
+package (for example, `codex-profiles-linux-x64`).
 
-1. Save the current account as a profile.
-2. Switch back to it later, or list everything saved so far.
+### Homebrew (macOS)
 
-```sh
-cx save
-cx list
-cx load <account_id>
+```bash
+brew install --cask codex-profiles
+```
+
+### GitHub releases (manual)
+
+1. Download the appropriate asset for your OS/arch from the latest release.
+2. Extract and move the binary into your PATH.
+
+Example (Linux x64):
+
+```bash
+VERSION=0.1.0
+TARGET=x86_64-unknown-linux-gnu
+curl -L -o codex-profiles.tar.gz \
+  "https://github.com/midhunmonachan/codex-profiles/releases/download/v${VERSION}/codex-profiles-${TARGET}.tar.gz"
+tar -xzf codex-profiles.tar.gz
+install -m 755 codex-profiles ~/.local/bin/codex-profiles
+```
+
+### From source
+
+```bash
+cargo install --path .
+```
+
+Or from git:
+
+```bash
+cargo install --git https://github.com/midhunmonachan/codex-profiles --locked
+```
+
+## Uninstall
+
+> [!IMPORTANT]
+> If you installed the legacy `cx` script, remove it and use this version instead, as it will no longer be supported:
+>
+> ```bash
+> rm ~/.local/bin/cx
+> ```
+>
+> If you installed with a custom command name (`mycmd`), remove that name instead:
+>
+> ```bash
+> rm ~/.local/bin/mycmd
+> ```
+
+### npm
+
+```bash
+npm uninstall -g codex-profiles
+```
+
+### bun
+
+```bash
+bun uninstall -g codex-profiles
+```
+
+### Homebrew (macOS)
+
+```bash
+brew uninstall --cask codex-profiles
+```
+
+### Manual install
+
+```bash
+rm ~/.local/bin/codex-profiles
 ```
 
 ## Usage
 
+> [!TIP]
+> Commands are interactive unless you pass `--label`.
+
 | Command | Description |
 | --- | --- |
-| `cx save` | Save the current `auth.json` as a profile. |
-| `cx load [id]` | Load a profile; no ID picks the least recently used. |
-| `cx list` | List profiles ordered by last used. |
-| `cx current` | Print the active `account_id`. |
+| `codex-profiles save [--label <name>]` | Save the current `auth.json` as a profile, optionally labeled. |
+| `codex-profiles load [--label <name>]` | Load a profile from the picker without re-login (or by label). |
+| `codex-profiles list` | List profiles ordered by last used. |
+| `codex-profiles status [--all] [--label <name>]` | Show usage for the current profile, all profiles, or a specific label. |
+| `codex-profiles delete [--yes] [--label <name>]` | Delete profiles from the picker (or by label). |
+| `codex-profiles export --every-code [--code-home <path>] [--overwrite]` | Export profiles to Every Code's `auth_accounts.json`. |
+| `codex-profiles import --every-code [--code-home <path>]` | Import accounts from Every Code into profiles. |
 
-## How it works
+> [!WARNING]
+> Deleting a profile does not log you out. It only removes the saved profile file.
 
-- Profiles are stored as `~/.codex/profiles/{account_id}.json`.
-- Last-used timestamps are tracked in `~/.codex/profiles/usage.tsv`.
-- `load` with no ID auto-selects the least recently used profile.
+Quick example:
 
-## Uninstall
+```console
+$ codex-profiles save --label team
+Saved profile mail@company.com (Team)
 
-Remove the symlink from `~/.local/bin`:
-
-```sh
-rm ~/.local/bin/cx
+$ codex-profiles load --label team
+Loaded profile mail@company.com (Team)
 ```
 
-If you installed with a custom name, remove that name instead:
+> [!NOTE]
+> Files are stored under `~/.codex/profiles/`:
+>
+> | File | Purpose |
+> | --- | --- |
+> | `{email-plan}.json` | Saved profiles. |
+> | `usage.tsv` | Last-used timestamps. |
+> | `labels.json` | Optional labels. |
+> | `version.json` | Update check cache. |
 
-```sh
-rm ~/.local/bin/mycmd
-```
+## FAQ
 
-## Examples
+### Is my auth file uploaded anywhere?
 
-<details>
-<summary>Rotate between two accounts</summary>
+No. Everything stays on your machine. This tool only copies files locally.
 
-```sh
-cx save
-cx load 1234567890abcdef
-cx save
-cx load abcdef1234567890
-```
-</details>
+### What is a “profile” in this tool?
 
-<details>
-<summary>Restore the least recently used account</summary>
+A profile is a saved copy of your `~/.codex/auth.json`. Each profile represents
+one Codex login.
 
-```sh
-cx load
-```
-</details>
+### How do I save and switch between accounts?
 
-## Troubleshooting
+Log in with Codex CLI, then run `codex-profiles save --label <name>`. To switch
+later, run `codex-profiles load --label <name>`.
 
-- Missing `jq`: install it with your package manager.
-- `date -d` not found: install GNU coreutils or use a Linux environment.
-- "Error: ~/.local/bin/cx exists and is not cx symlink": remove or rename the existing file.
+### What happens if I run load without saving?
+
+You will be prompted to save the current profile, continue without saving, or
+cancel.
+
+### Can I keep personal and work accounts separate?
+
+Yes. Save each account with a label (for example, `personal` and `work`) and
+switch with the label.
