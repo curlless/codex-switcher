@@ -26,6 +26,10 @@ pub fn use_color_stderr() -> bool {
     supports_color(Stream::Stderr)
 }
 
+pub fn use_tty_stderr() -> bool {
+    use_color_stderr()
+}
+
 pub fn terminal_width() -> Option<usize> {
     if is_plain() {
         return None;
@@ -327,4 +331,161 @@ fn format_save_hint(paths: &Paths, use_color: bool, save_only: &str, with_login:
             .replace("{save}", &save)
     };
     format_hint(&message, use_color)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{make_paths, set_env_guard, set_plain_guard};
+    use std::fs;
+
+    #[test]
+    fn plain_toggle_affects_output() {
+        {
+            let _plain = set_plain_guard(true);
+            assert!(is_plain());
+            let warning = format_warning("oops", false);
+            assert!(warning.contains("WARNING"));
+        }
+        assert!(!is_plain());
+    }
+
+    #[test]
+    fn terminal_width_parses_columns() {
+        let _plain = set_plain_guard(false);
+        let _env = set_env_guard("COLUMNS", Some("80"));
+        assert_eq!(terminal_width(), Some(80));
+    }
+
+    #[test]
+    fn terminal_width_none_when_plain() {
+        let _plain = set_plain_guard(true);
+        assert_eq!(terminal_width(), None);
+    }
+
+    #[test]
+    fn supports_color_respects_no_color() {
+        let _env = set_env_guard("NO_COLOR", Some("1"));
+        assert!(!use_color_stdout());
+        assert!(!use_color_stderr());
+    }
+
+    #[test]
+    fn format_helpers_basic() {
+        let _plain = set_plain_guard(false);
+        let cmd = format_cmd("codex login", false);
+        assert!(cmd.contains("codex login"));
+        let action = format_action("done", false);
+        assert!(action.contains("done"));
+        let hint = format_hint("hint", false);
+        assert!(hint.contains("hint"));
+        let cancel = format_cancel(false);
+        assert_eq!(cancel, CANCELLED_MESSAGE);
+    }
+
+    #[test]
+    fn format_no_profiles_and_save_before_load() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        let msg = format_no_profiles(&paths, false);
+        assert!(msg.contains("No saved profiles"));
+        let msg = format_save_before_load(&paths, false);
+        assert!(msg.contains("save"));
+    }
+
+    #[test]
+    fn format_unsaved_warning_plain() {
+        let lines = format_unsaved_warning(false);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("WARNING"));
+    }
+
+    #[test]
+    fn normalize_error_variants() {
+        assert_eq!(
+            normalize_error("Error: Codex auth file not found. Run `codex login` first."),
+            "Not logged in. Run `codex login`."
+        );
+        assert_eq!(
+            normalize_error(
+                "Error: invalid JSON in auth.json: oops. Run `codex login` to regenerate it."
+            ),
+            "Auth file is invalid. Run `codex login`."
+        );
+        assert_eq!(
+            normalize_error(
+                "Error: auth.json is missing tokens.account_id. Run `codex login` to reauthenticate."
+            ),
+            "Auth is incomplete. Run `codex login`."
+        );
+        assert_eq!(normalize_error("other"), "other");
+    }
+
+    #[test]
+    fn format_error_plain() {
+        let _env = set_env_guard("NO_COLOR", Some("1"));
+        let err = format_error("oops");
+        assert!(err.contains("Error:"));
+    }
+
+    #[test]
+    fn format_profile_display_variants() {
+        let key = format_profile_display(
+            Some("Key".to_string()),
+            Some("Key".to_string()),
+            Some("label".to_string()),
+            false,
+            false,
+        );
+        assert!(key.to_lowercase().contains("key"));
+        let display = format_profile_display(
+            Some("me@example.com".to_string()),
+            Some("Free".to_string()),
+            None,
+            true,
+            false,
+        );
+        assert!(display.contains("me@example.com"));
+        let unknown = format_profile_display(None, None, None, false, false);
+        assert!(unknown.contains("Unknown"));
+    }
+
+    #[test]
+    fn format_entry_header_and_separator() {
+        let header = format_entry_header("Display", "1d", false, false);
+        assert!(header.contains("Display"));
+        let indented = super::indent_output("line\n\nline2");
+        assert!(indented.contains("line2"));
+    }
+
+    #[test]
+    fn render_config_and_cancel() {
+        let _env = set_env_guard("NO_COLOR", Some("1"));
+        let config = inquire_select_render_config();
+        assert_eq!(config.prompt_prefix.content, "");
+        let err = inquire::error::InquireError::OperationCanceled;
+        assert!(is_inquire_cancel(&err));
+    }
+
+    #[test]
+    fn print_output_blocks() {
+        let _plain = set_plain_guard(true);
+        print_output_block("hi");
+        print_output_block_with_frame("hi", "-");
+    }
+
+    #[test]
+    fn format_command_uses_name() {
+        let cmd = super::format_command("list", false);
+        assert!(cmd.contains("list"));
+    }
+
+    #[test]
+    fn format_save_hint_with_auth() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::write(&paths.auth, "{}").expect("write auth");
+        let hint = super::format_save_hint(&paths, false, "Run {save}", "Run {login} {save}");
+        assert!(hint.contains("save"));
+    }
 }

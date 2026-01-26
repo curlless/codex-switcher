@@ -1,23 +1,7 @@
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use codex_profiles::{AuthFile, Tokens, extract_email_and_plan};
+mod common;
 
-fn build_id_token(email: &str, plan: &str) -> String {
-    let header = serde_json::json!({
-        "alg": "none",
-        "typ": "JWT",
-    });
-    let auth = serde_json::json!({
-        "chatgpt_plan_type": plan,
-    });
-    let payload = serde_json::json!({
-        "email": email,
-        "https://api.openai.com/auth": auth,
-    });
-    let header = URL_SAFE_NO_PAD.encode(serde_json::to_string(&header).unwrap());
-    let payload = URL_SAFE_NO_PAD.encode(serde_json::to_string(&payload).unwrap());
-    format!("{header}.{payload}.")
-}
+use codex_profiles::{AuthFile, Tokens, extract_email_and_plan};
+use common::build_id_token;
 
 #[test]
 fn extracts_email_and_plan_from_id_token() {

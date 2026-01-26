@@ -21,14 +21,31 @@ Other helpers:
 make fmt
 make clippy
 make test
+make coverage
 ```
 
 ## Pre-commit hook
 
-Install the local hook:
+Install the repo-managed hook wrapper (so updates are picked up automatically):
 
 ```bash
-cp scripts/pre-commit .git/hooks/pre-commit
+make hooks
 ```
 
-This runs `make precommit` before each commit.
+This writes lightweight wrappers in your configured Git hooks directory
+(respects `core.hooksPath`) that call the versioned hooks in `scripts/`
+before each commit and push.
+
+## Release tag helper
+
+Create a validated release tag that matches `Cargo.toml` and `package.json`:
+
+```bash
+make release-tag
+```
+
+To bump and tag in one step:
+
+```bash
+make release-tag ARGS="--bump patch"
+```

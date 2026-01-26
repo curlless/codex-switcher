@@ -16,7 +16,7 @@ const REFRESH_TOKEN_URL: &str = "https://auth.openai.com/oauth/token";
 const REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR: &str = "CODEX_REFRESH_TOKEN_URL_OVERRIDE";
 const CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AuthFile {
     #[serde(rename = "OPENAI_API_KEY")]
     pub openai_api_key: Option<String>,
@@ -26,7 +26,7 @@ pub struct AuthFile {
 }
 
 #[serde_as]
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Tokens {
     #[serde(default)]
     #[serde_as(as = "NoneAsEmptyString")]
@@ -289,7 +289,7 @@ struct RefreshRequest {
     scope: &'static str,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct RefreshResponse {
     id_token: Option<String>,
     access_token: Option<String>,
@@ -396,4 +396,371 @@ fn update_auth_tokens(path: &Path, refreshed: &RefreshResponse) -> Result<(), St
         .map_err(|err| format!("Error: failed to serialize auth file: {err}"))?;
     write_atomic(path, format!("{json}\n").as_bytes())
         .map_err(|err| format!("Error: failed to write {}: {err}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{
+        ENV_MUTEX, build_id_token, http_ok_response, set_env_guard, spawn_server,
+    };
+    use std::fs;
+
+    fn build_id_token_payload(payload: &str) -> String {
+        let header = r#"{"alg":"none","typ":"JWT"}"#;
+        let header = URL_SAFE_NO_PAD.encode(header);
+        let payload = URL_SAFE_NO_PAD.encode(payload);
+        format!("{header}.{payload}.")
+    }
+
+    #[test]
+    fn read_auth_file_errors() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let missing = dir.path().join("missing.json");
+        let err = read_auth_file(&missing).unwrap_err();
+        assert!(err.contains("auth file not found"));
+
+        let bad = dir.path().join("bad.json");
+        fs::write(&bad, "{oops").expect("write");
+        let err = read_auth_file(&bad).unwrap_err();
+        assert!(err.contains("invalid JSON"));
+    }
+
+    #[test]
+    fn read_tokens_paths() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("auth.json");
+        let id_token = build_id_token("me@example.com", "pro");
+        let value = serde_json::json!({
+            "tokens": {"account_id": "acct", "id_token": id_token, "access_token": "acc"}
+        });
+        fs::write(&path, serde_json::to_string(&value).unwrap()).unwrap();
+        let tokens = read_tokens(&path).unwrap();
+        assert_eq!(token_account_id(&tokens), Some("acct"));
+
+        let api_path = dir.path().join("auth_api.json");
+        let value = serde_json::json!({"OPENAI_API_KEY": "sk-test"});
+        fs::write(&api_path, serde_json::to_string(&value).unwrap()).unwrap();
+        let tokens = read_tokens(&api_path).unwrap();
+        assert!(is_api_key_profile(&tokens));
+
+        let empty_path = dir.path().join("empty.json");
+        fs::write(&empty_path, "{}").unwrap();
+        let err = read_tokens(&empty_path).unwrap_err();
+        assert!(err.contains("missing tokens"));
+    }
+
+    #[test]
+    fn read_tokens_opt_handles_missing() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("none.json");
+        assert!(read_tokens_opt(&path).is_none());
+    }
+
+    #[test]
+    fn api_key_helpers() {
+        let tokens = tokens_from_api_key("sk-test-1234");
+        assert!(is_api_key_profile(&tokens));
+        let display = api_key_display_label(&tokens).unwrap();
+        assert!(display.starts_with(API_KEY_SEPARATOR));
+        assert_eq!(api_key_prefix("abc$123"), "abc-123".to_string());
+    }
+
+    #[test]
+    fn format_plan_and_free() {
+        assert_eq!(format_plan("chatgpt_plus"), "Chatgpt Plus");
+        assert_eq!(format_plan(""), "Unknown");
+        assert!(is_free_plan(Some("free")));
+        assert!(!is_free_plan(Some("pro")));
+    }
+
+    #[test]
+    fn extract_email_and_plan_paths() {
+        let id_token = build_id_token("me@example.com", "pro");
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: Some(id_token),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        let (email, plan) = extract_email_and_plan(&tokens);
+        assert_eq!(email.as_deref(), Some("me@example.com"));
+        assert_eq!(plan.as_deref(), Some("Pro"));
+
+        let api_tokens = tokens_from_api_key("sk-test");
+        let (email, plan) = extract_email_and_plan(&api_tokens);
+        assert_eq!(plan.as_deref(), Some(API_KEY_LABEL));
+        assert!(email.is_some());
+    }
+
+    #[test]
+    fn require_identity_errors() {
+        let tokens = Tokens {
+            account_id: None,
+            id_token: None,
+            access_token: None,
+            refresh_token: None,
+        };
+        let err = require_identity(&tokens).unwrap_err();
+        assert!(err.contains("missing tokens.account_id"));
+    }
+
+    #[test]
+    fn profile_error_variants() {
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: None,
+            access_token: None,
+            refresh_token: None,
+        };
+        assert_eq!(
+            profile_error(&tokens, Some("e"), Some("p")),
+            Some("profile missing tokens.access_token")
+        );
+
+        let api_tokens = tokens_from_api_key("sk-test");
+        assert!(profile_error(&api_tokens, None, None).is_none());
+
+        let tokens = Tokens {
+            account_id: None,
+            id_token: Some(build_id_token("me@example.com", "pro")),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        assert_eq!(
+            profile_error(&tokens, Some("me@example.com"), Some("Pro")),
+            Some("profile missing tokens.account_id")
+        );
+
+        let id_token = build_id_token_payload(
+            "{\"https://api.openai.com/auth\":{\"chatgpt_plan_type\":\"pro\"}}",
+        );
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: Some(id_token),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        assert_eq!(
+            profile_error(&tokens, None, Some("Pro")),
+            Some("profile missing id_token email/plan")
+        );
+    }
+
+    #[test]
+    fn is_profile_ready_variants() {
+        let api_tokens = tokens_from_api_key("sk-test");
+        assert!(is_profile_ready(&api_tokens));
+
+        let tokens = Tokens {
+            account_id: None,
+            id_token: Some(build_id_token("me@example.com", "pro")),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        assert!(!is_profile_ready(&tokens));
+
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: Some(build_id_token("me@example.com", "pro")),
+            access_token: None,
+            refresh_token: None,
+        };
+        assert!(!is_profile_ready(&tokens));
+
+        let id_token = build_id_token_payload("{\"email\":\"me@example.com\"}");
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: Some(id_token),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        assert!(!is_profile_ready(&tokens));
+    }
+
+    #[test]
+    fn require_identity_missing_fields() {
+        let id_token = build_id_token_payload("{\"email\":\"me@example.com\"}");
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: Some(id_token),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        let err = require_identity(&tokens).unwrap_err();
+        assert!(err.contains("missing id_token plan"));
+
+        let id_token = build_id_token_payload(
+            "{\"https://api.openai.com/auth\":{\"chatgpt_plan_type\":\"pro\"}}",
+        );
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: Some(id_token),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        let err = require_identity(&tokens).unwrap_err();
+        assert!(err.contains("missing id_token email"));
+
+        let tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: Some(build_id_token("me@example.com", "pro")),
+            access_token: Some("acc".to_string()),
+            refresh_token: None,
+        };
+        assert!(require_identity(&tokens).is_ok());
+    }
+
+    #[test]
+    fn refresh_profile_tokens_missing_refresh() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("auth.json");
+        let value = serde_json::json!({
+            "tokens": {
+                "account_id": "acct",
+                "access_token": "acc"
+            }
+        });
+        fs::write(&path, serde_json::to_string(&value).unwrap()).unwrap();
+        let mut tokens = read_tokens(&path).unwrap();
+        let err = refresh_profile_tokens(&path, &mut tokens).unwrap_err();
+        assert!(err.contains("missing refresh_token"));
+    }
+
+    #[test]
+    fn set_env_clears_value() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        {
+            let _env = set_env_guard("CODEX_PROFILES_TEST_ENV", Some("value"));
+        }
+        {
+            let _env = set_env_guard("CODEX_PROFILES_TEST_ENV", None);
+        }
+    }
+
+    #[test]
+    fn decode_id_token_claims_handles_invalid() {
+        assert!(decode_id_token_claims("not-a-jwt").is_none());
+        let bad = "a.b.c";
+        assert!(decode_id_token_claims(bad).is_none());
+        let good = build_id_token("me@example.com", "pro");
+        assert!(decode_id_token_claims(&good).is_some());
+    }
+
+    #[test]
+    fn apply_refresh_requires_access_token() {
+        let mut tokens = Tokens {
+            account_id: Some("acct".to_string()),
+            id_token: None,
+            access_token: None,
+            refresh_token: None,
+        };
+        let refreshed = RefreshResponse {
+            id_token: None,
+            access_token: None,
+            refresh_token: None,
+        };
+        let err = apply_refresh(&mut tokens, &refreshed).unwrap_err();
+        assert!(err.contains("missing access_token"));
+    }
+
+    #[test]
+    fn update_auth_tokens_errors() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let missing = dir.path().join("missing.json");
+        let err = update_auth_tokens(
+            &missing,
+            &RefreshResponse {
+                id_token: None,
+                access_token: None,
+                refresh_token: None,
+            },
+        )
+        .unwrap_err();
+        assert!(err.contains("failed to read"));
+
+        let bad = dir.path().join("bad.json");
+        fs::write(&bad, "{oops").unwrap();
+        let err = update_auth_tokens(
+            &bad,
+            &RefreshResponse {
+                id_token: None,
+                access_token: None,
+                refresh_token: None,
+            },
+        )
+        .unwrap_err();
+        assert!(err.contains("invalid JSON"));
+
+        let not_obj = dir.path().join("not_obj.json");
+        fs::write(&not_obj, "[]").unwrap();
+        let err = update_auth_tokens(
+            &not_obj,
+            &RefreshResponse {
+                id_token: None,
+                access_token: None,
+                refresh_token: None,
+            },
+        )
+        .unwrap_err();
+        assert!(err.contains("expected object"));
+
+        let tokens_not_obj = dir.path().join("tokens_not_obj.json");
+        fs::write(&tokens_not_obj, "{\"tokens\": []}").unwrap();
+        let err = update_auth_tokens(
+            &tokens_not_obj,
+            &RefreshResponse {
+                id_token: None,
+                access_token: None,
+                refresh_token: None,
+            },
+        )
+        .unwrap_err();
+        assert!(err.contains("invalid tokens"));
+    }
+
+    #[test]
+    fn refresh_access_token_success_and_status() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let ok_body = "{\"access_token\":\"acc\",\"id_token\":\"id\",\"refresh_token\":\"ref\"}";
+        let ok_resp = http_ok_response(ok_body, "application/json");
+        let ok_url = spawn_server(ok_resp);
+        {
+            let _env = set_env_guard(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR, Some(&ok_url));
+            let refreshed = refresh_access_token("token").unwrap();
+            assert_eq!(refreshed.access_token.as_deref(), Some("acc"));
+        }
+
+        let err_resp = "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n".to_string();
+        let err_url = spawn_server(err_resp);
+        {
+            let _env = set_env_guard(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR, Some(&err_url));
+            let err = refresh_access_token("token").unwrap_err();
+            assert!(err.contains("http status"));
+        }
+    }
+
+    #[test]
+    fn refresh_profile_tokens_updates_file() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let ok_body = "{\"access_token\":\"acc\",\"id_token\":\"id\",\"refresh_token\":\"ref\"}";
+        let ok_resp = http_ok_response(ok_body, "application/json");
+        let ok_url = spawn_server(ok_resp);
+        let _env = set_env_guard(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR, Some(&ok_url));
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("auth.json");
+        let value = serde_json::json!({
+            "tokens": {
+                "account_id": "acct",
+                "access_token": "old",
+                "refresh_token": "rt"
+            }
+        });
+        fs::write(&path, serde_json::to_string(&value).unwrap()).unwrap();
+        let mut tokens = read_tokens(&path).unwrap();
+        refresh_profile_tokens(&path, &mut tokens).unwrap();
+        let updated = fs::read_to_string(&path).unwrap();
+        assert!(updated.contains("acc"));
+    }
 }

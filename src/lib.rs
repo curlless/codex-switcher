@@ -5,6 +5,13 @@ use crate::cli::{Cli, Commands, command_with_examples};
 
 pub fn run_cli() {
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    if let Err(message) = run_cli_with_args(args) {
+        eprintln!("{message}");
+        std::process::exit(1);
+    }
+}
+
+fn run_cli_with_args(args: Vec<std::ffi::OsString>) -> Result<(), String> {
     if args.len() == 1 {
         let name = package_command_name();
         println!("{name} {}", env!("CARGO_PKG_VERSION"));
@@ -12,7 +19,7 @@ pub fn run_cli() {
         let mut cmd = command_with_examples();
         let _ = cmd.print_help();
         println!();
-        return;
+        return Ok(());
     }
     let cmd = command_with_examples();
     let matches = match cmd.clone().try_get_matches_from(args) {
@@ -24,22 +31,22 @@ pub fn run_cli() {
                 println!();
                 let _ = err.print();
                 println!();
-                return;
+                return Ok(());
             }
-            err.exit();
+            return Err(err.to_string());
         }
     };
-    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
+    let cli = Cli::from_arg_matches(&matches).map_err(|err| err.to_string())?;
     set_plain(cli.plain);
     if let Err(message) = run(cli) {
         if message == CANCELLED_MESSAGE {
             let message = format_cancel(use_color_stdout());
             print_output_block(&message);
-            return;
+            return Ok(());
         }
-        eprintln!("{message}");
-        std::process::exit(1);
+        return Err(message);
     }
+    Ok(())
 }
 
 fn run(cli: Cli) -> Result<(), String> {
@@ -77,25 +84,6 @@ fn run(cli: Cli) -> Result<(), String> {
             }
         }
         Commands::Delete { yes, label } => delete_profile(&paths, yes, label),
-        Commands::Export {
-            every_code,
-            code_home,
-            overwrite,
-        } => {
-            if !every_code {
-                return Err("Error: export target required (use --every-code).".to_string());
-            }
-            export_every_code(&paths, code_home, overwrite)
-        }
-        Commands::Import {
-            every_code,
-            code_home,
-        } => {
-            if !every_code {
-                return Err("Error: import source required (use --every-code).".to_string());
-            }
-            import_every_code(&paths, code_home)
-        }
     }
 }
 
@@ -117,18 +105,81 @@ fn run_update_action(action: UpdateAction) -> Result<(), String> {
 mod auth;
 mod cli;
 mod common;
-mod everycode;
 mod profiles;
 mod requirements;
+#[cfg(test)]
+mod test_utils;
 mod ui;
 mod updates;
 mod usage;
 
 pub use auth::*;
 pub use common::*;
-pub use everycode::*;
 pub use profiles::*;
 pub use requirements::*;
 pub use ui::*;
 pub use updates::*;
 pub use usage::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{make_paths, set_env_guard};
+    use std::ffi::OsString;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn run_cli_with_args_help() {
+        let args = vec![OsString::from("codex-profiles")];
+        run_cli_with_args(args).unwrap();
+    }
+
+    #[test]
+    fn run_cli_with_args_display_help() {
+        let args = vec![OsString::from("codex-profiles"), OsString::from("--help")];
+        run_cli_with_args(args).unwrap();
+    }
+
+    #[test]
+    fn run_cli_with_args_errors() {
+        let args = vec![OsString::from("codex-profiles"), OsString::from("nope")];
+        let err = run_cli_with_args(args).unwrap_err();
+        assert!(err.contains("error"));
+    }
+
+    #[test]
+    fn run_update_action_paths() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let bin = dir.path().join("npm");
+        fs::write(&bin, "#!/bin/sh\nexit 0\n").unwrap();
+        let mut perms = fs::metadata(&bin).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&bin, perms).unwrap();
+        let path = dir.path().to_string_lossy().into_owned();
+        {
+            let _env = set_env_guard("PATH", Some(&path));
+            run_update_action(UpdateAction::NpmGlobalLatest).unwrap();
+        }
+        {
+            let _env = set_env_guard("PATH", Some(""));
+            let err = run_update_action(UpdateAction::NpmGlobalLatest).unwrap_err();
+            assert!(err.contains("failed to run update command"));
+        }
+    }
+
+    #[test]
+    fn run_cli_list_command() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        let home = dir.path().to_string_lossy().into_owned();
+        let _home = set_env_guard("CODEX_PROFILES_HOME", Some(&home));
+        let _skip = set_env_guard("CODEX_PROFILES_SKIP_UPDATE", Some("1"));
+        let cli = Cli {
+            plain: true,
+            command: Commands::List,
+        };
+        run(cli).unwrap();
+    }
+}

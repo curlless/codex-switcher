@@ -3,7 +3,8 @@ name: release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,12 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Debug tag context
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Ref type: ${GITHUB_REF_TYPE}"
-          echo "Ref name: ${GITHUB_REF_NAME}"
       - name: Validate tag matches versions
         shell: bash
         run: |
@@ -48,60 +43,37 @@ jobs:
           [[ "${tag_ver}" == "${cargo_ver}" ]] || { echo "Tag ${tag_ver} != Cargo.toml ${cargo_ver}"; exit 1; }
           [[ "${tag_ver}" == "${npm_ver}" ]] || { echo "Tag ${tag_ver} != package.json ${npm_ver}"; exit 1; }
 
-  lint:
+  verify:
     needs: tag-check
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.92
+      - uses: mozilla-actions/sccache-action@v0.0.4
+      - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain-file: rust-toolchain.toml
           components: rustfmt, clippy
-      - uses: actions/cache@v4
+      - uses: taiki-e/install-action@cargo-audit
+      - uses: taiki-e/install-action@cargo-nextest
+      - name: Cache cargo bin
+        uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-${{ runner.os }}-lint-${{ hashFiles('**/Cargo.lock') }}
-      - name: Cargo fmt
-        run: cargo fmt --all -- --check
-      - name: Cargo clippy
-        run: cargo clippy --all-targets -- -D warnings
-
-  test:
-    needs: tag-check
-    name: test-${{ matrix.runner }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - runner: ubuntu-latest
-          - runner: macos-13
-          - runner: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.92
-      - uses: actions/cache@v4
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}-cargo-bin
+          restore-keys: |
+            ${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}-cargo-bin
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-${{ runner.os }}-test-${{ hashFiles('**/Cargo.lock') }}
-      - name: Cargo test
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "Running Rust tests"
-          cargo test --tests
-          echo "Rust tests finished"
+          shared-key: ${{ runner.os }}-verify-${{ hashFiles('rust-toolchain.toml') }}
+      - name: Run checks
+        run: scripts/check.sh
 
   build:
-    needs: tag-check
+    needs: verify
     name: build-${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
@@ -112,66 +84,45 @@ jobs:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             binary: codex-profiles
-            build_tool: cargo
-          - runner: ubuntu-latest
+          - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             binary: codex-profiles
-            build_tool: cross
           - runner: macos-13
             target: x86_64-apple-darwin
             binary: codex-profiles
-            build_tool: cargo
           - runner: macos-14
             target: aarch64-apple-darwin
             binary: codex-profiles
-            build_tool: cargo
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             binary: codex-profiles.exe
-            build_tool: cargo
 
     steps:
       - uses: actions/checkout@v4
-      - name: Debug workspace
-        shell: bash
-        run: |
-          set -euo pipefail
-          pwd
-          ls -la
-      - uses: dtolnay/rust-toolchain@1.92
+      - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain-file: rust-toolchain.toml
           targets: ${{ matrix.target }}
-      - name: Debug toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          rustc -V
-          cargo -V
-          echo "Runner: ${{ runner.os }}"
-          echo "Target: ${{ matrix.target }}"
-      - uses: actions/cache@v4
+      - uses: mozilla-actions/sccache-action@v0.0.4
+      - name: Cache cargo bin
+        uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-      - if: ${{ matrix.build_tool == 'cross' }}
-        name: Install cross
-        uses: taiki-e/install-action@v2
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('rust-toolchain.toml') }}-cargo-bin
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('rust-toolchain.toml') }}-cargo-bin
+      - uses: Swatinem/rust-cache@v2
         with:
-          tool: cross
+          shared-key: ${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('rust-toolchain.toml') }}
       - name: Cargo build
         shell: bash
+        env:
+          RUSTC_WRAPPER: sccache
+          SCCACHE_GHA_ENABLED: "true"
         run: |
           set -euo pipefail
-          echo "Build tool: ${{ matrix.build_tool }}"
-          if [[ "${{ matrix.build_tool }}" == "cross" ]]; then
-            cross build --release --target ${{ matrix.target }} --bin codex-profiles
-          else
-            cargo build --release --target ${{ matrix.target }} --bin codex-profiles
-          fi
+          cargo fetch --locked
+          cargo build --release --target ${{ matrix.target }} --bin codex-profiles --locked
           echo "Build output:"
           ls -la target/${{ matrix.target }}/release || true
       - name: Upload binary
@@ -182,96 +133,76 @@ jobs:
           if-no-files-found: error
 
   package:
-    needs: [build, lint, test]
+    needs: [build, verify]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Debug workspace
-        shell: bash
-        run: |
-          set -euo pipefail
-          pwd
-          ls -la
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain-file: rust-toolchain.toml
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Cache cargo bin
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}-cargo-bin
+          restore-keys: |
+            ${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}-cargo-bin
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist/artifacts
-      - name: Debug downloaded artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          find dist -maxdepth 3 -type f -print
-      - name: Build release assets and vendor tree
+      - name: Build release artifacts
         shell: bash
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          echo "Packaging version: ${version}"
+          scripts/release-artifacts.sh "${version}" dist/artifacts dist
+          scripts/verify-artifacts.sh "${version}" dist
 
-          mkdir -p dist/release
-
-          for artifact_dir in dist/artifacts/codex-profiles-*; do
-            target="${artifact_dir##*/codex-profiles-}"
-            binary="codex-profiles"
-            if [[ "$target" == *windows* ]]; then
-              binary="codex-profiles.exe"
-            fi
-
-            if [[ "$target" == *windows* ]]; then
-              (cd "${artifact_dir}" && zip -j "${GITHUB_WORKSPACE}/dist/release/codex-profiles-${target}.exe.zip" "$binary")
-            else
-              tar -C "${artifact_dir}" -czf "dist/release/codex-profiles-${target}.tar.gz" "$binary"
-            fi
-          done
-          echo "Release assets:"
-          ls -la dist/release || true
-
-      - name: Build platform npm packages
-        shell: bash
+      - name: Publish to crates.io
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          set -euo pipefail
+          if [ -z "${CARGO_REGISTRY_TOKEN}" ]; then
+            echo "Warning: CARGO_REGISTRY_TOKEN not set, skipping crates.io publish"
+            echo "Add your token at: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 0
+          fi
+          cargo publish --locked --token "${CARGO_REGISTRY_TOKEN}"
+
+      - name: Publish to npm
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "Warning: NPM_TOKEN not set, skipping npm publish"
+            echo "Add your token at: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 0
+          fi
           version="${GITHUB_REF_NAME#v}"
-          scripts/package-npm.sh "${version}" dist/artifacts dist/npm
-          find dist/npm -maxdepth 3 -type f -print
-
-      - name: Publish platform npm packages
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm_tag="latest"
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            npm_tag="next"
-          fi
-          npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
-          for pkg_dir in dist/npm/*; do
-            echo "Publishing ${pkg_dir}"
-            npm publish "${pkg_dir}" --access public --tag "${npm_tag}"
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          
+          # Publish main package
+          npm publish dist/npm-packages/codex-profiles-${version}.tgz --access public
+          
+          # Publish platform packages
+          for pkg in dist/npm-packages/codex-profiles-*-*.tgz; do
+            npm publish "$pkg" --access public
           done
-
-      - name: Publish npm package
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm_tag="latest"
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            npm_tag="next"
-          fi
-          npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
-          npm publish --access public --tag "${npm_tag}"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/release/*
+            dist/npm-packages/*.tgz
+            dist/homebrew/*.rb
+            dist/cargo/*.crate
+            dist/checksums/*
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}

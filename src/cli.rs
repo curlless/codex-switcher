@@ -50,29 +50,6 @@ pub enum Commands {
         #[arg(long)]
         label: Option<String>,
     },
-    /// Export saved profiles to another tool
-    Export {
-        /// Export to Every Code's auth_accounts.json
-        #[arg(long)]
-        every_code: bool,
-        /// Override CODE_HOME (defaults to $CODE_HOME or ~/.code)
-        #[arg(value_name = "path")]
-        #[arg(long)]
-        code_home: Option<String>,
-        /// Replace any existing auth_accounts.json instead of merging
-        #[arg(long)]
-        overwrite: bool,
-    },
-    /// Import profiles from another tool
-    Import {
-        /// Import from Every Code's auth_accounts.json
-        #[arg(long)]
-        every_code: bool,
-        /// Override CODE_HOME (defaults to $CODE_HOME or ~/.code)
-        #[arg(value_name = "path")]
-        #[arg(long)]
-        code_home: Option<String>,
-    },
 }
 
 pub fn command_with_examples() -> Command {
@@ -85,6 +62,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} list\n  {name} status\n  {name} delete --label work\n  {name} export --every-code\n  {name} import --every-code"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} list\n  {name} status\n  {name} delete --label work"
     )
 }

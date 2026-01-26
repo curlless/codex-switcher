@@ -938,6 +938,7 @@ pub(crate) fn profile_info(
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum LoadChoice {
     SaveAndContinue,
     ContinueWithoutSaving,
@@ -945,7 +946,31 @@ pub(crate) enum LoadChoice {
 }
 
 pub(crate) fn prompt_unsaved_load(paths: &Paths, reason: &str) -> Result<LoadChoice, String> {
-    if !io::stdin().is_terminal() {
+    let is_tty = io::stdin().is_terminal();
+    if !is_tty {
+        let hint = format_save_before_load(paths, use_color_stderr());
+        return Err(format!("Error: current profile is not saved. {hint}"));
+    }
+    let selection = Select::new(
+        "",
+        vec![
+            "Save current profile and continue",
+            "Continue without saving",
+            "Cancel",
+        ],
+    )
+    .with_render_config(inquire_select_render_config())
+    .prompt();
+    prompt_unsaved_load_with(paths, reason, is_tty, selection)
+}
+
+fn prompt_unsaved_load_with(
+    paths: &Paths,
+    reason: &str,
+    is_tty: bool,
+    selection: Result<&str, inquire::error::InquireError>,
+) -> Result<LoadChoice, String> {
+    if !is_tty {
         let hint = format_save_before_load(paths, use_color_stderr());
         return Err(format!("Error: current profile is not saved. {hint}"));
     }
@@ -954,15 +979,6 @@ pub(crate) fn prompt_unsaved_load(paths: &Paths, reason: &str) -> Result<LoadCho
         use_color_stderr(),
     );
     eprintln!("{warning}");
-    let choices = vec![
-        "Save current profile and continue",
-        "Continue without saving",
-        "Cancel",
-    ];
-    let render_config = inquire_select_render_config();
-    let selection = Select::new("", choices)
-        .with_render_config(render_config)
-        .prompt();
     match selection {
         Ok("Save current profile and continue") => Ok(LoadChoice::SaveAndContinue),
         Ok("Continue without saving") => Ok(LoadChoice::ContinueWithoutSaving),
@@ -1003,7 +1019,11 @@ pub(crate) fn build_candidates(
 }
 
 pub(crate) fn require_tty(action: &str) -> Result<(), String> {
-    if io::stdin().is_terminal() {
+    require_tty_with(io::stdin().is_terminal(), action)
+}
+
+fn require_tty_with(is_tty: bool, action: &str) -> Result<(), String> {
+    if is_tty {
         Ok(())
     } else {
         Err(format!(
@@ -1059,7 +1079,8 @@ pub(crate) fn select_by_label(
 }
 
 pub(crate) fn confirm_delete_profiles(displays: &[String]) -> Result<bool, String> {
-    if !io::stdin().is_terminal() {
+    let is_tty = io::stdin().is_terminal();
+    if !is_tty {
         return Err(
             "Error: deletion requires confirmation. Re-run with `--yes` to skip the prompt."
                 .to_string(),
@@ -1075,13 +1096,24 @@ pub(crate) fn confirm_delete_profiles(displays: &[String]) -> Result<bool, Strin
         }
         "Delete selected profiles? This cannot be undone.".to_string()
     };
-
-    let render_config = inquire_select_render_config();
-    match Confirm::new(&prompt)
+    let selection = Confirm::new(&prompt)
         .with_default(false)
-        .with_render_config(render_config)
-        .prompt()
-    {
+        .with_render_config(inquire_select_render_config())
+        .prompt();
+    confirm_delete_profiles_with(is_tty, selection)
+}
+
+fn confirm_delete_profiles_with(
+    is_tty: bool,
+    selection: Result<bool, inquire::error::InquireError>,
+) -> Result<bool, String> {
+    if !is_tty {
+        return Err(
+            "Error: deletion requires confirmation. Re-run with `--yes` to skip the prompt."
+                .to_string(),
+        );
+    }
+    match selection {
         Ok(value) => Ok(value),
         Err(err) if is_inquire_cancel(&err) => Err(CANCELLED_MESSAGE.to_string()),
         Err(err) => Err(format!("Error: failed to prompt for delete: {err}")),
@@ -1613,4 +1645,253 @@ fn is_profile_file(path: &Path) -> bool {
         path.file_name().and_then(|name| name.to_str()),
         Some("labels.json") | Some("version.json")
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{build_id_token, make_paths};
+    use std::collections::BTreeMap;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    fn write_auth(
+        path: &Path,
+        account_id: &str,
+        email: &str,
+        plan: &str,
+        access: &str,
+        refresh: &str,
+    ) {
+        let id_token = build_id_token(email, plan);
+        let value = serde_json::json!({
+            "tokens": {
+                "account_id": account_id,
+                "id_token": id_token,
+                "access_token": access,
+                "refresh_token": refresh
+            }
+        });
+        fs::write(path, serde_json::to_string(&value).unwrap()).unwrap();
+    }
+
+    fn write_profile(paths: &Paths, id: &str, account_id: &str, email: &str, plan: &str) {
+        let id_token = build_id_token(email, plan);
+        let value = serde_json::json!({
+            "tokens": {
+                "account_id": account_id,
+                "id_token": id_token,
+                "access_token": "acc",
+                "refresh_token": "ref"
+            }
+        });
+        let path = profile_path_for_id(&paths.profiles, id);
+        fs::write(&path, serde_json::to_string(&value).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn require_tty_with_variants() {
+        assert!(require_tty_with(true, "load").is_ok());
+        let err = require_tty_with(false, "load").unwrap_err();
+        assert!(err.contains("requires a TTY"));
+    }
+
+    #[test]
+    fn prompt_unsaved_load_with_variants() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        let err = prompt_unsaved_load_with(&paths, "reason", false, Ok("Cancel")).unwrap_err();
+        assert!(err.contains("not saved"));
+        assert!(matches!(
+            prompt_unsaved_load_with(
+                &paths,
+                "reason",
+                true,
+                Ok("Save current profile and continue")
+            )
+            .unwrap(),
+            LoadChoice::SaveAndContinue
+        ));
+        assert!(matches!(
+            prompt_unsaved_load_with(&paths, "reason", true, Ok("Continue without saving"))
+                .unwrap(),
+            LoadChoice::ContinueWithoutSaving
+        ));
+        assert!(matches!(
+            prompt_unsaved_load_with(&paths, "reason", true, Ok("Cancel")).unwrap(),
+            LoadChoice::Cancel
+        ));
+        let err = prompt_unsaved_load_with(
+            &paths,
+            "reason",
+            true,
+            Err(inquire::error::InquireError::OperationCanceled),
+        )
+        .unwrap();
+        assert!(matches!(err, LoadChoice::Cancel));
+    }
+
+    #[test]
+    fn confirm_delete_profiles_with_variants() {
+        let err = confirm_delete_profiles_with(false, Ok(true)).unwrap_err();
+        assert!(err.contains("requires confirmation"));
+        assert!(confirm_delete_profiles_with(true, Ok(true)).unwrap());
+        let err = confirm_delete_profiles_with(
+            true,
+            Err(inquire::error::InquireError::OperationCanceled),
+        )
+        .unwrap_err();
+        assert_eq!(err, CANCELLED_MESSAGE);
+    }
+
+    #[test]
+    fn label_helpers() {
+        let mut labels = Labels::new();
+        assign_label(&mut labels, "Team", "id").unwrap();
+        assert_eq!(label_for_id(&labels, "id").unwrap(), "Team");
+        assert_eq!(resolve_label_id(&labels, "Team").unwrap(), "id");
+        remove_labels_for_id(&mut labels, "id");
+        assert!(labels.is_empty());
+        assert!(trim_label(" ").is_err());
+    }
+
+    #[test]
+    fn sanitize_helpers() {
+        assert_eq!(sanitize_part("A B"), "a-b");
+        assert_eq!(profile_base("", ""), "unknown-unknown");
+        assert_eq!(short_account_suffix("abcdef123"), "abcdef");
+    }
+
+    #[test]
+    fn unique_id_conflicts() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        write_profile(&paths, "base", "acct", "a@b.com", "pro");
+        let id = unique_id("base", "acct", &paths.profiles);
+        assert_eq!(id, "base");
+        let id = unique_id("base", "other", &paths.profiles);
+        assert!(id.starts_with("base-"));
+    }
+
+    #[test]
+    fn load_profile_tokens_map_handles_invalid() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        write_profile(&paths, "valid", "acct", "a@b.com", "pro");
+        fs::write(paths.profiles.join("bad.json"), "not-json").unwrap();
+        let labels = serde_json::json!({"bad": "bad"});
+        fs::write(&paths.labels, serde_json::to_string(&labels).unwrap()).unwrap();
+        let map = load_profile_tokens_map(&paths).unwrap();
+        assert!(map.contains_key("valid"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn load_profile_tokens_map_remove_error() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        let bad_path = paths.profiles.join("bad.json");
+        fs::write(&bad_path, "not-json").unwrap();
+        let perms = fs::Permissions::from_mode(0o400);
+        fs::set_permissions(&paths.profiles, perms).unwrap();
+        let map = load_profile_tokens_map(&paths).unwrap();
+        assert!(map.contains_key("bad"));
+    }
+
+    #[test]
+    fn resolve_save_and_sync_ids() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        write_profile(&paths, "one", "acct", "a@b.com", "pro");
+        let tokens = read_tokens(&paths.profiles.join("one.json")).unwrap();
+        let mut usage_map = BTreeMap::new();
+        let mut labels = Labels::new();
+        let id = resolve_save_id(&paths, &mut usage_map, &mut labels, &tokens).unwrap();
+        assert!(!id.is_empty());
+        let id = resolve_sync_id(&paths, &mut usage_map, &mut labels, &tokens).unwrap();
+        assert!(id.is_some());
+    }
+
+    #[test]
+    fn rename_profile_id_errors_when_missing() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        let mut usage_map = BTreeMap::new();
+        let mut labels = Labels::new();
+        let err = rename_profile_id(
+            &paths,
+            &mut usage_map,
+            &mut labels,
+            "missing",
+            "base",
+            "acct",
+        )
+        .unwrap_err();
+        assert!(err.contains("not found"));
+    }
+
+    #[test]
+    fn render_helpers() {
+        let entry = Entry {
+            display: "Display".to_string(),
+            last_used: "".to_string(),
+            details: vec!["detail".to_string()],
+            error_summary: None,
+            always_show_details: true,
+            is_current: false,
+        };
+        let ctx = ListCtx {
+            base_url: None,
+            now: chrono::Local::now(),
+            show_usage: false,
+            use_color: false,
+            profiles_dir: PathBuf::new(),
+            auth_path: PathBuf::new(),
+        };
+        let lines = render_entries(&[entry], true, &ctx, None, true);
+        assert!(!lines.is_empty());
+        push_separator(&mut vec!["a".to_string()], None, true);
+    }
+
+    #[test]
+    fn handle_inquire_result_variants() {
+        let ok: Result<i32, inquire::error::InquireError> = Ok(1);
+        assert_eq!(handle_inquire_result(ok, "selection").unwrap(), 1);
+        let err: Result<(), inquire::error::InquireError> =
+            Err(inquire::error::InquireError::OperationCanceled);
+        let err = handle_inquire_result(err, "selection").unwrap_err();
+        assert_eq!(err, CANCELLED_MESSAGE);
+    }
+
+    #[test]
+    fn sync_and_status_paths() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        write_auth(&paths.auth, "acct", "a@b.com", "pro", "acc", "ref");
+        crate::ensure_paths(&paths).unwrap();
+        save_profile(&paths, Some("team".to_string())).unwrap();
+        list_profiles(&paths, false, false, false, false).unwrap();
+        status_profiles(&paths, false).unwrap();
+        let label = read_labels(&paths).unwrap().keys().next().cloned().unwrap();
+        status_label(&paths, &label).unwrap();
+        sync_current_readonly(&paths).unwrap();
+    }
+
+    #[test]
+    fn delete_profile_by_label() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        write_auth(&paths.auth, "acct", "a@b.com", "pro", "acc", "ref");
+        crate::ensure_paths(&paths).unwrap();
+        save_profile(&paths, Some("team".to_string())).unwrap();
+        delete_profile(&paths, true, Some("team".to_string())).unwrap();
+    }
 }

@@ -13,6 +13,8 @@ const HOMEBREW_CASK_URL: &str =
 const LATEST_RELEASE_URL: &str =
     "https://api.github.com/repos/midhunmonachan/codex-profiles/releases/latest";
 const RELEASE_NOTES_URL: &str = "https://github.com/midhunmonachan/codex-profiles/releases/latest";
+const HOMEBREW_CASK_URL_OVERRIDE_ENV_VAR: &str = "CODEX_PROFILES_HOMEBREW_CASK_URL";
+const LATEST_RELEASE_URL_OVERRIDE_ENV_VAR: &str = "CODEX_PROFILES_LATEST_RELEASE_URL";
 const UPDATE_AVAILABLE: &str = "Update available!";
 const VERSION_FILENAME: &str = "profiles/version.json";
 
@@ -89,10 +91,17 @@ fn is_brew_install(current_exe: &std::path::Path) -> bool {
 }
 
 pub(crate) fn get_update_action() -> Option<UpdateAction> {
-    if cfg!(debug_assertions) {
+    get_update_action_with_debug(cfg!(debug_assertions), detect_install_source())
+}
+
+fn get_update_action_with_debug(
+    is_debug: bool,
+    install_source: InstallSource,
+) -> Option<UpdateAction> {
+    if is_debug {
         return None;
     }
-    match detect_install_source() {
+    match install_source {
         InstallSource::Npm => Some(UpdateAction::NpmGlobalLatest),
         InstallSource::Bun => Some(UpdateAction::BunGlobalLatest),
         InstallSource::Brew => Some(UpdateAction::BrewUpgrade),
@@ -117,45 +126,94 @@ pub enum UpdatePromptOutcome {
 }
 
 pub fn run_update_prompt_if_needed(config: &UpdateConfig) -> Result<UpdatePromptOutcome, String> {
-    if cfg!(debug_assertions) {
+    let mut input = io::stdin().lock();
+    let mut output = io::stderr();
+    run_update_prompt_if_needed_with_io(
+        config,
+        cfg!(debug_assertions),
+        io::stdin().is_terminal(),
+        &mut input,
+        &mut output,
+    )
+}
+
+fn run_update_prompt_if_needed_with_io(
+    config: &UpdateConfig,
+    is_debug: bool,
+    is_tty: bool,
+    input: &mut impl io::BufRead,
+    output: &mut impl Write,
+) -> Result<UpdatePromptOutcome, String> {
+    run_update_prompt_if_needed_with_io_and_source(
+        config,
+        is_debug,
+        is_tty,
+        detect_install_source(),
+        input,
+        output,
+    )
+}
+
+fn run_update_prompt_if_needed_with_io_and_source(
+    config: &UpdateConfig,
+    is_debug: bool,
+    is_tty: bool,
+    install_source: InstallSource,
+    input: &mut impl io::BufRead,
+    output: &mut impl Write,
+) -> Result<UpdatePromptOutcome, String> {
+    if is_debug {
         return Ok(UpdatePromptOutcome::Continue);
     }
 
-    let Some(latest_version) = get_upgrade_version_for_popup(config) else {
+    let Some(latest_version) = get_upgrade_version_for_popup_with_debug(config, is_debug) else {
         return Ok(UpdatePromptOutcome::Continue);
     };
-    let Some(update_action) = get_update_action() else {
+    let Some(update_action) = get_update_action_with_debug(false, install_source) else {
         return Ok(UpdatePromptOutcome::Continue);
     };
 
     let current_version = current_version();
-    if !io::stdin().is_terminal() {
-        eprintln!("{UPDATE_AVAILABLE} {current_version} -> {latest_version}");
-        eprintln!("Run `{}` to update.", update_action.command_str());
+    if !is_tty {
+        write_prompt(
+            output,
+            format_args!("{UPDATE_AVAILABLE} {current_version} -> {latest_version}\n"),
+        )?;
+        write_prompt(
+            output,
+            format_args!("Run `{}` to update.\n", update_action.command_str()),
+        )?;
         return Ok(UpdatePromptOutcome::Continue);
     }
 
-    eprintln!("\n✨ {UPDATE_AVAILABLE} {current_version} -> {latest_version}");
-    eprintln!("Release notes: {RELEASE_NOTES_URL}");
-    eprintln!();
-    eprintln!("1) Update now (runs `{}`)", update_action.command_str());
-    eprintln!("2) Skip");
-    eprintln!("3) Skip until next version");
-    eprint!("Select [1-3]: ");
-    io::stderr()
-        .flush()
-        .map_err(|err| format!("Error: failed to prompt for update: {err}"))?;
+    write_prompt(
+        output,
+        format_args!("\n✨ {UPDATE_AVAILABLE} {current_version} -> {latest_version}\n"),
+    )?;
+    write_prompt(output, format_args!("Release notes: {RELEASE_NOTES_URL}\n"))?;
+    write_prompt(output, format_args!("\n"))?;
+    write_prompt(
+        output,
+        format_args!("1) Update now (runs `{}`)\n", update_action.command_str()),
+    )?;
+    write_prompt(output, format_args!("2) Skip\n"))?;
+    write_prompt(output, format_args!("3) Skip until next version\n"))?;
+    write_prompt(output, format_args!("Select [1-3]: "))?;
+    output.flush().map_err(prompt_io_error)?;
 
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
+    let mut selection = String::new();
+    input
+        .read_line(&mut selection)
         .map_err(|err| format!("Error: failed to read update choice: {err}"))?;
 
-    match input.trim() {
+    match selection.trim() {
         "1" => Ok(UpdatePromptOutcome::RunUpdate(update_action)),
         "3" => {
             if let Err(err) = dismiss_version(config, &latest_version) {
-                eprintln!("Failed to persist update dismissal: {err}");
+                write_prompt(
+                    output,
+                    format_args!("Failed to persist update dismissal: {err}\n"),
+                )?;
             }
             Ok(UpdatePromptOutcome::Continue)
         }
@@ -163,12 +221,24 @@ pub fn run_update_prompt_if_needed(config: &UpdateConfig) -> Result<UpdatePrompt
     }
 }
 
+fn prompt_io_error(err: impl std::fmt::Display) -> String {
+    format!("Error: failed to prompt for update: {err}")
+}
+
+fn write_prompt(output: &mut impl Write, args: std::fmt::Arguments) -> Result<(), String> {
+    output.write_fmt(args).map_err(prompt_io_error)
+}
+
 fn current_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
 pub fn get_upgrade_version(config: &UpdateConfig) -> Option<String> {
-    if updates_disabled(config) {
+    get_upgrade_version_with_debug(config, cfg!(debug_assertions))
+}
+
+fn get_upgrade_version_with_debug(config: &UpdateConfig, is_debug: bool) -> Option<String> {
+    if updates_disabled_with_debug(config, is_debug) {
         return None;
     }
     let version_file = version_filepath(config);
@@ -204,7 +274,14 @@ pub fn get_upgrade_version(config: &UpdateConfig) -> Option<String> {
 }
 
 fn check_for_update(version_file: &Path) -> anyhow::Result<()> {
-    let latest_version = match get_update_action() {
+    check_for_update_with_action(version_file, get_update_action())
+}
+
+fn check_for_update_with_action(
+    version_file: &Path,
+    update_action: Option<UpdateAction>,
+) -> anyhow::Result<()> {
+    let latest_version = match update_action {
         Some(UpdateAction::BrewUpgrade) => {
             fetch_version_from_cask().or_else(fetch_version_from_release)
         }
@@ -271,7 +348,7 @@ pub fn extract_version_from_latest_tag(latest_tag_name: &str) -> anyhow::Result<
 
 fn fetch_version_from_cask() -> Option<String> {
     let response = update_agent()
-        .get(HOMEBREW_CASK_URL)
+        .get(&homebrew_cask_url())
         .header("User-Agent", "codex-profiles")
         .call();
     match response {
@@ -286,7 +363,7 @@ fn fetch_version_from_cask() -> Option<String> {
 
 fn fetch_version_from_release() -> Option<String> {
     let response = update_agent()
-        .get(LATEST_RELEASE_URL)
+        .get(&latest_release_url())
         .header("User-Agent", "codex-profiles")
         .call();
     match response {
@@ -304,12 +381,19 @@ fn fetch_version_from_release() -> Option<String> {
 /// Returns the latest version to show in a popup, if it should be shown.
 /// This respects the user's dismissal choice for the current latest version.
 pub fn get_upgrade_version_for_popup(config: &UpdateConfig) -> Option<String> {
-    if updates_disabled(config) {
+    get_upgrade_version_for_popup_with_debug(config, cfg!(debug_assertions))
+}
+
+fn get_upgrade_version_for_popup_with_debug(
+    config: &UpdateConfig,
+    is_debug: bool,
+) -> Option<String> {
+    if updates_disabled_with_debug(config, is_debug) {
         return None;
     }
 
     let version_file = version_filepath(config);
-    let latest = get_upgrade_version(config)?;
+    let latest = get_upgrade_version_with_debug(config, is_debug)?;
     let info = read_version_info(&version_file).ok();
     if info
         .as_ref()
@@ -358,7 +442,11 @@ fn parse_version(v: &str) -> Option<(u64, u64, u64)> {
 }
 
 fn updates_disabled(config: &UpdateConfig) -> bool {
-    cfg!(debug_assertions) || !config.check_for_update_on_startup
+    updates_disabled_with_debug(config, cfg!(debug_assertions))
+}
+
+fn updates_disabled_with_debug(config: &UpdateConfig, is_debug: bool) -> bool {
+    is_debug || !config.check_for_update_on_startup
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -392,4 +480,218 @@ fn update_agent() -> ureq::Agent {
         .timeout_global(Some(StdDuration::from_secs(5)))
         .build();
     config.into()
+}
+
+fn latest_release_url() -> String {
+    std::env::var(LATEST_RELEASE_URL_OVERRIDE_ENV_VAR)
+        .unwrap_or_else(|_| LATEST_RELEASE_URL.to_string())
+}
+
+fn homebrew_cask_url() -> String {
+    std::env::var(HOMEBREW_CASK_URL_OVERRIDE_ENV_VAR)
+        .unwrap_or_else(|_| HOMEBREW_CASK_URL.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{ENV_MUTEX, http_ok_response, set_env_guard, spawn_server};
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn seed_version_info(config: &UpdateConfig, version: &str) {
+        let version_file = version_filepath(config);
+        let info = VersionInfo {
+            latest_version: version.to_string(),
+            last_checked_at: Utc::now(),
+            dismissed_version: None,
+            last_prompted_at: None,
+        };
+        write_version_info(&version_file, &info).unwrap();
+    }
+
+    #[test]
+    fn update_action_commands() {
+        let (cmd, args) = UpdateAction::NpmGlobalLatest.command_args();
+        assert_eq!(cmd, "npm");
+        assert!(args.contains(&"install"));
+        assert!(UpdateAction::BunGlobalLatest.command_str().contains("bun"));
+    }
+
+    #[test]
+    fn detect_install_source_inner_variants() {
+        let exe = PathBuf::from("/usr/local/bin/codex-profiles");
+        assert_eq!(
+            detect_install_source_inner(true, &exe, false, false),
+            InstallSource::Brew
+        );
+        assert_eq!(
+            detect_install_source_inner(false, &exe, true, false),
+            InstallSource::Npm
+        );
+        assert_eq!(
+            detect_install_source_inner(false, &exe, false, true),
+            InstallSource::Bun
+        );
+    }
+
+    #[test]
+    fn get_update_action_debug() {
+        assert!(get_update_action_with_debug(true, InstallSource::Npm).is_none());
+        assert!(get_update_action_with_debug(false, InstallSource::Npm).is_some());
+    }
+
+    #[test]
+    fn extract_version_helpers() {
+        assert_eq!(extract_version_from_latest_tag("v1.2.3").unwrap(), "1.2.3");
+        assert_eq!(
+            extract_version_from_latest_tag("rust-v2.0.0").unwrap(),
+            "2.0.0"
+        );
+        assert!(extract_version_from_latest_tag("bad").is_err());
+        let cask = "version \"1.2.3\"";
+        assert_eq!(extract_version_from_cask(cask).unwrap(), "1.2.3");
+        assert!(extract_version_from_cask("nope").is_err());
+    }
+
+    #[test]
+    fn parse_version_and_compare() {
+        assert_eq!(parse_version("1.2.3"), Some((1, 2, 3)));
+        assert!(is_newer("2.0.0", "1.9.9").unwrap());
+        assert!(is_newer("bad", "1.0.0").is_none());
+    }
+
+    #[test]
+    fn url_overrides_work() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let _env = set_env_guard(
+            LATEST_RELEASE_URL_OVERRIDE_ENV_VAR,
+            Some("http://example.com"),
+        );
+        assert_eq!(latest_release_url(), "http://example.com");
+    }
+
+    #[test]
+    fn fetch_versions_from_servers() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let release_body = "{\"tag_name\":\"v9.9.9\"}";
+        let release_resp = http_ok_response(release_body, "application/json");
+        let release_url = spawn_server(release_resp);
+        {
+            let _env = set_env_guard(LATEST_RELEASE_URL_OVERRIDE_ENV_VAR, Some(&release_url));
+            assert_eq!(fetch_version_from_release().unwrap(), "9.9.9");
+        }
+
+        let cask_body = "version \"9.9.9\"";
+        let cask_resp = http_ok_response(cask_body, "text/plain");
+        let cask_url = spawn_server(cask_resp);
+        {
+            let _env = set_env_guard(HOMEBREW_CASK_URL_OVERRIDE_ENV_VAR, Some(&cask_url));
+            assert_eq!(fetch_version_from_cask().unwrap(), "9.9.9");
+        }
+    }
+
+    #[test]
+    fn fetch_versions_handle_404() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let resp = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".to_string();
+        let url = spawn_server(resp);
+        let _env = set_env_guard(LATEST_RELEASE_URL_OVERRIDE_ENV_VAR, Some(&url));
+        assert!(fetch_version_from_release().is_none());
+    }
+
+    #[test]
+    fn check_for_update_writes_version() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let release_body = "{\"tag_name\":\"v9.9.9\"}";
+        let release_resp = http_ok_response(release_body, "application/json");
+        let release_url = spawn_server(release_resp);
+        let _env = set_env_guard(LATEST_RELEASE_URL_OVERRIDE_ENV_VAR, Some(&release_url));
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let version_file = dir.path().join("version.json");
+        check_for_update_with_action(&version_file, None).unwrap();
+        let contents = fs::read_to_string(&version_file).unwrap();
+        assert!(contents.contains("9.9.9"));
+    }
+
+    #[test]
+    fn updates_disabled_variants() {
+        let config = UpdateConfig {
+            codex_home: PathBuf::new(),
+            check_for_update_on_startup: false,
+        };
+        assert!(updates_disabled_with_debug(&config, false));
+        let config = UpdateConfig {
+            codex_home: PathBuf::new(),
+            check_for_update_on_startup: true,
+        };
+        assert!(updates_disabled_with_debug(&config, true));
+    }
+
+    #[test]
+    fn run_update_prompt_paths() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let release_body = format!("{{\"tag_name\":\"v{}\"}}", "99.0.0");
+        let release_resp = http_ok_response(&release_body, "application/json");
+        let release_url = spawn_server(release_resp);
+        let _env = set_env_guard(LATEST_RELEASE_URL_OVERRIDE_ENV_VAR, Some(&release_url));
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = UpdateConfig {
+            codex_home: dir.path().to_path_buf(),
+            check_for_update_on_startup: true,
+        };
+        seed_version_info(&config, "99.0.0");
+        let mut input = std::io::Cursor::new("2\n");
+        let mut output = Vec::new();
+        let result = run_update_prompt_if_needed_with_io_and_source(
+            &config,
+            false,
+            false,
+            InstallSource::Npm,
+            &mut input,
+            &mut output,
+        )
+        .unwrap();
+        assert!(matches!(result, UpdatePromptOutcome::Continue));
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = UpdateConfig {
+            codex_home: dir.path().to_path_buf(),
+            check_for_update_on_startup: true,
+        };
+        seed_version_info(&config, "99.0.0");
+        let mut input = std::io::Cursor::new("1\n");
+        let mut output = Vec::new();
+        let result = run_update_prompt_if_needed_with_io_and_source(
+            &config,
+            false,
+            true,
+            InstallSource::Npm,
+            &mut input,
+            &mut output,
+        )
+        .unwrap();
+        assert!(matches!(result, UpdatePromptOutcome::RunUpdate(_)));
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = UpdateConfig {
+            codex_home: dir.path().to_path_buf(),
+            check_for_update_on_startup: true,
+        };
+        seed_version_info(&config, "99.0.0");
+        let mut input = std::io::Cursor::new("3\n");
+        let mut output = Vec::new();
+        let result = run_update_prompt_if_needed_with_io_and_source(
+            &config,
+            false,
+            true,
+            InstallSource::Npm,
+            &mut input,
+            &mut output,
+        )
+        .unwrap();
+        assert!(matches!(result, UpdatePromptOutcome::Continue));
+    }
 }

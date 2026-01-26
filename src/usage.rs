@@ -5,17 +5,30 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::thread::sleep;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::collect_profile_ids;
 use crate::{Paths, command_name};
-use crate::{is_plain, style_text, use_color_stdout};
+use crate::{is_plain, style_text, use_color_stdout, use_tty_stderr};
 
 const DEFAULT_BASE_URL: &str = "https://chatgpt.com/backend-api";
 const USER_AGENT: &str = "codex-profiles";
+#[cfg(not(test))]
 const LOCK_TIMEOUT: Duration = Duration::from_secs(10);
 const LOCK_RETRY_DELAY: Duration = Duration::from_secs(1);
+
+#[cfg(test)]
+use std::sync::atomic::AtomicUsize;
+
+#[cfg(test)]
+const LOCK_FAIL_ERR: usize = 1;
+#[cfg(test)]
+const LOCK_FAIL_BUSY: usize = 2;
+#[cfg(test)]
+static LOCK_FAILPOINT: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Default)]
 pub(crate) struct UsageLimits {
@@ -23,7 +36,7 @@ pub(crate) struct UsageLimits {
     pub(crate) weekly: Option<UsageWindow>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct UsageWindow {
     pub(crate) left_percent: f64,
     pub(crate) reset_at: i64,
@@ -64,13 +77,13 @@ impl std::fmt::Display for UsageFetchError {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct UsagePayload {
     #[serde(default)]
     rate_limit: Option<RateLimitDetails>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct RateLimitDetails {
     #[serde(default)]
     primary_window: Option<RateLimitWindowSnapshot>,
@@ -78,7 +91,7 @@ struct RateLimitDetails {
     secondary_window: Option<RateLimitWindowSnapshot>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct RateLimitWindowSnapshot {
     used_percent: f64,
     limit_window_seconds: i64,
@@ -246,15 +259,43 @@ fn usage_window_output(window: &RateLimitWindowSnapshot, now: DateTime<Local>) -
     }
 }
 
-fn start_spinner(message: &str) -> spinner::SpinnerHandle {
-    spinner::SpinnerBuilder::new(message.to_string())
-        .spinner(vec![".  ", ".. ", "...", " ..", "  .", "   "])
-        .step(Duration::from_millis(80))
-        .start()
+struct SpinnerHandle {
+    stop: Arc<AtomicBool>,
+    handle: Option<JoinHandle<()>>,
 }
 
-fn stop_spinner(spinner: spinner::SpinnerHandle) {
-    spinner.close();
+fn start_spinner(message: &str) -> SpinnerHandle {
+    if !use_tty_stderr() || is_plain() {
+        return SpinnerHandle {
+            stop: Arc::new(AtomicBool::new(true)),
+            handle: None,
+        };
+    }
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_thread = Arc::clone(&stop);
+    let message = message.to_string();
+    let handle = thread::spawn(move || {
+        let frames = [".  ", ".. ", "...", " ..", "  .", "   "];
+        let mut idx = 0usize;
+        while !stop_thread.load(Ordering::Relaxed) {
+            let frame = frames[idx % frames.len()];
+            eprint!("\r{message} {frame}");
+            let _ = std::io::stderr().flush();
+            idx += 1;
+            thread::sleep(Duration::from_millis(80));
+        }
+    });
+    SpinnerHandle {
+        stop,
+        handle: Some(handle),
+    }
+}
+
+fn stop_spinner(mut spinner: SpinnerHandle) {
+    spinner.stop.store(true, Ordering::Relaxed);
+    if let Some(handle) = spinner.handle.take() {
+        let _ = handle.join();
+    }
     eprint!("\r\x1b[2K");
     let _ = std::io::stderr().flush();
 }
@@ -516,6 +557,7 @@ fn local_from_timestamp(ts: i64) -> Option<DateTime<Local>> {
     Some(dt.with_timezone(&Local))
 }
 
+#[derive(Debug)]
 pub struct UsageLock {
     pub file: File,
     _lock: LockFile,
@@ -526,16 +568,16 @@ pub fn lock_usage(paths: &Paths) -> Result<UsageLock, String> {
     let mut lock = LockFile::open(&paths.usage_lock)
         .map_err(|err| format!("Error: failed to open usage lock: {err}"))?;
     loop {
-        match lock.try_lock() {
+        match try_lock(&mut lock) {
             Ok(true) => break,
             Ok(false) => {
-                if start.elapsed() > LOCK_TIMEOUT {
+                if start.elapsed() > lock_timeout() {
                     return Err(format!(
                         "Error: could not acquire usage lock. Ensure no other {} is running and retry.",
                         command_name()
                     ));
                 }
-                sleep(LOCK_RETRY_DELAY);
+                thread::sleep(LOCK_RETRY_DELAY);
             }
             Err(err) => {
                 return Err(format!("Error: failed to lock usage file: {err}"));
@@ -548,6 +590,30 @@ pub fn lock_usage(paths: &Paths) -> Result<UsageLock, String> {
         .open(&paths.usage)
         .map_err(|err| usage_io_error("open", err))?;
     Ok(UsageLock { file, _lock: lock })
+}
+
+#[cfg(not(test))]
+fn lock_timeout() -> Duration {
+    LOCK_TIMEOUT
+}
+
+#[cfg(not(test))]
+fn try_lock(lock: &mut LockFile) -> Result<bool, fslock::Error> {
+    lock.try_lock()
+}
+
+#[cfg(test)]
+fn lock_timeout() -> Duration {
+    Duration::from_millis(50)
+}
+
+#[cfg(test)]
+fn try_lock(lock: &mut LockFile) -> Result<bool, fslock::Error> {
+    match LOCK_FAILPOINT.load(Ordering::Relaxed) {
+        LOCK_FAIL_ERR => Err(std::io::Error::other("fail")),
+        LOCK_FAIL_BUSY => Ok(false),
+        _ => lock.try_lock(),
+    }
 }
 
 pub fn read_usage(file: &mut File) -> Result<Vec<(String, u64)>, String> {
@@ -658,4 +724,237 @@ fn format_usage_contents(entries: &BTreeMap<String, u64>) -> String {
 
 fn usage_io_error(action: &str, err: impl std::fmt::Display) -> String {
     format!("Error: failed to {action} usage file: {err}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{
+        http_ok_response, make_paths, set_env_guard, set_plain_guard, spawn_server,
+    };
+    use std::fs;
+    use std::sync::Mutex;
+
+    static LOCK_TEST_MUTEX: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn config_parsing_paths() {
+        assert!(parse_config_value("", "key").is_none());
+        assert!(parse_config_value("# comment", "key").is_none());
+        assert!(parse_config_value("other = 1", "key").is_none());
+        assert!(parse_config_value("key =", "key").is_none());
+        assert_eq!(
+            parse_config_value("key = 'value'", "key"),
+            Some("value".to_string())
+        );
+        assert_eq!(strip_inline_comment("value # comment"), "value");
+    }
+
+    #[test]
+    fn normalize_base_url_and_endpoint() {
+        let url = normalize_base_url("https://chatgpt.com");
+        assert!(url.ends_with("/backend-api"));
+        assert!(usage_endpoint(&url).contains("wham/usage"));
+        assert!(usage_endpoint("http://example.com").contains("api/codex/usage"));
+    }
+
+    #[test]
+    fn fetch_usage_payload_paths() {
+        let payload = r#"{"rate_limit":{"primary_window":{"used_percent":50.0,"limit_window_seconds":3600,"reset_at":1}}}"#;
+        let resp = http_ok_response(payload, "application/json");
+        let url = spawn_server(resp);
+        let base_url = format!("{url}/backend-api");
+        fetch_usage_payload(&base_url, "token", "acct").unwrap();
+
+        let err_resp =
+            "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n".to_string();
+        let err_url = spawn_server(err_resp);
+        let base_url = format!("{err_url}/backend-api");
+        let err = fetch_usage_payload(&base_url, "token", "acct").unwrap_err();
+        assert!(matches!(err, UsageFetchError::Status(_)));
+
+        let bad_resp =
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1\r\n\r\n{"
+                .to_string();
+        let bad_url = spawn_server(bad_resp);
+        let base_url = format!("{bad_url}/backend-api");
+        let err = fetch_usage_payload(&base_url, "token", "acct").unwrap_err();
+        assert!(matches!(err, UsageFetchError::Parse(_)));
+    }
+
+    #[test]
+    fn fetch_usage_details_with_spinner() {
+        let payload = r#"{"rate_limit":{"primary_window":{"used_percent":10.0,"limit_window_seconds":3600,"reset_at":1}}}"#;
+        let resp = http_ok_response(payload, "application/json");
+        let url = spawn_server(resp);
+        let base_url = format!("{url}/backend-api");
+        let lines = fetch_usage_details(
+            &base_url,
+            "token",
+            "acct",
+            "unavailable",
+            Local::now(),
+            true,
+        )
+        .unwrap();
+        assert!(!lines.is_empty());
+    }
+
+    #[test]
+    fn usage_limits_and_formatting() {
+        let payload = UsagePayload { rate_limit: None };
+        let limits = build_usage_limits(&payload, Local::now());
+        assert!(limits.five_hour.is_none());
+
+        let window = RateLimitWindowSnapshot {
+            used_percent: 50.0,
+            limit_window_seconds: 10,
+            reset_at: Local::now().timestamp(),
+        };
+        let rate_limit = RateLimitDetails {
+            primary_window: Some(window.clone()),
+            secondary_window: Some(window.clone()),
+        };
+        let payload = UsagePayload {
+            rate_limit: Some(rate_limit),
+        };
+        let limits = build_usage_limits(&payload, Local::now());
+        assert!(limits.five_hour.is_some());
+        let line = format_limit(limits.five_hour.as_ref(), Local::now(), "none");
+        assert!(line.left_percent.is_some());
+    }
+
+    #[test]
+    fn usage_unavailable_paths() {
+        let _plain = set_plain_guard(true);
+        assert_eq!(
+            usage_unavailable(true),
+            "You need a ChatGPT subscription to use Codex CLI"
+        );
+        let text = format_usage_unavailable("text", false);
+        assert!(text.contains("INFO"));
+    }
+
+    #[test]
+    fn format_usage_variants() {
+        let unavailable = "unavailable";
+        let lines = format_usage(
+            UsageLine::unavailable(unavailable),
+            UsageLine::unavailable(unavailable),
+            unavailable,
+        );
+        assert_eq!(lines.len(), 1);
+    }
+
+    #[test]
+    fn last_used_formatting() {
+        assert_eq!(format_last_used(0), "unknown");
+        let future = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 60;
+        assert!(format_last_used(future).contains("in"));
+    }
+
+    #[test]
+    fn format_usage_line_plain_and_dim() {
+        let line = UsageLine {
+            bar: render_bar(50.0),
+            percent: "50%".to_string(),
+            reset: "soon".to_string(),
+            left_percent: Some(50),
+        };
+        let _plain = set_plain_guard(true);
+        let plain = format_usage_line(&line, false, false);
+        assert!(plain.contains("left"));
+    }
+
+    #[test]
+    fn style_bar_and_strip_ansi() {
+        let _env = set_env_guard("NO_COLOR", Some("1"));
+        let bar = render_bar(10.0);
+        let styled = style_usage_bar(&bar, 10.0);
+        assert_eq!(bar, styled);
+        let stripped = strip_ansi("\x1b[31mred\x1b[0m");
+        assert_eq!(stripped, "red");
+    }
+
+    #[test]
+    fn format_duration_helpers() {
+        let text = format_relative_duration(Duration::from_secs(30), true);
+        assert!(text.contains("ago"));
+        assert_eq!(
+            format_duration(Duration::from_secs(60), DurationStyle::LastUsed),
+            "1m"
+        );
+        assert!(local_from_timestamp(0).is_some());
+        assert!(local_from_timestamp(-1).is_some());
+    }
+
+    #[test]
+    fn usage_file_io_paths() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let usage = dir.path().join("usage.tsv");
+        let lock = dir.path().join("usage.lock");
+        fs::write(&usage, "id\t1\n").unwrap();
+        fs::write(&lock, "").unwrap();
+        let mut paths = make_paths(dir.path());
+        paths.usage = usage.clone();
+        paths.usage_lock = lock.clone();
+
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&usage)
+            .unwrap();
+        let entries = read_usage(&mut file).unwrap();
+        assert_eq!(entries.len(), 1);
+
+        let mut map = BTreeMap::new();
+        map.insert("id".to_string(), 2);
+        write_usage(&mut file, &map).unwrap();
+        let entries = read_usage(&mut file).unwrap();
+        assert_eq!(entries[0].1, 2);
+
+        fs::create_dir_all(&paths.profiles).unwrap();
+        fs::write(paths.profiles.join("id.json"), "{}").unwrap();
+        let mut lock = lock_usage(&paths).unwrap();
+        let map = ensure_usage(&mut lock.file, &paths.profiles).unwrap();
+        assert!(map.contains_key("id"));
+    }
+
+    #[test]
+    fn lock_usage_failure_paths() {
+        let _guard = LOCK_TEST_MUTEX.lock().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        fs::write(&paths.usage, "").unwrap();
+
+        LOCK_FAILPOINT.store(LOCK_FAIL_BUSY, Ordering::Relaxed);
+        let err = lock_usage(&paths).unwrap_err();
+        assert!(err.contains("could not acquire usage lock"));
+        LOCK_FAILPOINT.store(LOCK_FAIL_ERR, Ordering::Relaxed);
+        let err = lock_usage(&paths).unwrap_err();
+        assert!(err.contains("failed to lock usage file"));
+        LOCK_FAILPOINT.store(0, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn lock_usage_open_error() {
+        let _guard = LOCK_TEST_MUTEX.lock().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let lock_dir = dir.path().join("locked");
+        fs::create_dir_all(&lock_dir).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&lock_dir, fs::Permissions::from_mode(0o400)).unwrap();
+        }
+        let mut paths = make_paths(dir.path());
+        paths.usage_lock = lock_dir.join("usage.lock");
+        let err = lock_usage(&paths).unwrap_err();
+        assert!(err.contains("failed to open usage lock"));
+    }
 }

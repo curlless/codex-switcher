@@ -33,6 +33,9 @@ personal and team accounts across multiple organizations.
 > [!WARNING]
 > Codex CLI is not included with the ChatGPT Free plan.
 
+> [!TIP]
+> Looking for a Teams promo? [See details](https://www.reddit.com/r/ChatGPTPromptGenius/comments/1lo7v0u/chatgpt_team_for_1_first_month_up_to_5_users/)
+
 ### npm (recommended)
 
 ```bash
@@ -133,8 +136,6 @@ rm ~/.local/bin/codex-profiles
 | `codex-profiles list` | List profiles ordered by last used. |
 | `codex-profiles status [--all] [--label <name>]` | Show usage for the current profile, all profiles, or a specific label. |
 | `codex-profiles delete [--yes] [--label <name>]` | Delete profiles from the picker (or by label). |
-| `codex-profiles export --every-code [--code-home <path>] [--overwrite]` | Export profiles to Every Code's `auth_accounts.json`. |
-| `codex-profiles import --every-code [--code-home <path>]` | Import accounts from Every Code into profiles. |
 
 > [!WARNING]
 > Deleting a profile does not log you out. It only removes the saved profile file.
@@ -184,3 +185,19 @@ cancel.
 
 Yes. Save each account with a label (for example, `personal` and `work`) and
 switch with the label.
+
+### How can I verify my installation?
+
+After installing, verify it works:
+
+```bash
+# Check version
+codex-profiles --help
+
+# Verify Codex CLI is detected
+codex-profiles list
+# Should show: "No profiles saved yet" (not an error about missing Codex CLI)
+```
+
+If you see "Codex CLI not found", install it from https://developers.openai.com/codex/cli/.
+

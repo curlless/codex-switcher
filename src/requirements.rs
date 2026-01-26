@@ -1,7 +1,11 @@
 use crate::{InstallSource, format_cmd};
 
 pub fn ensure_codex_cli(source: InstallSource) -> Result<(), String> {
-    if cfg!(debug_assertions) {
+    ensure_codex_cli_with(source, cfg!(debug_assertions))
+}
+
+fn ensure_codex_cli_with(source: InstallSource, is_debug: bool) -> Result<(), String> {
+    if is_debug {
         return Ok(());
     }
     if command_exists("codex") {
@@ -37,32 +41,91 @@ fn command_exists(command: &str) -> bool {
     false
 }
 
+#[cfg(windows)]
 fn command_candidates(command: &str) -> Vec<String> {
-    if cfg!(windows) {
-        let mut candidates = Vec::new();
-        let path = std::path::Path::new(command);
-        if path.extension().is_some() {
-            candidates.push(command.to_string());
-            return candidates;
-        }
-        let pathext = std::env::var_os("PATHEXT")
-            .and_then(|value| value.into_string().ok())
-            .unwrap_or_else(|| ".EXE;.CMD;.BAT;.COM".to_string());
-        for ext in pathext.split(';').filter(|ext| !ext.is_empty()) {
-            candidates.push(format!("{command}{ext}"));
-        }
-        candidates
-    } else {
-        vec![command.to_string()]
+    let mut candidates = Vec::new();
+    let path = std::path::Path::new(command);
+    if path.extension().is_some() {
+        candidates.push(command.to_string());
+        return candidates;
     }
+    let pathext = std::env::var_os("PATHEXT")
+        .and_then(|value| value.into_string().ok())
+        .unwrap_or_else(|| ".EXE;.CMD;.BAT;.COM".to_string());
+    for ext in pathext.split(';').filter(|ext| !ext.is_empty()) {
+        candidates.push(format!("{command}{ext}"));
+    }
+    candidates
 }
 
+#[cfg(not(windows))]
+fn command_candidates(command: &str) -> Vec<String> {
+    vec![command.to_string()]
+}
+
+#[cfg(windows)]
 fn platform_default_install_command() -> String {
-    if cfg!(windows) {
-        "winget install OpenAI.Codex".to_string()
-    } else if cfg!(target_os = "macos") {
-        "brew install --cask codex or npm install -g @openai/codex".to_string()
-    } else {
-        "npm install -g @openai/codex".to_string()
+    "winget install OpenAI.Codex".to_string()
+}
+
+#[cfg(target_os = "macos")]
+fn platform_default_install_command() -> String {
+    "brew install --cask codex or npm install -g @openai/codex".to_string()
+}
+
+#[cfg(all(not(target_os = "macos"), not(windows)))]
+fn platform_default_install_command() -> String {
+    "npm install -g @openai/codex".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{ENV_MUTEX, set_env_guard};
+    use std::fs;
+
+    #[test]
+    fn ensure_codex_cli_skips_in_debug() {
+        ensure_codex_cli_with(InstallSource::Npm, true).unwrap();
+    }
+
+    #[test]
+    fn ensure_codex_cli_passes_when_codex_exists() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let bin = dir.path().join("codex");
+        fs::write(&bin, "stub").expect("write bin");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&bin).expect("meta").permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&bin, perms).expect("chmod");
+        }
+        let path = dir.path().to_string_lossy().into_owned();
+        let _env = set_env_guard("PATH", Some(&path));
+        ensure_codex_cli_with(InstallSource::Npm, false).unwrap();
+    }
+
+    #[test]
+    fn ensure_codex_cli_errors_when_missing() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let _env = set_env_guard("PATH", Some(""));
+        let err = ensure_codex_cli_with(InstallSource::Npm, false).unwrap_err();
+        assert!(err.contains("codex"));
+    }
+
+    #[test]
+    fn install_commands_cover_sources() {
+        assert!(install_command(InstallSource::Npm).contains("npm"));
+        assert!(install_command(InstallSource::Bun).contains("bun"));
+        assert!(install_command(InstallSource::Brew).contains("brew"));
+        assert!(!platform_default_install_command().is_empty());
+    }
+
+    #[test]
+    fn command_candidates_non_windows() {
+        let candidates = command_candidates("codex");
+        assert_eq!(candidates, vec!["codex".to_string()]);
     }
 }
