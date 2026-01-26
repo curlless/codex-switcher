@@ -1,11 +1,11 @@
 use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::io::IsTerminal as _;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration as StdDuration;
 
-use crate::write_atomic;
+use crate::{Paths, UpdateCache, lock_usage, read_profiles_index, write_profiles_index};
 
 // We use the latest version from the cask if installation is via homebrew - homebrew does not immediately pick up the latest release and can lag behind.
 const HOMEBREW_CASK_URL: &str =
@@ -16,7 +16,6 @@ const RELEASE_NOTES_URL: &str = "https://github.com/midhunmonachan/codex-profile
 const HOMEBREW_CASK_URL_OVERRIDE_ENV_VAR: &str = "CODEX_PROFILES_HOMEBREW_CASK_URL";
 const LATEST_RELEASE_URL_OVERRIDE_ENV_VAR: &str = "CODEX_PROFILES_LATEST_RELEASE_URL";
 const UPDATE_AVAILABLE: &str = "Update available!";
-const VERSION_FILENAME: &str = "profiles/version.json";
 
 /// Update action the CLI should perform after the prompt exits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -233,6 +232,19 @@ fn current_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+fn build_update_cache(
+    latest_version: Option<String>,
+    dismissed_version: Option<String>,
+    last_prompted_at: Option<DateTime<Utc>>,
+) -> UpdateCache {
+    UpdateCache {
+        latest_version: latest_version.unwrap_or_else(|| current_version().to_string()),
+        last_checked_at: Utc::now(),
+        dismissed_version,
+        last_prompted_at,
+    }
+}
+
 pub fn get_upgrade_version(config: &UpdateConfig) -> Option<String> {
     get_upgrade_version_with_debug(config, cfg!(debug_assertions))
 }
@@ -241,8 +253,8 @@ fn get_upgrade_version_with_debug(config: &UpdateConfig, is_debug: bool) -> Opti
     if updates_disabled_with_debug(config, is_debug) {
         return None;
     }
-    let version_file = version_filepath(config);
-    let mut info = read_version_info(&version_file).ok();
+    let paths = update_paths(config);
+    let mut info = read_update_cache(&paths).ok().flatten();
 
     let should_check = match &info {
         None => true,
@@ -250,14 +262,15 @@ fn get_upgrade_version_with_debug(config: &UpdateConfig, is_debug: bool) -> Opti
     };
     if should_check {
         if info.is_none() {
-            if let Err(err) = check_for_update(&version_file) {
+            if let Err(err) = check_for_update(&paths) {
                 eprintln!("Failed to update version: {err}");
             }
-            info = read_version_info(&version_file).ok();
+            info = read_update_cache(&paths).ok().flatten();
         } else {
-            let version_file = version_file.clone();
+            let codex_home = config.codex_home.clone();
             std::thread::spawn(move || {
-                if let Err(err) = check_for_update(&version_file) {
+                let paths = paths_for_update(codex_home);
+                if let Err(err) = check_for_update(&paths) {
                     eprintln!("Failed to update version: {err}");
                 }
             });
@@ -265,7 +278,7 @@ fn get_upgrade_version_with_debug(config: &UpdateConfig, is_debug: bool) -> Opti
     }
 
     info.and_then(|info| {
-        if is_newer(&info.latest_version, env!("CARGO_PKG_VERSION")).unwrap_or(false) {
+        if is_newer(&info.latest_version, current_version()).unwrap_or(false) {
             Some(info.latest_version)
         } else {
             None
@@ -273,12 +286,12 @@ fn get_upgrade_version_with_debug(config: &UpdateConfig, is_debug: bool) -> Opti
     })
 }
 
-fn check_for_update(version_file: &Path) -> anyhow::Result<()> {
-    check_for_update_with_action(version_file, get_update_action())
+fn check_for_update(paths: &Paths) -> anyhow::Result<()> {
+    check_for_update_with_action(paths, get_update_action())
 }
 
 fn check_for_update_with_action(
-    version_file: &Path,
+    paths: &Paths,
     update_action: Option<UpdateAction>,
 ) -> anyhow::Result<()> {
     let latest_version = match update_action {
@@ -289,28 +302,19 @@ fn check_for_update_with_action(
     };
 
     // Preserve any previously dismissed version if present.
-    let prev_info = read_version_info(version_file).ok();
+    let _lock = lock_usage(paths).map_err(|err| anyhow::anyhow!(err))?;
+    let mut index = match read_profiles_index(paths) {
+        Ok(index) => index,
+        Err(_) => return Ok(()),
+    };
+    let prev_info = index.update_cache.clone();
     let prev_dismissed = prev_info
         .as_ref()
         .and_then(|info| info.dismissed_version.clone());
     let prev_prompted = prev_info.as_ref().and_then(|info| info.last_prompted_at);
-    if latest_version.is_none() {
-        let info = VersionInfo {
-            latest_version: env!("CARGO_PKG_VERSION").to_string(),
-            last_checked_at: Utc::now(),
-            dismissed_version: prev_dismissed.clone(),
-            last_prompted_at: prev_prompted,
-        };
-        return write_version_info(version_file, &info);
-    }
-    let info = VersionInfo {
-        latest_version: latest_version.unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string()),
-        last_checked_at: Utc::now(),
-        dismissed_version: prev_dismissed,
-        last_prompted_at: prev_prompted,
-    };
-
-    write_version_info(version_file, &info)
+    let info = build_update_cache(latest_version, prev_dismissed, prev_prompted);
+    index.update_cache = Some(info);
+    write_profiles_index(paths, &index).map_err(|err| anyhow::anyhow!(err))
 }
 
 #[doc(hidden)]
@@ -392,9 +396,9 @@ fn get_upgrade_version_for_popup_with_debug(
         return None;
     }
 
-    let version_file = version_filepath(config);
+    let paths = update_paths(config);
     let latest = get_upgrade_version_with_debug(config, is_debug)?;
-    let info = read_version_info(&version_file).ok();
+    let info = read_update_cache(&paths).ok().flatten();
     if info
         .as_ref()
         .and_then(|info| info.last_prompted_at)
@@ -412,7 +416,7 @@ fn get_upgrade_version_for_popup_with_debug(
     }
     if let Some(mut info) = info {
         info.last_prompted_at = Some(Utc::now());
-        let _ = write_version_info(&version_file, &info);
+        let _ = write_update_cache(&paths, &info);
     }
     Some(latest)
 }
@@ -423,14 +427,14 @@ pub fn dismiss_version(config: &UpdateConfig, version: &str) -> anyhow::Result<(
     if updates_disabled(config) {
         return Ok(());
     }
-    let version_file = version_filepath(config);
-    let mut info = match read_version_info(&version_file) {
-        Ok(info) => info,
-        Err(_) => return Ok(()),
+    let paths = update_paths(config);
+    let mut info = match read_update_cache(&paths) {
+        Ok(Some(info)) => info,
+        _ => return Ok(()),
     };
     info.dismissed_version = Some(version.to_string());
     info.last_prompted_at = Some(Utc::now());
-    write_version_info(&version_file, &info)
+    write_update_cache(&paths, &info)
 }
 
 fn parse_version(v: &str) -> Option<(u64, u64, u64)> {
@@ -449,30 +453,31 @@ fn updates_disabled_with_debug(config: &UpdateConfig, is_debug: bool) -> bool {
     is_debug || !config.check_for_update_on_startup
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct VersionInfo {
-    latest_version: String,
-    // ISO-8601 timestamp (RFC3339)
-    last_checked_at: DateTime<Utc>,
-    #[serde(default)]
-    dismissed_version: Option<String>,
-    #[serde(default)]
-    last_prompted_at: Option<DateTime<Utc>>,
+fn paths_for_update(codex_home: PathBuf) -> Paths {
+    let profiles = codex_home.join("profiles");
+    Paths {
+        auth: codex_home.join("auth.json"),
+        profiles_index: profiles.join("profiles.json"),
+        profiles_lock: profiles.join("profiles.lock"),
+        codex: codex_home,
+        profiles,
+    }
 }
 
-fn version_filepath(config: &UpdateConfig) -> PathBuf {
-    config.codex_home.join(VERSION_FILENAME)
+fn update_paths(config: &UpdateConfig) -> Paths {
+    paths_for_update(config.codex_home.clone())
 }
 
-fn read_version_info(version_file: &Path) -> anyhow::Result<VersionInfo> {
-    let contents = std::fs::read_to_string(version_file)?;
-    Ok(serde_json::from_str(&contents)?)
+fn read_update_cache(paths: &Paths) -> anyhow::Result<Option<UpdateCache>> {
+    let index = read_profiles_index(paths).map_err(|err| anyhow::anyhow!(err))?;
+    Ok(index.update_cache)
 }
 
-fn write_version_info(version_file: &Path, info: &VersionInfo) -> anyhow::Result<()> {
-    let json_line = format!("{}\n", serde_json::to_string(info)?);
-    write_atomic(version_file, json_line.as_bytes()).map_err(|err| anyhow::anyhow!(err))?;
-    Ok(())
+fn write_update_cache(paths: &Paths, cache: &UpdateCache) -> anyhow::Result<()> {
+    let _lock = lock_usage(paths).map_err(|err| anyhow::anyhow!(err))?;
+    let mut index = read_profiles_index(paths).map_err(|err| anyhow::anyhow!(err))?;
+    index.update_cache = Some(cache.clone());
+    write_profiles_index(paths, &index).map_err(|err| anyhow::anyhow!(err))
 }
 
 fn update_agent() -> ureq::Agent {
@@ -500,14 +505,16 @@ mod tests {
     use std::path::PathBuf;
 
     fn seed_version_info(config: &UpdateConfig, version: &str) {
-        let version_file = version_filepath(config);
-        let info = VersionInfo {
+        let paths = update_paths(config);
+        fs::create_dir_all(&paths.profiles).unwrap();
+        fs::write(&paths.profiles_lock, "").unwrap();
+        let info = UpdateCache {
             latest_version: version.to_string(),
             last_checked_at: Utc::now(),
             dismissed_version: None,
             last_prompted_at: None,
         };
-        write_version_info(&version_file, &info).unwrap();
+        write_update_cache(&paths, &info).unwrap();
     }
 
     #[test]
@@ -609,9 +616,11 @@ mod tests {
         let _env = set_env_guard(LATEST_RELEASE_URL_OVERRIDE_ENV_VAR, Some(&release_url));
 
         let dir = tempfile::tempdir().expect("tempdir");
-        let version_file = dir.path().join("version.json");
-        check_for_update_with_action(&version_file, None).unwrap();
-        let contents = fs::read_to_string(&version_file).unwrap();
+        let paths = paths_for_update(dir.path().to_path_buf());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        fs::write(&paths.profiles_lock, "").unwrap();
+        check_for_update_with_action(&paths, None).unwrap();
+        let contents = fs::read_to_string(&paths.profiles_index).unwrap();
         assert!(contents.contains("9.9.9"));
     }
 

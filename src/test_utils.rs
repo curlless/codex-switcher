@@ -132,15 +132,13 @@ pub(crate) fn make_paths(root: &Path) -> Paths {
     let codex = root.to_path_buf();
     let auth = codex.join("auth.json");
     let profiles = codex.join("profiles");
-    let usage = profiles.join("usage.tsv");
-    let usage_lock = profiles.join("usage.lock");
-    let labels = profiles.join("labels.json");
+    let profiles_index = profiles.join("profiles.json");
+    let profiles_lock = profiles.join("profiles.lock");
     Paths {
         codex,
         auth,
         profiles,
-        usage,
-        usage_lock,
-        labels,
+        profiles_index,
+        profiles_lock,
     }
 }

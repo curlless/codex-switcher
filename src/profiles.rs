@@ -1,7 +1,8 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use colored::Colorize;
 use inquire::{Confirm, MultiSelect, Select};
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::fs;
@@ -21,9 +22,8 @@ use crate::{
     token_account_id,
 };
 use crate::{
-    UsageLock, ensure_usage, fetch_usage_details, format_last_used, format_usage_unavailable,
-    lock_usage, normalize_usage, now_seconds, ordered_profiles, read_base_url, read_usage,
-    usage_unavailable, write_usage,
+    UsageLock, fetch_usage_details, format_last_used, format_usage_unavailable, lock_usage,
+    now_seconds, ordered_profiles, read_base_url, usage_unavailable,
 };
 
 const MAX_USAGE_CONCURRENCY: usize = 4;
@@ -32,7 +32,13 @@ pub fn save_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
     let use_color = use_color_stdout();
     let mut store = ProfileStore::load(paths)?;
     let tokens = read_tokens(&paths.auth)?;
-    let id = resolve_save_id(paths, &mut store.usage_map, &mut store.labels, &tokens)?;
+    let id = resolve_save_id(
+        paths,
+        &mut store.usage_map,
+        &mut store.labels,
+        &mut store.profiles_index,
+        &tokens,
+    )?;
 
     if let Some(label) = label.as_deref() {
         assign_label(&mut store.labels, label, &id)?;
@@ -41,10 +47,19 @@ pub fn save_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
     let target = profile_path_for_id(&paths.profiles, &id);
     copy_profile(&paths.auth, &target, "save profile to")?;
 
-    store.usage_map.insert(id.clone(), now_seconds());
+    let now = now_seconds();
+    store.usage_map.insert(id.clone(), now);
+    let label_display = label_for_id(&store.labels, &id);
+    update_profiles_index_entry(
+        &mut store.profiles_index,
+        &id,
+        Some(&tokens),
+        label_display.clone(),
+        now,
+        true,
+    );
     store.save(paths)?;
 
-    let label_display = label_for_id(&store.labels, &id);
     let info = profile_info(Some(&tokens), label_display, true, use_color);
     let message = if info.email.is_some() {
         format!("Saved profile {}", info.display)
@@ -96,7 +111,12 @@ pub fn load_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
 
     let mut store = ProfileStore::load(paths)?;
 
-    if let Err(err) = sync_current(paths, &mut store.usage_map, &mut store.labels) {
+    if let Err(err) = sync_current(
+        paths,
+        &mut store.usage_map,
+        &mut store.labels,
+        &mut store.profiles_index,
+    ) {
         let warning = format_warning(&err, use_color_err);
         eprintln!("{warning}");
     }
@@ -108,7 +128,21 @@ pub fn load_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
 
     copy_profile(&source, &paths.auth, "load selected profile to")?;
 
-    store.usage_map.insert(selected_id.clone(), now_seconds());
+    let now = now_seconds();
+    store.usage_map.insert(selected_id.clone(), now);
+    let label = label_for_id(&store.labels, &selected_id);
+    let tokens = snapshot
+        .tokens
+        .get(&selected_id)
+        .and_then(|result| result.as_ref().ok());
+    update_profiles_index_entry(
+        &mut store.profiles_index,
+        &selected_id,
+        tokens,
+        label,
+        now,
+        true,
+    );
     store.save(paths)?;
 
     let message = format_action(&format!("Loaded profile {selected_display}"), use_color_out);
@@ -153,6 +187,15 @@ pub fn delete_profile(paths: &Paths, yes: bool, label: Option<String>) -> Result
             .map_err(|err| format!("Error: failed to delete profile: {err}"))?;
         store.usage_map.remove(selected);
         remove_labels_for_id(&mut store.labels, selected);
+        store.profiles_index.profiles.remove(selected);
+        if store
+            .profiles_index
+            .active_profile_id
+            .as_deref()
+            .is_some_and(|id| id == selected)
+        {
+            store.profiles_index.active_profile_id = None;
+        }
     }
     store.save(paths)?;
 
@@ -309,6 +352,7 @@ pub fn status_label(paths: &Paths, label: &str) -> Result<(), String> {
         last_used,
         label,
         snapshot.tokens.get(&id),
+        snapshot.index.profiles.get(&id),
         &profile_path,
         &ctx,
         is_current,
@@ -339,31 +383,209 @@ pub fn sync_current_readonly(paths: &Paths) -> Result<(), String> {
 
 pub type Labels = BTreeMap<String, String>;
 
-pub fn read_labels(paths: &Paths) -> Result<Labels, String> {
-    if !paths.labels.exists() {
-        return Ok(BTreeMap::new());
+const PROFILES_INDEX_VERSION: u8 = 1;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct ProfilesIndex {
+    #[serde(default = "profiles_index_version")]
+    version: u8,
+    #[serde(default)]
+    active_profile_id: Option<String>,
+    #[serde(default)]
+    profiles: BTreeMap<String, ProfileIndexEntry>,
+    #[serde(default)]
+    pub(crate) update_cache: Option<UpdateCache>,
+}
+
+impl Default for ProfilesIndex {
+    fn default() -> Self {
+        Self {
+            version: PROFILES_INDEX_VERSION,
+            active_profile_id: None,
+            profiles: BTreeMap::new(),
+            update_cache: None,
+        }
     }
-    let contents = fs::read_to_string(&paths.labels).map_err(|err| {
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct ProfileIndexEntry {
+    #[serde(default)]
+    account_id: Option<String>,
+    #[serde(default)]
+    email: Option<String>,
+    #[serde(default)]
+    plan: Option<String>,
+    #[serde(default)]
+    label: Option<String>,
+    #[serde(default)]
+    added_at: u64,
+    #[serde(default)]
+    last_used: Option<u64>,
+    #[serde(default)]
+    is_api_key: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct UpdateCache {
+    #[serde(default)]
+    pub(crate) latest_version: String,
+    #[serde(default = "update_cache_checked_default")]
+    pub(crate) last_checked_at: DateTime<Utc>,
+    #[serde(default)]
+    pub(crate) dismissed_version: Option<String>,
+    #[serde(default)]
+    pub(crate) last_prompted_at: Option<DateTime<Utc>>,
+}
+
+fn update_cache_checked_default() -> DateTime<Utc> {
+    DateTime::<Utc>::from_timestamp(0, 0).unwrap_or_else(Utc::now)
+}
+
+fn profiles_index_version() -> u8 {
+    PROFILES_INDEX_VERSION
+}
+
+pub(crate) fn read_profiles_index(paths: &Paths) -> Result<ProfilesIndex, String> {
+    if !paths.profiles_index.exists() {
+        return Ok(ProfilesIndex::default());
+    }
+    let contents = fs::read_to_string(&paths.profiles_index).map_err(|err| {
         format!(
-            "Error: cannot read labels file {}: {err}",
-            paths.labels.display()
+            "Error: cannot read profiles index file {}: {err}",
+            paths.profiles_index.display()
         )
     })?;
-    let labels: Labels = serde_json::from_str(&contents).map_err(|_| {
+    let index: ProfilesIndex = serde_json::from_str(&contents).map_err(|_| {
         format!(
-            "Error: labels file {} is invalid JSON",
-            paths.labels.display()
+            "Error: profiles index file {} is invalid JSON",
+            paths.profiles_index.display()
         )
     })?;
-    Ok(normalize_labels(&labels))
+    Ok(index)
+}
+
+pub(crate) fn read_profiles_index_relaxed(paths: &Paths) -> ProfilesIndex {
+    match read_profiles_index(paths) {
+        Ok(index) => index,
+        Err(err) => {
+            let normalized = normalize_error(&err);
+            let warning = format_warning(&normalized, use_color_stderr());
+            eprintln!("{warning}");
+            ProfilesIndex::default()
+        }
+    }
+}
+
+pub(crate) fn write_profiles_index(paths: &Paths, index: &ProfilesIndex) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(index)
+        .map_err(|err| format!("Error: failed to serialize profiles index: {err}"))?;
+    write_atomic(&paths.profiles_index, format!("{json}\n").as_bytes())
+        .map_err(|err| format!("Error: failed to write profiles index file: {err}"))
+}
+
+fn prune_profiles_index(index: &mut ProfilesIndex, profiles_dir: &Path) -> Result<(), String> {
+    let ids = collect_profile_ids(profiles_dir)?;
+    index.profiles.retain(|id, _| ids.contains(id));
+    if index
+        .active_profile_id
+        .as_deref()
+        .is_some_and(|id| !ids.contains(id))
+    {
+        index.active_profile_id = None;
+    }
+    Ok(())
+}
+
+fn sync_profiles_index(
+    index: &mut ProfilesIndex,
+    usage_map: &BTreeMap<String, u64>,
+    labels: &Labels,
+) {
+    for (id, entry) in index.profiles.iter_mut() {
+        entry.last_used = usage_map.get(id).copied();
+        entry.label = label_for_id(labels, id);
+    }
+}
+
+fn labels_from_index(index: &ProfilesIndex) -> Labels {
+    let mut labels = Labels::new();
+    for (id, entry) in &index.profiles {
+        let Some(label) = entry.label.as_deref() else {
+            continue;
+        };
+        let trimmed = label.trim();
+        if trimmed.is_empty() || labels.contains_key(trimmed) {
+            continue;
+        }
+        labels.insert(trimmed.to_string(), id.clone());
+    }
+    labels
+}
+
+fn usage_map_from_index(index: &ProfilesIndex, ids: &HashSet<String>) -> BTreeMap<String, u64> {
+    let mut usage_map = BTreeMap::new();
+    for id in ids {
+        usage_map.insert(id.clone(), 0);
+    }
+    for (id, entry) in &index.profiles {
+        if !ids.contains(id) {
+            continue;
+        }
+        let Some(last_used) = entry.last_used else {
+            continue;
+        };
+        let current = usage_map.entry(id.clone()).or_insert(0);
+        if last_used > *current {
+            *current = last_used;
+        }
+    }
+    usage_map
+}
+
+fn update_profiles_index_entry(
+    index: &mut ProfilesIndex,
+    id: &str,
+    tokens: Option<&Tokens>,
+    label: Option<String>,
+    now: u64,
+    set_active: bool,
+) {
+    let entry = index.profiles.entry(id.to_string()).or_default();
+    if entry.added_at == 0 {
+        entry.added_at = now;
+    }
+    if let Some(tokens) = tokens {
+        let (email, plan) = extract_email_and_plan(tokens);
+        entry.email = email;
+        entry.plan = plan;
+        entry.account_id = token_account_id(tokens).map(str::to_string);
+        entry.is_api_key = is_api_key_profile(tokens);
+    }
+    if let Some(label) = label {
+        entry.label = Some(label);
+    }
+    entry.last_used = Some(now);
+    if set_active {
+        index.active_profile_id = Some(id.to_string());
+    }
+}
+
+pub fn read_labels(paths: &Paths) -> Result<Labels, String> {
+    let index = read_profiles_index(paths)?;
+    Ok(labels_from_index(&index))
 }
 
 pub fn write_labels(paths: &Paths, labels: &Labels) -> Result<(), String> {
     let normalized = normalize_labels(labels);
-    let json = serde_json::to_string_pretty(&normalized)
-        .map_err(|err| format!("Error: failed to serialize labels: {err}"))?;
-    write_atomic(&paths.labels, format!("{json}\n").as_bytes())
-        .map_err(|err| format!("Error: failed to write labels file: {err}"))
+    let mut index = read_profiles_index_relaxed(paths);
+    for (id, entry) in index.profiles.iter_mut() {
+        entry.label = label_for_id(&normalized, id);
+    }
+    for (label, id) in &normalized {
+        index.profiles.entry(id.clone()).or_default().label = Some(label.clone());
+    }
+    write_profiles_index(paths, &index)
 }
 
 pub fn prune_labels(labels: &mut Labels, profiles_dir: &Path) {
@@ -483,13 +705,19 @@ pub fn load_profile_tokens_map(
             }
         }
     }
-    if !removed_ids.is_empty()
-        && let Ok(mut labels) = read_labels(paths)
-    {
+    if !removed_ids.is_empty() {
+        let mut index = read_profiles_index_relaxed(paths);
         for id in &removed_ids {
-            remove_labels_for_id(&mut labels, id);
+            index.profiles.remove(id);
+            if index
+                .active_profile_id
+                .as_deref()
+                .is_some_and(|active| active == id)
+            {
+                index.active_profile_id = None;
+            }
         }
-        let _ = write_labels(paths, &labels);
+        let _ = write_profiles_index(paths, &index);
     }
     Ok(map)
 }
@@ -498,6 +726,7 @@ pub(crate) fn resolve_save_id(
     paths: &Paths,
     map: &mut BTreeMap<String, u64>,
     labels: &mut Labels,
+    profiles_index: &mut ProfilesIndex,
     tokens: &Tokens,
 ) -> Result<String, String> {
     let (account_id, email, plan) = require_identity(tokens)?;
@@ -506,7 +735,15 @@ pub(crate) fn resolve_save_id(
     if has_usage_signal(&candidates, map)
         && let Some(primary) = pick_primary(&candidates, map).filter(|primary| primary != &desired)
     {
-        return rename_profile_id(paths, map, labels, &primary, &desired_base, &account_id);
+        return rename_profile_id(
+            paths,
+            map,
+            labels,
+            profiles_index,
+            &primary,
+            &desired_base,
+            &account_id,
+        );
     }
     Ok(desired)
 }
@@ -515,6 +752,7 @@ pub(crate) fn resolve_sync_id(
     paths: &Paths,
     map: &mut BTreeMap<String, u64>,
     labels: &mut Labels,
+    profiles_index: &mut ProfilesIndex,
     tokens: &Tokens,
 ) -> Result<Option<String>, String> {
     let Ok((account_id, email, plan)) = require_identity(tokens) else {
@@ -535,7 +773,15 @@ pub(crate) fn resolve_sync_id(
         return Ok(None);
     };
     if primary != desired {
-        let renamed = rename_profile_id(paths, map, labels, &primary, &desired_base, &account_id)?;
+        let renamed = rename_profile_id(
+            paths,
+            map,
+            labels,
+            profiles_index,
+            &primary,
+            &desired_base,
+            &account_id,
+        )?;
         return Ok(Some(renamed));
     }
     Ok(Some(primary))
@@ -705,6 +951,7 @@ fn rename_profile_id(
     paths: &Paths,
     map: &mut BTreeMap<String, u64>,
     labels: &mut Labels,
+    profiles_index: &mut ProfilesIndex,
     from: &str,
     target_base: &str,
     account_id: &str,
@@ -724,6 +971,16 @@ fn rename_profile_id(
         map.insert(desired.clone(), ts);
     }
     labels.retain(|_, value| value != from);
+    if let Some(entry) = profiles_index.profiles.remove(from) {
+        profiles_index.profiles.insert(desired.clone(), entry);
+    }
+    if profiles_index
+        .active_profile_id
+        .as_deref()
+        .is_some_and(|id| id == from)
+    {
+        profiles_index.active_profile_id = Some(desired.clone());
+    }
     Ok(desired)
 }
 
@@ -731,23 +988,28 @@ pub(crate) struct Snapshot {
     pub(crate) usage_map: BTreeMap<String, u64>,
     pub(crate) labels: Labels,
     pub(crate) tokens: BTreeMap<String, Result<Tokens, String>>,
+    pub(crate) index: ProfilesIndex,
 }
 
 pub(crate) fn sync_current(
     paths: &Paths,
     map: &mut BTreeMap<String, u64>,
     labels: &mut Labels,
+    index: &mut ProfilesIndex,
 ) -> Result<(), String> {
     let Some(tokens) = read_tokens_opt(&paths.auth) else {
         return Ok(());
     };
-    let id = match resolve_sync_id(paths, map, labels, &tokens)? {
+    let id = match resolve_sync_id(paths, map, labels, index, &tokens)? {
         Some(id) => id,
         None => return Ok(()),
     };
     let target = profile_path_for_id(&paths.profiles, &id);
     sync_profile(paths, &target)?;
-    map.insert(id, now_seconds());
+    let now = now_seconds();
+    map.insert(id.clone(), now);
+    let label = label_for_id(labels, &id);
+    update_profiles_index_entry(index, &id, Some(&tokens), label, now, true);
     Ok(())
 }
 
@@ -758,23 +1020,26 @@ fn sync_profile(paths: &Paths, target: &Path) -> Result<(), String> {
 }
 
 pub(crate) fn load_snapshot(paths: &Paths, strict_labels: bool) -> Result<Snapshot, String> {
-    let mut lock = lock_usage(paths)?;
-    let usage_entries = read_usage(&mut lock.file)?;
-    drop(lock);
-
+    let _lock = lock_usage(paths)?;
     let tokens = load_profile_tokens_map(paths)?;
     let ids: HashSet<String> = tokens.keys().cloned().collect();
-    let usage_map = normalize_usage(&usage_entries, &ids);
-    let labels = if strict_labels {
-        read_labels(paths)?
+    let mut index = if strict_labels {
+        read_profiles_index(paths)?
     } else {
-        read_labels_relaxed(paths)
+        read_profiles_index_relaxed(paths)
     };
+    let _ = prune_profiles_index(&mut index, &paths.profiles);
+    for id in &ids {
+        index.profiles.entry(id.clone()).or_default();
+    }
+    let usage_map = usage_map_from_index(&index, &ids);
+    let labels = labels_from_index(&index);
 
     Ok(Snapshot {
         usage_map,
         labels,
         tokens,
+        index,
     })
 }
 
@@ -813,40 +1078,38 @@ pub(crate) fn current_saved_id(
     pick_primary(&candidates, usage_map)
 }
 
-fn read_labels_relaxed(paths: &Paths) -> Labels {
-    match read_labels(paths) {
-        Ok(labels) => labels,
-        Err(err) => {
-            let normalized = normalize_error(&err);
-            let warning = format_warning(&normalized, use_color_stderr());
-            eprintln!("{warning}");
-            Labels::new()
-        }
-    }
-}
-
 pub(crate) struct ProfileStore {
-    lock: UsageLock,
+    _lock: UsageLock,
     pub(crate) usage_map: BTreeMap<String, u64>,
     pub(crate) labels: Labels,
+    pub(crate) profiles_index: ProfilesIndex,
 }
 
 impl ProfileStore {
     pub(crate) fn load(paths: &Paths) -> Result<Self, String> {
-        let mut lock = lock_usage(paths)?;
-        let usage_map = ensure_usage(&mut lock.file, &paths.profiles)?;
-        let labels = read_labels(paths)?;
+        let lock = lock_usage(paths)?;
+        let mut profiles_index = read_profiles_index_relaxed(paths);
+        let _ = prune_profiles_index(&mut profiles_index, &paths.profiles);
+        let ids = collect_profile_ids(&paths.profiles)?;
+        for id in &ids {
+            profiles_index.profiles.entry(id.clone()).or_default();
+        }
+        let usage_map = usage_map_from_index(&profiles_index, &ids);
+        let labels = labels_from_index(&profiles_index);
         Ok(Self {
-            lock,
+            _lock: lock,
             usage_map,
             labels,
+            profiles_index,
         })
     }
 
     pub(crate) fn save(&mut self, paths: &Paths) -> Result<(), String> {
         prune_labels(&mut self.labels, &paths.profiles);
-        write_labels(paths, &self.labels)?;
-        write_usage(&mut self.lock.file, &self.usage_map)
+        prune_profiles_index(&mut self.profiles_index, &paths.profiles)?;
+        sync_profiles_index(&mut self.profiles_index, &self.usage_map, &self.labels);
+        write_profiles_index(paths, &self.profiles_index)?;
+        Ok(())
     }
 }
 
@@ -926,7 +1189,23 @@ pub(crate) fn profile_info(
     is_current: bool,
     use_color: bool,
 ) -> ProfileInfo {
-    let (email, plan) = tokens.map(extract_email_and_plan).unwrap_or((None, None));
+    profile_info_with_fallback(tokens, None, label, is_current, use_color)
+}
+
+fn profile_info_with_fallback(
+    tokens: Option<&Tokens>,
+    fallback: Option<&ProfileIndexEntry>,
+    label: Option<String>,
+    is_current: bool,
+    use_color: bool,
+) -> ProfileInfo {
+    let (email, plan) = if let Some(tokens) = tokens {
+        extract_email_and_plan(tokens)
+    } else if let Some(entry) = fallback {
+        (entry.email.clone(), entry.plan.clone())
+    } else {
+        (None, None)
+    };
     let is_free = is_free_plan(plan.as_deref());
     let display =
         crate::format_profile_display(email.clone(), plan.clone(), label, is_current, use_color);
@@ -1001,8 +1280,9 @@ pub(crate) fn build_candidates(
             .tokens
             .get(id)
             .and_then(|result| result.as_ref().ok());
+        let index_entry = snapshot.index.profiles.get(id);
         let is_current = current_saved_id == Some(id.as_str());
-        let info = profile_info(tokens, label, is_current, use_color);
+        let info = profile_info_with_fallback(tokens, index_entry, label, is_current, use_color);
         let last_used = if is_current {
             String::new()
         } else {
@@ -1219,13 +1499,15 @@ fn render_current(
 
 fn make_error(
     label: Option<String>,
+    index_entry: Option<&ProfileIndexEntry>,
     use_color: bool,
     last_used: String,
     message: &str,
     summary_label: &str,
     is_current: bool,
 ) -> Entry {
-    let display = profile_info(None, label, is_current, use_color).display;
+    let display =
+        profile_info_with_fallback(None, index_entry, label, is_current, use_color).display;
     Entry {
         display,
         last_used,
@@ -1368,6 +1650,7 @@ fn make_entry(
     last_used: String,
     label: Option<String>,
     tokens_result: Option<&Result<Tokens, String>>,
+    index_entry: Option<&ProfileIndexEntry>,
     profile_path: &Path,
     ctx: &ListCtx,
     is_current: bool,
@@ -1379,6 +1662,7 @@ fn make_entry(
         Some(Err(err)) => {
             return make_error(
                 label_for_error,
+                index_entry,
                 use_color,
                 last_used,
                 err,
@@ -1389,6 +1673,7 @@ fn make_entry(
         None => {
             return make_error(
                 label_for_error,
+                index_entry,
                 use_color,
                 last_used,
                 "profile file missing",
@@ -1445,6 +1730,7 @@ fn make_saved(
         last_used,
         label,
         snapshot.tokens.get(id),
+        snapshot.index.profiles.get(id),
         &profile_path,
         ctx,
         is_current,
@@ -1488,6 +1774,7 @@ fn make_current(
         Ok(tokens) => tokens,
         Err(err) => {
             return Some(make_error(
+                None,
                 None,
                 ctx.use_color,
                 String::new(),
@@ -1643,7 +1930,7 @@ fn is_profile_file(path: &Path) -> bool {
     }
     !matches!(
         path.file_name().and_then(|name| name.to_str()),
-        Some("labels.json") | Some("version.json")
+        Some("profiles.json")
     )
 }
 
@@ -1756,6 +2043,56 @@ mod tests {
     }
 
     #[test]
+    fn profiles_index_roundtrip() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        let mut index = ProfilesIndex {
+            active_profile_id: Some("id".to_string()),
+            ..ProfilesIndex::default()
+        };
+        index.profiles.insert(
+            "id".to_string(),
+            ProfileIndexEntry {
+                account_id: Some("acct".to_string()),
+                email: Some("me@example.com".to_string()),
+                plan: Some("Team".to_string()),
+                label: Some("work".to_string()),
+                added_at: 1,
+                last_used: Some(2),
+                is_api_key: false,
+            },
+        );
+        write_profiles_index(&paths, &index).unwrap();
+        let read_back = read_profiles_index(&paths).unwrap();
+        let entry = read_back.profiles.get("id").unwrap();
+        assert_eq!(read_back.active_profile_id.as_deref(), Some("id"));
+        assert_eq!(entry.account_id.as_deref(), Some("acct"));
+        assert_eq!(entry.email.as_deref(), Some("me@example.com"));
+        assert_eq!(entry.plan.as_deref(), Some("Team"));
+        assert_eq!(entry.label.as_deref(), Some("work"));
+        assert_eq!(entry.added_at, 1);
+        assert_eq!(entry.last_used, Some(2));
+        assert!(!entry.is_api_key);
+    }
+
+    #[test]
+    fn profiles_index_prunes_missing_profiles() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).unwrap();
+        let mut index = ProfilesIndex {
+            active_profile_id: Some("missing".to_string()),
+            ..ProfilesIndex::default()
+        };
+        index
+            .profiles
+            .insert("missing".to_string(), ProfileIndexEntry::default());
+        prune_profiles_index(&mut index, &paths.profiles).unwrap();
+        assert!(index.profiles.is_empty());
+        assert!(index.active_profile_id.is_none());
+    }
+
+    #[test]
     fn sanitize_helpers() {
         assert_eq!(sanitize_part("A B"), "a-b");
         assert_eq!(profile_base("", ""), "unknown-unknown");
@@ -1781,8 +2118,22 @@ mod tests {
         fs::create_dir_all(&paths.profiles).unwrap();
         write_profile(&paths, "valid", "acct", "a@b.com", "pro");
         fs::write(paths.profiles.join("bad.json"), "not-json").unwrap();
-        let labels = serde_json::json!({"bad": "bad"});
-        fs::write(&paths.labels, serde_json::to_string(&labels).unwrap()).unwrap();
+        let index = serde_json::json!({
+            "version": 1,
+            "active_profile_id": null,
+            "profiles": {
+                "bad": {
+                    "label": "bad",
+                    "last_used": 1,
+                    "added_at": 1
+                }
+            }
+        });
+        fs::write(
+            &paths.profiles_index,
+            serde_json::to_string(&index).unwrap(),
+        )
+        .unwrap();
         let map = load_profile_tokens_map(&paths).unwrap();
         assert!(map.contains_key("valid"));
     }
@@ -1811,9 +2162,10 @@ mod tests {
         let tokens = read_tokens(&paths.profiles.join("one.json")).unwrap();
         let mut usage_map = BTreeMap::new();
         let mut labels = Labels::new();
-        let id = resolve_save_id(&paths, &mut usage_map, &mut labels, &tokens).unwrap();
+        let mut index = ProfilesIndex::default();
+        let id = resolve_save_id(&paths, &mut usage_map, &mut labels, &mut index, &tokens).unwrap();
         assert!(!id.is_empty());
-        let id = resolve_sync_id(&paths, &mut usage_map, &mut labels, &tokens).unwrap();
+        let id = resolve_sync_id(&paths, &mut usage_map, &mut labels, &mut index, &tokens).unwrap();
         assert!(id.is_some());
     }
 
@@ -1824,10 +2176,12 @@ mod tests {
         fs::create_dir_all(&paths.profiles).unwrap();
         let mut usage_map = BTreeMap::new();
         let mut labels = Labels::new();
+        let mut index = ProfilesIndex::default();
         let err = rename_profile_id(
             &paths,
             &mut usage_map,
             &mut labels,
+            &mut index,
             "missing",
             "base",
             "acct",

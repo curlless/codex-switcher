@@ -15,9 +15,8 @@ pub struct Paths {
     pub codex: PathBuf,
     pub auth: PathBuf,
     pub profiles: PathBuf,
-    pub usage: PathBuf,
-    pub usage_lock: PathBuf,
-    pub labels: PathBuf,
+    pub profiles_index: PathBuf,
+    pub profiles_lock: PathBuf,
 }
 
 pub fn command_name() -> &'static str {
@@ -88,16 +87,14 @@ pub fn resolve_paths() -> Result<Paths, String> {
     let codex_dir = home_dir.join(".codex");
     let auth = codex_dir.join("auth.json");
     let profiles = codex_dir.join("profiles");
-    let usage = profiles.join("usage.tsv");
-    let usage_lock = profiles.join("usage.lock");
-    let labels = profiles.join("labels.json");
+    let profiles_index = profiles.join("profiles.json");
+    let profiles_lock = profiles.join("profiles.lock");
     Ok(Paths {
         codex: codex_dir,
         auth,
         profiles,
-        usage,
-        usage_lock,
-        labels,
+        profiles_index,
+        profiles_lock,
     })
 }
 
@@ -183,28 +180,17 @@ pub fn ensure_paths(paths: &Paths) -> Result<(), String> {
         }
     }
 
-    ensure_file_or_absent(&paths.usage)?;
-    ensure_file_or_absent(&paths.labels)?;
+    ensure_file_or_absent(&paths.profiles_index)?;
+    ensure_file_or_absent(&paths.profiles_lock)?;
 
     OpenOptions::new()
         .create(true)
         .append(true)
-        .open(&paths.usage)
+        .open(&paths.profiles_lock)
         .map_err(|err| {
             format!(
-                "Error: cannot write usage file {}: {err}",
-                paths.usage.display()
-            )
-        })?;
-
-    OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&paths.usage_lock)
-        .map_err(|err| {
-            format!(
-                "Error: cannot write usage lock file {}: {err}",
-                paths.usage_lock.display()
+                "Error: cannot write profiles lock file {}: {err}",
+                paths.profiles_lock.display()
             )
         })?;
 
@@ -544,9 +530,8 @@ mod tests {
         let profiles = locked.join("profiles");
         let mut paths = make_paths(dir.path());
         paths.profiles = profiles.clone();
-        paths.usage = profiles.join("usage.tsv");
-        paths.usage_lock = profiles.join("usage.lock");
-        paths.labels = profiles.join("labels.json");
+        paths.profiles_index = profiles.join("profiles.json");
+        paths.profiles_lock = profiles.join("profiles.lock");
         let err = ensure_paths(&paths).unwrap_err();
         assert!(err.contains("cannot create profiles directory"));
     }
@@ -564,37 +549,18 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn ensure_paths_usage_open_error() {
+    fn ensure_paths_profiles_lock_open_error() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().expect("tempdir");
         let profiles = dir.path().join("profiles");
         fs::create_dir_all(&profiles).expect("create");
-        let usage = profiles.join("usage.tsv");
-        fs::write(&usage, "").expect("write usage");
-        fs::set_permissions(&usage, fs::Permissions::from_mode(0o400)).expect("chmod");
-        let mut paths = make_paths(dir.path());
-        paths.usage = usage.clone();
-        let err = ensure_paths(&paths).unwrap_err();
-        assert!(err.contains("cannot write usage file"));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn ensure_paths_usage_lock_open_error() {
-        use std::os::unix::fs::PermissionsExt;
-        let dir = tempfile::tempdir().expect("tempdir");
-        let profiles = dir.path().join("profiles");
-        fs::create_dir_all(&profiles).expect("create");
-        let usage = profiles.join("usage.tsv");
-        fs::write(&usage, "").expect("write usage");
-        let lock = profiles.join("usage.lock");
+        let lock = profiles.join("profiles.lock");
         fs::write(&lock, "").expect("write lock");
         fs::set_permissions(&lock, fs::Permissions::from_mode(0o400)).expect("chmod");
         let mut paths = make_paths(dir.path());
-        paths.usage = usage.clone();
-        paths.usage_lock = lock.clone();
+        paths.profiles_lock = lock.clone();
         let err = ensure_paths(&paths).unwrap_err();
-        assert!(err.contains("cannot write usage lock file"));
+        assert!(err.contains("cannot write profiles lock file"));
     }
 
     #[test]

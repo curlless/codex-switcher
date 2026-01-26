@@ -3,14 +3,13 @@ use colored::Colorize;
 use fslock::LockFile;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
-use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::fs;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::collect_profile_ids;
 use crate::{Paths, command_name};
 use crate::{is_plain, style_text, use_color_stdout, use_tty_stderr};
 
@@ -559,37 +558,31 @@ fn local_from_timestamp(ts: i64) -> Option<DateTime<Local>> {
 
 #[derive(Debug)]
 pub struct UsageLock {
-    pub file: File,
     _lock: LockFile,
 }
 
 pub fn lock_usage(paths: &Paths) -> Result<UsageLock, String> {
     let start = Instant::now();
-    let mut lock = LockFile::open(&paths.usage_lock)
-        .map_err(|err| format!("Error: failed to open usage lock: {err}"))?;
+    let mut lock = LockFile::open(&paths.profiles_lock)
+        .map_err(|err| format!("Error: failed to open profiles lock: {err}"))?;
     loop {
         match try_lock(&mut lock) {
             Ok(true) => break,
             Ok(false) => {
                 if start.elapsed() > lock_timeout() {
                     return Err(format!(
-                        "Error: could not acquire usage lock. Ensure no other {} is running and retry.",
+                        "Error: could not acquire profiles lock. Ensure no other {} is running and retry.",
                         command_name()
                     ));
                 }
                 thread::sleep(LOCK_RETRY_DELAY);
             }
             Err(err) => {
-                return Err(format!("Error: failed to lock usage file: {err}"));
+                return Err(format!("Error: failed to lock profiles file: {err}"));
             }
         }
     }
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(&paths.usage)
-        .map_err(|err| usage_io_error("open", err))?;
-    Ok(UsageLock { file, _lock: lock })
+    Ok(UsageLock { _lock: lock })
 }
 
 #[cfg(not(test))]
@@ -616,51 +609,6 @@ fn try_lock(lock: &mut LockFile) -> Result<bool, fslock::Error> {
     }
 }
 
-pub fn read_usage(file: &mut File) -> Result<Vec<(String, u64)>, String> {
-    let contents = read_usage_contents(file)?;
-    Ok(parse_usage_entries(&contents))
-}
-
-fn read_usage_contents(file: &mut File) -> Result<String, String> {
-    file.seek(SeekFrom::Start(0))
-        .map_err(|err| usage_io_error("read", err))?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .map_err(|err| usage_io_error("read", err))?;
-    Ok(contents)
-}
-
-fn parse_usage_entries(contents: &str) -> Vec<(String, u64)> {
-    contents
-        .lines()
-        .filter_map(|line| {
-            let line = line.trim();
-            if line.is_empty() {
-                return None;
-            }
-            let (id, ts) = line.split_once('\t')?;
-            let ts = ts.parse::<u64>().ok()?;
-            if id.is_empty() {
-                None
-            } else {
-                Some((id.to_string(), ts))
-            }
-        })
-        .collect()
-}
-
-pub fn write_usage(file: &mut File, entries: &BTreeMap<String, u64>) -> Result<(), String> {
-    let out = format_usage_contents(entries);
-    file.set_len(0)
-        .map_err(|err| usage_io_error("write", err))?;
-    file.seek(SeekFrom::Start(0))
-        .map_err(|err| usage_io_error("write", err))?;
-    file.write_all(out.as_bytes())
-        .map_err(|err| usage_io_error("write", err))?;
-    file.flush().map_err(|err| usage_io_error("write", err))?;
-    Ok(())
-}
-
 pub fn normalize_usage(entries: &[(String, u64)], ids: &HashSet<String>) -> BTreeMap<String, u64> {
     let mut map = BTreeMap::new();
     for id in ids {
@@ -678,23 +626,6 @@ pub fn normalize_usage(entries: &[(String, u64)], ids: &HashSet<String>) -> BTre
     map
 }
 
-pub fn ensure_usage(
-    file: &mut File,
-    profiles_dir: &std::path::Path,
-) -> Result<BTreeMap<String, u64>, String> {
-    let contents = read_usage_contents(file)?;
-    let entries = parse_usage_entries(&contents);
-    let ids = collect_profile_ids(profiles_dir)?;
-
-    let map = normalize_usage(&entries, &ids);
-
-    let expected = format_usage_contents(&map);
-    if contents != expected {
-        write_usage(file, &map)?;
-    }
-    Ok(map)
-}
-
 pub fn ordered_profiles(map: &BTreeMap<String, u64>) -> Vec<(String, u64)> {
     let mut ordered = map
         .iter()
@@ -709,21 +640,6 @@ pub fn now_seconds() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or(0)
-}
-
-fn format_usage_contents(entries: &BTreeMap<String, u64>) -> String {
-    let mut out = String::new();
-    for (id, ts) in entries {
-        out.push_str(id);
-        out.push('\t');
-        out.push_str(&ts.to_string());
-        out.push('\n');
-    }
-    out
-}
-
-fn usage_io_error(action: &str, err: impl std::fmt::Display) -> String {
-    format!("Error: failed to {action} usage file: {err}")
 }
 
 #[cfg(test)]
@@ -893,51 +809,19 @@ mod tests {
     }
 
     #[test]
-    fn usage_file_io_paths() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let usage = dir.path().join("usage.tsv");
-        let lock = dir.path().join("usage.lock");
-        fs::write(&usage, "id\t1\n").unwrap();
-        fs::write(&lock, "").unwrap();
-        let mut paths = make_paths(dir.path());
-        paths.usage = usage.clone();
-        paths.usage_lock = lock.clone();
-
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&usage)
-            .unwrap();
-        let entries = read_usage(&mut file).unwrap();
-        assert_eq!(entries.len(), 1);
-
-        let mut map = BTreeMap::new();
-        map.insert("id".to_string(), 2);
-        write_usage(&mut file, &map).unwrap();
-        let entries = read_usage(&mut file).unwrap();
-        assert_eq!(entries[0].1, 2);
-
-        fs::create_dir_all(&paths.profiles).unwrap();
-        fs::write(paths.profiles.join("id.json"), "{}").unwrap();
-        let mut lock = lock_usage(&paths).unwrap();
-        let map = ensure_usage(&mut lock.file, &paths.profiles).unwrap();
-        assert!(map.contains_key("id"));
-    }
-
-    #[test]
     fn lock_usage_failure_paths() {
         let _guard = LOCK_TEST_MUTEX.lock().unwrap();
         let dir = tempfile::tempdir().expect("tempdir");
         let paths = make_paths(dir.path());
         fs::create_dir_all(&paths.profiles).unwrap();
-        fs::write(&paths.usage, "").unwrap();
+        fs::write(&paths.profiles_lock, "").unwrap();
 
         LOCK_FAILPOINT.store(LOCK_FAIL_BUSY, Ordering::Relaxed);
         let err = lock_usage(&paths).unwrap_err();
-        assert!(err.contains("could not acquire usage lock"));
+        assert!(err.contains("could not acquire profiles lock"));
         LOCK_FAILPOINT.store(LOCK_FAIL_ERR, Ordering::Relaxed);
         let err = lock_usage(&paths).unwrap_err();
-        assert!(err.contains("failed to lock usage file"));
+        assert!(err.contains("failed to lock profiles file"));
         LOCK_FAILPOINT.store(0, Ordering::Relaxed);
     }
 
@@ -953,8 +837,8 @@ mod tests {
             fs::set_permissions(&lock_dir, fs::Permissions::from_mode(0o400)).unwrap();
         }
         let mut paths = make_paths(dir.path());
-        paths.usage_lock = lock_dir.join("usage.lock");
+        paths.profiles_lock = lock_dir.join("profiles.lock");
         let err = lock_usage(&paths).unwrap_err();
-        assert!(err.contains("failed to open usage lock"));
+        assert!(err.contains("failed to open profiles lock"));
     }
 }
