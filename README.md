@@ -185,3 +185,16 @@ Loaded profile mail@company.com (Team)
 >
 > If you see "Codex CLI not found", install it from [here](https://developers.openai.com/codex/cli/).
 </details>
+
+<details>
+<summary>Can I contribute to this project?</summary>
+
+> Yes! Contributions are welcome. For non-trivial changes (new features, significant
+> refactors), please open an [issue](https://github.com/midhunmonachan/codex-profiles/issues)
+> or [discussion](https://github.com/midhunmonachan/codex-profiles/discussions) first
+> to discuss your idea and avoid wasted effort.
+>
+> For minor changes (bug fixes, typos, docs), feel free to submit a PR directly.
+>
+> See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
+</details>
