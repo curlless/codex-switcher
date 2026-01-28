@@ -73,7 +73,6 @@ jobs:
         continue-on-error: true
         with:
           shared-key: ${{ runner.os }}-verify-${{ hashFiles('rust-toolchain.toml') }}
-          save-if: ${{ !cancelled() }}
       - name: Run checks
         run: scripts/check.sh
 
@@ -126,7 +125,6 @@ jobs:
         continue-on-error: true
         with:
           shared-key: ${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('rust-toolchain.toml') }}
-          save-if: ${{ !cancelled() }}
       - name: Cargo build
         shell: bash
         run: |
