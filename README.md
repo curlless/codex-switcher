@@ -45,6 +45,12 @@ npm install -g codex-profiles
 bun install -g codex-profiles
 ```
 
+### Cargo
+
+```bash
+cargo install codex-profiles
+```
+
 ### Manual Install
 
 Automatically detects your OS/architecture, downloads the correct binary, verifies checksums:
@@ -78,6 +84,12 @@ npm uninstall -g codex-profiles
 
 ```bash
 bun uninstall -g codex-profiles
+```
+
+### Cargo
+
+```bash
+cargo uninstall codex-profiles
 ```
 
 ### Manual Uninstall
