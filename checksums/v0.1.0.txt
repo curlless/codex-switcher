@@ -1,0 +1,13 @@
+527f74d925004e24e30f19988f42b228b02eea28529d6d142dc4a7a9c3032bc9  /home/runner/work/codex-profiles/codex-profiles/dist/release/codex-profiles-aarch64-apple-darwin.tar.gz
+525564bca7148687078f9873db9e8f811cfb67d7ecb973d016018cbf4285f6f4  /home/runner/work/codex-profiles/codex-profiles/dist/release/codex-profiles-aarch64-unknown-linux-gnu.tar.gz
+396e73081120987348de7dd374a91cb79b9e737369a9a5e00513b686fa1b8c27  /home/runner/work/codex-profiles/codex-profiles/dist/release/codex-profiles-x86_64-apple-darwin.tar.gz
+aa56372fad88ee35d96e5004b8684d6d595686603f4b0eddf39063560ba79d32  /home/runner/work/codex-profiles/codex-profiles/dist/release/codex-profiles-x86_64-pc-windows-msvc.exe.zip
+a70a0d0dcf71d8b02251faf88b2a48a303259b867fb2f2e072a33a5944bb2af9  /home/runner/work/codex-profiles/codex-profiles/dist/release/codex-profiles-x86_64-unknown-linux-gnu.tar.gz
+08ca0e163493a4ad9b67a71910dfcfb02cfa8a54c0b568dd24f815b16087bbc7  /home/runner/work/codex-profiles/codex-profiles/dist/npm-packages/codex-profiles-0.1.0.tgz
+8eca2380c9b8832989c962cfb8b9e27b5d917d4df8fc0f83ba75abe887cf7024  /home/runner/work/codex-profiles/codex-profiles/dist/npm-packages/codex-profiles-darwin-arm64-0.1.0.tgz
+19b0bef0a3cb63015ed716b713bf712bf875653f3de3062d530a41c51e8a03f9  /home/runner/work/codex-profiles/codex-profiles/dist/npm-packages/codex-profiles-darwin-x64-0.1.0.tgz
+26fc495d998bd4a2c751df9aeed89e7085c52193800f0174819cf1eecdd41559  /home/runner/work/codex-profiles/codex-profiles/dist/npm-packages/codex-profiles-linux-arm64-0.1.0.tgz
+0b234be6813104af21824217c00fa0cd36e47033feb5eed5960eed07c6ebc293  /home/runner/work/codex-profiles/codex-profiles/dist/npm-packages/codex-profiles-linux-x64-0.1.0.tgz
+78e2359066f83e31f6f5cb51c5041d875b9a6fc67eb4756f6555f0bbf1822295  /home/runner/work/codex-profiles/codex-profiles/dist/npm-packages/codex-profiles-win32-x64-0.1.0.tgz
+d25c0c10c4a6797ea95a702c2cc8c4ed693735bcddddd63602e820550c0798ad  /home/runner/work/codex-profiles/codex-profiles/dist/cargo/codex-profiles-0.1.0.crate
+c665c23898b1363e16f0d9618961881bf36b3c24ee055786cd1ca7a08f28c4a9  /home/runner/work/codex-profiles/codex-profiles/dist/homebrew/codex-profiles.rb
