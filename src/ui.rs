@@ -204,7 +204,7 @@ pub fn format_entry_header(
     } else {
         display.to_string()
     };
-    if !is_current && !last_used.is_empty() {
+    if !is_current && !last_used.is_empty() && !last_used.eq_ignore_ascii_case("unknown") {
         base.push_str(&format_last_used_badge(last_used, use_color));
     }
     base
