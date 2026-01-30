@@ -3,7 +3,8 @@ use colored::Colorize;
 use inquire::{Confirm, MultiSelect, Select};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::io::{self, IsTerminal as _};
@@ -22,11 +23,202 @@ use crate::{
     token_account_id,
 };
 use crate::{
-    UsageLock, fetch_usage_details, format_last_used, format_usage_unavailable, lock_usage,
-    now_seconds, ordered_profiles, read_base_url, usage_unavailable,
+    UsageLock, UsageWindow, fetch_usage_details, fetch_usage_limits, format_last_used,
+    format_usage_unavailable, lock_usage, now_seconds, ordered_profiles, read_base_url,
+    start_usage_spinner, stop_usage_spinner, usage_unavailable,
 };
 
 const MAX_USAGE_CONCURRENCY: usize = 4;
+
+#[derive(Clone, Copy, Default)]
+struct UsageSortKey {
+    five_hour_left: Option<i64>,
+    secondary_left: Option<i64>,
+    reset_at: Option<i64>,
+    usable: bool,
+}
+
+fn ordered_profiles_by_usage(
+    snapshot: &Snapshot,
+    ctx: &ListCtx,
+    current_saved_id: Option<&str>,
+) -> Vec<(String, u64)> {
+    let mut ordered = snapshot
+        .usage_map
+        .iter()
+        .map(|(id, ts)| (id.clone(), *ts))
+        .collect::<Vec<_>>();
+    let usage_scores = usage_sort_scores(snapshot, ctx, current_saved_id);
+    ordered.sort_by(|(left_id, left_ts), (right_id, right_ts)| {
+        let left_score = usage_scores.get(left_id).copied().unwrap_or_default();
+        let right_score = usage_scores.get(right_id).copied().unwrap_or_default();
+        let left_has_primary = left_score.five_hour_left.is_some();
+        let right_has_primary = right_score.five_hour_left.is_some();
+        let mut ordering = right_has_primary.cmp(&left_has_primary);
+        if ordering != Ordering::Equal {
+            return ordering;
+        }
+        ordering = right_score.usable.cmp(&left_score.usable);
+        if ordering != Ordering::Equal {
+            return ordering;
+        }
+        if left_score.usable && right_score.usable {
+            ordering = right_score
+                .five_hour_left
+                .unwrap_or(-1)
+                .cmp(&left_score.five_hour_left.unwrap_or(-1));
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+            ordering = right_score
+                .secondary_left
+                .unwrap_or(-1)
+                .cmp(&left_score.secondary_left.unwrap_or(-1));
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+        } else if !left_score.usable && !right_score.usable {
+            let left_reset = left_score.reset_at.unwrap_or(i64::MAX);
+            let right_reset = right_score.reset_at.unwrap_or(i64::MAX);
+            ordering = left_reset.cmp(&right_reset);
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+        }
+        ordering = right_ts.cmp(left_ts);
+        if ordering != Ordering::Equal {
+            return ordering;
+        }
+        left_id.cmp(right_id)
+    });
+    ordered
+}
+
+fn usage_sort_scores(
+    snapshot: &Snapshot,
+    ctx: &ListCtx,
+    current_saved_id: Option<&str>,
+) -> HashMap<String, UsageSortKey> {
+    let Some(base_url) = ctx.base_url.as_deref() else {
+        return HashMap::new();
+    };
+    let now = ctx.now;
+    let ids: Vec<String> = snapshot.usage_map.keys().cloned().collect();
+    let build = |id: &String| {
+        if current_saved_id == Some(id.as_str()) {
+            return (id.clone(), UsageSortKey::default());
+        }
+        let key = usage_sort_key_for_profile(id, snapshot, base_url, now).unwrap_or_default();
+        (id.clone(), key)
+    };
+    let mut scores = HashMap::with_capacity(ids.len());
+    if ids.len() > MAX_USAGE_CONCURRENCY {
+        for chunk in ids.chunks(MAX_USAGE_CONCURRENCY) {
+            let chunk_scores: Vec<(String, UsageSortKey)> = chunk.par_iter().map(build).collect();
+            for (id, key) in chunk_scores {
+                scores.insert(id, key);
+            }
+        }
+        return scores;
+    }
+    let entries: Vec<(String, UsageSortKey)> = ids.par_iter().map(build).collect();
+    for (id, key) in entries {
+        scores.insert(id, key);
+    }
+    scores
+}
+
+fn usage_sort_key_for_profile(
+    id: &str,
+    snapshot: &Snapshot,
+    base_url: &str,
+    now: DateTime<Local>,
+) -> Option<UsageSortKey> {
+    if profile_is_api_key(id, snapshot) || profile_is_free(id, snapshot) {
+        return None;
+    }
+    let tokens = snapshot
+        .tokens
+        .get(id)
+        .and_then(|result| result.as_ref().ok())?;
+    let access_token = tokens.access_token.as_deref()?;
+    let account_id = token_account_id(tokens)?;
+    let limits = fetch_usage_limits(base_url, access_token, account_id, now).ok()?;
+    let five_hour_left = usage_left_percent(limits.five_hour.as_ref())?;
+    let secondary_left = usage_left_percent(limits.weekly.as_ref());
+    let primary_left = five_hour_left;
+    let secondary_left_value = secondary_left.unwrap_or(0);
+    let primary_reset = usage_reset_at(limits.five_hour.as_ref());
+    let secondary_reset = usage_reset_at(limits.weekly.as_ref());
+    let reset_at = if primary_left <= 0 && secondary_left_value <= 0 {
+        match (primary_reset, secondary_reset) {
+            (Some(primary), Some(secondary)) => Some(primary.max(secondary)),
+            (Some(primary), None) => Some(primary),
+            (None, Some(secondary)) => Some(secondary),
+            (None, None) => None,
+        }
+    } else if primary_left <= 0 {
+        primary_reset
+    } else if secondary_left_value <= 0 {
+        secondary_reset
+    } else {
+        None
+    };
+    let usable = primary_left > 0 && secondary_left_value > 0;
+    Some(UsageSortKey {
+        five_hour_left: Some(five_hour_left),
+        secondary_left,
+        reset_at,
+        usable,
+    })
+}
+
+fn usage_left_percent(window: Option<&UsageWindow>) -> Option<i64> {
+    window.map(|value| value.left_percent.round() as i64)
+}
+
+fn usage_reset_at(window: Option<&UsageWindow>) -> Option<i64> {
+    window.map(|value| value.reset_at)
+}
+
+fn profile_is_api_key(id: &str, snapshot: &Snapshot) -> bool {
+    snapshot
+        .tokens
+        .get(id)
+        .and_then(|result| result.as_ref().ok())
+        .map(is_api_key_profile)
+        .or_else(|| {
+            snapshot
+                .index
+                .profiles
+                .get(id)
+                .map(|entry| entry.is_api_key)
+        })
+        .unwrap_or(false)
+}
+
+fn profile_is_free(id: &str, snapshot: &Snapshot) -> bool {
+    let plan = profile_plan_for_sort(id, snapshot);
+    is_free_plan(plan.as_deref())
+}
+
+fn profile_plan_for_sort(id: &str, snapshot: &Snapshot) -> Option<String> {
+    if let Some(tokens) = snapshot
+        .tokens
+        .get(id)
+        .and_then(|result| result.as_ref().ok())
+    {
+        let (_, plan) = extract_email_and_plan(tokens);
+        if plan.is_some() {
+            return plan;
+        }
+    }
+    snapshot
+        .index
+        .profiles
+        .get(id)
+        .and_then(|entry| entry.plan.clone())
+}
 
 pub fn save_profile(paths: &Paths, label: Option<String>) -> Result<(), String> {
     let use_color = use_color_stdout();
@@ -219,9 +411,26 @@ pub fn list_profiles(
     let snapshot = load_snapshot(paths, false)?;
     let usage_map = &snapshot.usage_map;
     let current_saved_id = current_saved_id(paths, usage_map, &snapshot.tokens);
-    let ctx = ListCtx::new(paths, show_usage);
+    let mut ctx = ListCtx::new(paths, show_usage);
+    let mut spinner = None;
+    if show_usage {
+        spinner = Some(start_usage_spinner("Loading profiles"));
+        ctx.show_spinner = false;
+    }
 
-    let ordered = ordered_profiles(usage_map);
+    let ordered = if show_usage {
+        ordered_profiles_by_usage(&snapshot, &ctx, current_saved_id.as_deref())
+    } else {
+        ordered_profiles(usage_map)
+    };
+    let current_entry = make_current(
+        paths,
+        current_saved_id.as_deref(),
+        &snapshot.labels,
+        &snapshot.tokens,
+        &snapshot.usage_map,
+        &ctx,
+    );
     let separator = separator_line(2);
     let frame_separator = if frame_with_separator {
         separator_line(0)
@@ -230,15 +439,13 @@ pub fn list_profiles(
     };
     let has_saved = !ordered.is_empty();
     if !has_saved {
-        if !render_current(
-            paths,
-            current_saved_id.as_deref(),
-            &snapshot.labels,
-            &snapshot.tokens,
-            &snapshot.usage_map,
-            false,
-            &ctx,
-        )? {
+        if let Some(spinner) = spinner {
+            stop_usage_spinner(spinner);
+        }
+        if let Some(entry) = current_entry {
+            let lines = render_entries(&[entry], show_last_used, &ctx, None, false);
+            print_output_block(&lines.join("\n"));
+        } else {
             let message = format_no_profiles(paths, ctx.use_color);
             print_output_block(&message);
         }
@@ -251,15 +458,12 @@ pub fn list_profiles(
         .collect();
     let list_entries = make_entries(&filtered, &snapshot, None, &ctx);
 
+    if let Some(spinner) = spinner {
+        stop_usage_spinner(spinner);
+    }
+
     let mut lines = Vec::new();
-    if let Some(entry) = make_current(
-        paths,
-        current_saved_id.as_deref(),
-        &snapshot.labels,
-        &snapshot.tokens,
-        &snapshot.usage_map,
-        &ctx,
-    ) {
+    if let Some(entry) = current_entry {
         lines.extend(render_entries(
             &[entry],
             show_last_used,
@@ -298,7 +502,9 @@ pub fn status_profiles(paths: &Paths, all: bool) -> Result<(), String> {
     let current_saved_id = snapshot
         .as_ref()
         .and_then(|snap| current_saved_id(paths, &snap.usage_map, &snap.tokens));
-    let ctx = ListCtx::new(paths, true);
+    let mut ctx = ListCtx::new(paths, true);
+    let spinner = start_usage_spinner("Loading profile");
+    ctx.show_spinner = false;
     let empty_labels = Labels::new();
     let labels = snapshot
         .as_ref()
@@ -314,15 +520,19 @@ pub fn status_profiles(paths: &Paths, all: bool) -> Result<(), String> {
         .as_ref()
         .map(|snap| &snap.usage_map)
         .unwrap_or(&empty_usage);
-    if !render_current(
+    let current_entry = make_current(
         paths,
         current_saved_id.as_deref(),
         labels,
         tokens_map,
         usage_map,
-        false,
         &ctx,
-    )? {
+    );
+    stop_usage_spinner(spinner);
+    if let Some(entry) = current_entry {
+        let lines = render_entries(&[entry], true, &ctx, None, false);
+        print_output_block(&lines.join("\n"));
+    } else {
         let message = format_no_profiles(paths, ctx.use_color);
         print_output_block(&message);
     }
@@ -333,7 +543,9 @@ pub fn status_label(paths: &Paths, label: &str) -> Result<(), String> {
     let snapshot = load_snapshot(paths, false)?;
     let id = resolve_label_id(&snapshot.labels, label)?;
     let current_saved_id = current_saved_id(paths, &snapshot.usage_map, &snapshot.tokens);
-    let ctx = ListCtx::new(paths, true);
+    let mut ctx = ListCtx::new(paths, true);
+    let spinner = start_usage_spinner("Loading profile");
+    ctx.show_spinner = false;
     let separator = separator_line(2);
     let is_current = current_saved_id.as_deref() == Some(id.as_str());
     let last_used = if is_current {
@@ -357,6 +569,7 @@ pub fn status_label(paths: &Paths, label: &str) -> Result<(), String> {
         &ctx,
         is_current,
     );
+    stop_usage_spinner(spinner);
     let lines = render_entries(&[entry], true, &ctx, separator.as_deref(), true);
     print_output_block(&lines.join("\n"));
     Ok(())
@@ -1479,24 +1692,6 @@ fn separator_line(trim: usize) -> Option<String> {
     Some(style_text(&line, use_color_stdout(), |text| text.dimmed()))
 }
 
-fn render_current(
-    paths: &Paths,
-    current_saved_id: Option<&str>,
-    labels: &Labels,
-    tokens_map: &BTreeMap<String, Result<Tokens, String>>,
-    usage_map: &BTreeMap<String, u64>,
-    hide_last_used: bool,
-    ctx: &ListCtx,
-) -> Result<bool, String> {
-    if let Some(entry) = make_current(paths, current_saved_id, labels, tokens_map, usage_map, ctx) {
-        let lines = render_entries(&[entry], !hide_last_used, ctx, None, false);
-        print_output_block(&lines.join("\n"));
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
 fn make_error(
     label: Option<String>,
     index_entry: Option<&ProfileIndexEntry>,
@@ -1526,7 +1721,7 @@ fn detail_lines(
     tokens: &mut Tokens,
     email: Option<&str>,
     plan: Option<&str>,
-    is_current: bool,
+    show_spinner: bool,
     profile_path: &Path,
     ctx: &ListCtx,
     allow_401_refresh: bool,
@@ -1570,7 +1765,7 @@ fn detail_lines(
             account_id,
             unavailable_text,
             ctx.now,
-            is_current,
+            show_spinner,
         ) {
             Ok(details) => (details, None),
             Err(err) if allow_401_refresh && err.status_code() == Some(401) => {
@@ -1589,7 +1784,7 @@ fn detail_lines(
                             account_id,
                             unavailable_text,
                             ctx.now,
-                            is_current,
+                            show_spinner,
                         ) {
                             Ok(details) => (details, None),
                             Err(err) => (
@@ -1744,7 +1939,7 @@ fn make_entries(
     ctx: &ListCtx,
 ) -> Vec<Entry> {
     let build = |(id, ts): &(String, u64)| make_saved(id, *ts, snapshot, current_saved_id, ctx);
-    if ctx.base_url.is_some() && ordered.len() >= 3 {
+    if ctx.show_usage && ordered.len() >= 3 {
         if ordered.len() > MAX_USAGE_CONCURRENCY {
             let mut entries = Vec::with_capacity(ordered.len());
             for chunk in ordered.chunks(MAX_USAGE_CONCURRENCY) {
@@ -1821,7 +2016,7 @@ fn make_current(
         &mut tokens,
         info.email.as_deref(),
         info.plan.as_deref(),
-        true,
+        ctx.show_spinner,
         &ctx.auth_path,
         ctx,
         allow_401_refresh,
@@ -1856,6 +2051,7 @@ struct ListCtx {
     base_url: Option<String>,
     now: DateTime<Local>,
     show_usage: bool,
+    show_spinner: bool,
     use_color: bool,
     profiles_dir: PathBuf,
     auth_path: PathBuf,
@@ -1867,6 +2063,7 @@ impl ListCtx {
             base_url: show_usage.then(|| read_base_url(paths)),
             now: Local::now(),
             show_usage,
+            show_spinner: show_usage,
             use_color: use_color_stdout(),
             profiles_dir: paths.profiles.clone(),
             auth_path: paths.auth.clone(),
@@ -2204,6 +2401,7 @@ mod tests {
             base_url: None,
             now: chrono::Local::now(),
             show_usage: false,
+            show_spinner: false,
             use_color: false,
             profiles_dir: PathBuf::new(),
             auth_path: PathBuf::new(),

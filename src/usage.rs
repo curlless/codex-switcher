@@ -202,7 +202,7 @@ pub fn fetch_usage_details(
     now: DateTime<Local>,
     show_spinner: bool,
 ) -> Result<Vec<String>, UsageFetchError> {
-    let spinner = show_spinner.then(|| start_spinner("Fetching profile..."));
+    let spinner = show_spinner.then(|| start_spinner("Loading profile"));
     let payload = fetch_usage_payload(base_url, access_token, account_id);
     if let Some(spinner) = spinner {
         stop_spinner(spinner);
@@ -214,6 +214,16 @@ pub fn fetch_usage_details(
         format_limit(limits.weekly.as_ref(), now, unavailable_text),
         unavailable_text,
     ))
+}
+
+pub(crate) fn fetch_usage_limits(
+    base_url: &str,
+    access_token: &str,
+    account_id: &str,
+    now: DateTime<Local>,
+) -> Result<UsageLimits, UsageFetchError> {
+    let payload = fetch_usage_payload(base_url, access_token, account_id)?;
+    Ok(build_usage_limits(&payload, now))
 }
 
 fn build_usage_limits(payload: &UsagePayload, now: DateTime<Local>) -> UsageLimits {
@@ -261,6 +271,16 @@ fn usage_window_output(window: &RateLimitWindowSnapshot, now: DateTime<Local>) -
 struct SpinnerHandle {
     stop: Arc<AtomicBool>,
     handle: Option<JoinHandle<()>>,
+}
+
+pub(crate) struct UsageSpinner(SpinnerHandle);
+
+pub(crate) fn start_usage_spinner(message: &str) -> UsageSpinner {
+    UsageSpinner(start_spinner(message))
+}
+
+pub(crate) fn stop_usage_spinner(spinner: UsageSpinner) {
+    stop_spinner(spinner.0)
 }
 
 fn start_spinner(message: &str) -> SpinnerHandle {
@@ -377,9 +397,19 @@ pub(crate) fn format_usage(
     let multiple = available.len() > 1;
     available
         .into_iter()
-        .map(|line| {
+        .enumerate()
+        .map(|(idx, line)| {
             let dim = use_color && multiple && has_zero && line.left_percent != Some(0);
-            format_usage_line(&line, dim, use_color)
+            let label = if multiple {
+                if idx == 0 {
+                    Some("Primary window")
+                } else {
+                    Some("Secondary window")
+                }
+            } else {
+                None
+            };
+            format_usage_line(label, &line, dim, use_color)
         })
         .collect()
 }
@@ -405,7 +435,11 @@ pub(crate) fn format_reset_relative(reset_at: i64, now: DateTime<Local>) -> Opti
     Some(format_duration(duration, DurationStyle::ResetTimer))
 }
 
-fn format_usage_line(line: &UsageLine, dim: bool, use_color: bool) -> String {
+fn format_usage_line(label: Option<&str>, line: &UsageLine, dim: bool, use_color: bool) -> String {
+    let prefix = label
+        .filter(|value| !value.is_empty())
+        .map(|value| format!("{value}: "))
+        .unwrap_or_default();
     let reset = reset_label(&line.reset);
     let reset = reset.to_string();
     let percent = if line.percent.is_empty() {
@@ -416,6 +450,9 @@ fn format_usage_line(line: &UsageLine, dim: bool, use_color: bool) -> String {
     let resets = format_resets_suffix(&reset, use_color);
     if is_plain() {
         let mut out = String::new();
+        if !prefix.is_empty() {
+            out.push_str(&prefix);
+        }
         if !percent.is_empty() {
             out.push_str(&percent);
         }
@@ -438,9 +475,9 @@ fn format_usage_line(line: &UsageLine, dim: bool, use_color: bool) -> String {
         line.bar.clone()
     };
     let formatted = if percent.is_empty() {
-        format!("{bar}{resets}")
+        format!("{prefix}{bar}{resets}")
     } else {
-        format!("{bar} {percent}{resets}")
+        format!("{prefix}{bar} {percent}{resets}")
     };
     if dim && use_color {
         formatted.dimmed().to_string()
@@ -782,7 +819,7 @@ mod tests {
             left_percent: Some(50),
         };
         let _plain = set_plain_guard(true);
-        let plain = format_usage_line(&line, false, false);
+        let plain = format_usage_line(None, &line, false, false);
         assert!(plain.contains("left"));
     }
 
