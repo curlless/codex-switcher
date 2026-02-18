@@ -55,7 +55,8 @@ fn run(cli: Cli) -> Result<(), String> {
 
     ensure_codex_cli(detect_install_source())?;
 
-    let check_for_update_on_startup = std::env::var_os("CODEX_PROFILES_SKIP_UPDATE").is_none();
+    let check_for_update_on_startup = std::env::var_os("CODEX_PROFILES_ENABLE_UPDATE").is_some()
+        && std::env::var_os("CODEX_PROFILES_SKIP_UPDATE").is_none();
     let update_config = UpdateConfig {
         codex_home: paths.codex.clone(),
         check_for_update_on_startup,
@@ -73,17 +74,36 @@ fn run(cli: Cli) -> Result<(), String> {
         Commands::Save { label } => save_profile(&paths, label),
         Commands::Load { label } => load_profile(&paths, label),
         Commands::List => list_profiles(&paths, false, false, false, false),
-        Commands::Status { all, label } => {
-            if label.is_some() && all {
+        Commands::Status {
+            all: _all,
+            current,
+            label,
+        } => {
+            if label.is_some() && _all {
                 return Err("Error: --label cannot be combined with --all.".to_string());
+            }
+            if label.is_some() && current {
+                return Err("Error: --label cannot be combined with --current.".to_string());
+            }
+            if _all && current {
+                return Err("Error: --all cannot be combined with --current.".to_string());
             }
             if let Some(label) = label {
                 status_label(&paths, &label)
+            } else if current {
+                status_profiles(&paths, false)
             } else {
-                status_profiles(&paths, all)
+                // New default: status shows all saved profiles.
+                status_profiles(&paths, true)
             }
         }
+        Commands::Switch {
+            dry_run,
+            reload_ide,
+        } => switch_best_profile(&paths, dry_run, reload_ide),
+        Commands::Migrate { from, overwrite } => migrate_profiles(&paths, from, overwrite),
         Commands::Delete { yes, label } => delete_profile(&paths, yes, label),
+        Commands::RelayLogin { url } => relay_login(url),
     }
 }
 
@@ -105,7 +125,9 @@ fn run_update_action(action: UpdateAction) -> Result<(), String> {
 mod auth;
 mod cli;
 mod common;
+mod ide_reload;
 mod profiles;
+mod relay;
 mod requirements;
 #[cfg(test)]
 mod test_utils;
@@ -115,7 +137,9 @@ mod usage;
 
 pub use auth::*;
 pub use common::*;
+pub use ide_reload::*;
 pub use profiles::*;
+pub use relay::*;
 pub use requirements::*;
 pub use ui::*;
 pub use updates::*;
@@ -127,6 +151,7 @@ mod tests {
     use crate::test_utils::{make_paths, set_env_guard};
     use std::ffi::OsString;
     use std::fs;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
     #[test]
@@ -148,6 +173,7 @@ mod tests {
         assert!(err.contains("error"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn run_update_action_paths() {
         let dir = tempfile::tempdir().expect("tempdir");

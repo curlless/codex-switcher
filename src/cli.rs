@@ -35,10 +35,32 @@ pub enum Commands {
         /// Show usage for all saved profiles
         #[arg(long)]
         all: bool,
+        /// Show usage for the currently active profile only
+        #[arg(long)]
+        current: bool,
         /// Show usage for the profile matching this label
         #[arg(value_name = "label")]
         #[arg(long)]
         label: Option<String>,
+    },
+    /// Switch to the best profile based on remaining 7d/5h usage
+    Switch {
+        /// Show ranking and selected profile without switching
+        #[arg(long)]
+        dry_run: bool,
+        /// After switching, try to reload IDE processes (best effort)
+        #[arg(long)]
+        reload_ide: bool,
+    },
+    /// Copy profiles from another Codex directory into current storage
+    Migrate {
+        /// Source Codex directory (contains profiles/ and profiles.json)
+        #[arg(value_name = "path")]
+        #[arg(long)]
+        from: Option<String>,
+        /// Overwrite existing destination profiles with source files
+        #[arg(long)]
+        overwrite: bool,
     },
     /// Delete saved profiles from the interactive list
     Delete {
@@ -49,6 +71,13 @@ pub enum Commands {
         #[arg(value_name = "label")]
         #[arg(long)]
         label: Option<String>,
+    },
+    /// Relay an existing Roo/Codex callback URL to a local listener
+    RelayLogin {
+        /// Callback URL to relay to the local auth listener
+        #[arg(value_name = "callback_url")]
+        #[arg(long)]
+        url: Option<String>,
     },
 }
 
@@ -62,6 +91,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} list\n  {name} status\n  {name} delete --label work"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
     )
 }

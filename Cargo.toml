@@ -22,6 +22,14 @@ exclude = [
     "lcov.info",
 ]
 
+[[bin]]
+name = "codex-profiles"
+path = "src/main.rs"
+
+[[bin]]
+name = "codex-switcher"
+path = "src/bin/codex-switcher.rs"
+
 [dependencies]
 anyhow = "1.0"
 base64 = "0.22"

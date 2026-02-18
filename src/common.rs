@@ -13,6 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Paths {
     pub codex: PathBuf,
+    pub auth_codex: PathBuf,
     pub auth: PathBuf,
     pub profiles: PathBuf,
     pub profiles_index: PathBuf,
@@ -86,12 +87,17 @@ pub fn resolve_paths() -> Result<Paths, String> {
     let home_dir =
         resolve_home_dir().ok_or_else(|| "Error: could not resolve home directory".to_string())?;
     let codex_dir = home_dir.join(".codex");
-    let auth = codex_dir.join("auth.json");
+    let auth_codex = env::var_os("CODEX_PROFILES_AUTH_DIR")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| codex_dir.clone());
+    let auth = auth_codex.join("auth.json");
     let profiles = codex_dir.join("profiles");
     let profiles_index = profiles.join("profiles.json");
     let profiles_lock = profiles.join("profiles.lock");
     Ok(Paths {
         codex: codex_dir,
+        auth_codex,
         auth,
         profiles,
         profiles_index,
@@ -138,6 +144,20 @@ fn resolve_home_dir_with(
     }
     match (homedrive, homepath) {
         (Some(drive), Some(path)) => {
+            #[cfg(windows)]
+            {
+                let drive_str = drive.to_string_lossy();
+                let path_str = path.to_string_lossy();
+                if drive_str.ends_with(':')
+                    && !path_str.starts_with('\\')
+                    && !path_str.starts_with('/')
+                {
+                    let combined = format!("{drive_str}\\{path_str}");
+                    if !combined.is_empty() {
+                        return Some(PathBuf::from(combined));
+                    }
+                }
+            }
             let mut out = drive;
             out.push(path);
             if out.as_os_str().is_empty() {
@@ -609,6 +629,7 @@ mod tests {
         });
     }
 
+    #[cfg(unix)]
     #[test]
     fn write_atomic_permissions_error() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -629,6 +650,7 @@ mod tests {
         });
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn write_atomic_rename_error() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -636,6 +658,17 @@ mod tests {
         with_failpoint(FAIL_WRITE_RENAME, || {
             let err = write_atomic(&path, b"data").unwrap_err();
             assert!(err.contains("failed to replace"));
+        });
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn write_atomic_rename_error_uses_windows_fallback() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("file.txt");
+        with_failpoint(FAIL_WRITE_RENAME, || {
+            write_atomic(&path, b"data").unwrap();
+            assert_eq!(fs::read(&path).unwrap(), b"data");
         });
     }
 

@@ -456,6 +456,7 @@ fn updates_disabled_with_debug(config: &UpdateConfig, is_debug: bool) -> bool {
 fn paths_for_update(codex_home: PathBuf) -> Paths {
     let profiles = codex_home.join("profiles");
     Paths {
+        auth_codex: codex_home.clone(),
         auth: codex_home.join("auth.json"),
         profiles_index: profiles.join("profiles.json"),
         profiles_lock: profiles.join("profiles.lock"),

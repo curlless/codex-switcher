@@ -80,6 +80,30 @@ curl -fsSL https://raw.githubusercontent.com/midhunmonachan/codex-profiles/main/
 npm uninstall -g codex-profiles
 ```
 
+### Run In Parallel With Existing Install
+
+If you want to keep the existing global `codex-profiles` and run this fork in parallel:
+
+```bash
+# Keep auth/config reading from your main Codex directory
+set CODEX_PROFILES_AUTH_DIR=%USERPROFILE%\\.codex
+
+# Use a separate storage home for this fork
+set CODEX_PROFILES_HOME=%USERPROFILE%\\codex-switcher-home
+```
+
+Then migrate old profiles into the new storage (source is preserved):
+
+```bash
+codex-switcher migrate
+```
+
+This fork also exposes a parallel-safe command alias:
+
+```bash
+codex-switcher --help
+```
+
 ### Bun
 
 ```bash
@@ -103,13 +127,50 @@ rm ~/.local/bin/codex-profiles
 > [!TIP]
 > Commands are interactive unless you pass `--label`.
 
+> [!NOTE]
+> Automatic update checks are opt-in in this fork. Enable with `CODEX_PROFILES_ENABLE_UPDATE=1`.
+
 | Command | Description |
 | --- | --- |
 | `codex-profiles save [--label <name>]` | Save the current `auth.json` as a profile, optionally labeled. |
 | `codex-profiles load [--label <name>]` | Load a profile from the picker without re-login (or by label). |
+| `codex-profiles switch [--dry-run] [--reload-ide]` | Rank profiles by remaining usage (7d/5h) and switch to the highest-priority profile. |
+| `codex-profiles migrate [--from <path>] [--overwrite]` | Copy profiles from another Codex directory into current storage without deleting source profiles. If `--from` is omitted, source is auto-detected. |
 | `codex-profiles list` | List profiles ordered by last used. |
-| `codex-profiles status [--all] [--label <name>]` | Show usage for the current profile, all profiles, or a specific label. |
+| `codex-profiles status [--current] [--all] [--label <name>]` | Show usage ranking for all profiles (default), current profile only, or a specific label. |
+| `codex-profiles relay-login [--url <callback_url>]` | Relay an already-issued Roo/Codex callback URL to a running local login listener (`http://localhost:<port>/auth/callback?...`). |
 | `codex-profiles delete [--yes] [--label <name>]` | Delete profiles from the picker (or by label). |
+
+> `codex-switcher` supports the exact same commands as `codex-profiles` and is recommended for parallel usage.
+
+### Roo callback relay (`relay-login`)
+
+Use this when a Codex/Roo login listener is already running locally and you need to replay the callback URL.
+
+1. Start normal login in Codex CLI and keep that terminal open (listener running).
+2. Complete auth in browser and copy the full callback URL.
+3. Run:
+
+```bash
+codex-switcher relay-login --url "http://localhost:<port>/auth/callback?code=...&state=..."
+```
+
+If `--url` is omitted in an interactive terminal, the command prompts once for the callback URL.
+
+Strict callback URL requirements:
+
+- Scheme must be `http`
+- Host must be `localhost` or `127.0.0.1`
+- Port is required
+- Path must be exactly `/auth/callback`
+- Query must include non-empty `code` and `state`
+- URL fragments (`#...`) are rejected
+
+> [!IMPORTANT]
+> `relay-login` is relay-only. It does not start login, does not create PKCE state, and does not bypass PKCE validation.
+
+> [!NOTE]
+> If relay fails with connection/timeout errors, ensure the original login listener is still running and relay a fresh callback URL.
 
 > [!WARNING]
 > Deleting a profile does not log you out. It only removes the saved profile file.
@@ -122,10 +183,18 @@ Saved profile mail@company.com (Team)
 
 $ codex-profiles load --label team
 Loaded profile mail@company.com (Team)
+
+$ codex-profiles switch
+Priority ranking (best first)
+#  CUR  PROFILE                       7D   5H   TIER  SCORE  STATE
+1  *    mail@company.com [team]      91%  68%  T0    84.1   READY
+2       personal@mail.com [personal] 43%  12%  T0    33.7   READY
+Loaded profile mail@company.com (Team)
 ```
 
 > [!NOTE]
-> Files are stored under `~/.codex/profiles/`:
+> Saved profiles are stored under `<CODEX_PROFILES_HOME>/.codex/profiles/` (default: `~/.codex/profiles/`).
+> Auth/config are read from `<CODEX_PROFILES_AUTH_DIR>` when set, otherwise from the same directory.
 >
 > | File | Purpose |
 > | --- | --- |

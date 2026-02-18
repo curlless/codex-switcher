@@ -4,9 +4,11 @@ use common::build_id_token;
 use std::env;
 use std::fs;
 use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpListener};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -275,6 +277,198 @@ fn seed_profiles(env: &TestEnv) {
     env.run(&["save", "--label", "beta"]);
 }
 
+#[allow(dead_code)]
+struct RelayCallbackListener {
+    addr: SocketAddr,
+    request_target_rx: Mutex<Receiver<String>>,
+    shutdown_tx: Option<Sender<()>>,
+    handle: Option<thread::JoinHandle<()>>,
+}
+
+#[allow(dead_code)]
+impl RelayCallbackListener {
+    fn start(status_code: u16, body: &str) -> std::io::Result<Self> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        listener.set_nonblocking(true)?;
+        let addr = listener.local_addr()?;
+        let response = build_http_response(status_code, body);
+        let (request_target_tx, request_target_rx) = mpsc::channel();
+        let (shutdown_tx, shutdown_rx) = mpsc::channel();
+
+        let handle = thread::spawn(move || {
+            loop {
+                if shutdown_rx.try_recv().is_ok() {
+                    break;
+                }
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let _ = stream.set_nonblocking(false);
+                        let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+                        let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
+                        if let Some(target) = read_request_target(&mut stream) {
+                            let _ = request_target_tx.send(target);
+                        }
+                        let _ = stream.write_all(&response);
+                        let _ = stream.flush();
+                        break;
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        Ok(Self {
+            addr,
+            request_target_rx: Mutex::new(request_target_rx),
+            shutdown_tx: Some(shutdown_tx),
+            handle: Some(handle),
+        })
+    }
+
+    fn addr(&self) -> SocketAddr {
+        self.addr
+    }
+
+    fn recv_request_target(&self, timeout: Duration) -> Option<String> {
+        let receiver = self
+            .request_target_rx
+            .lock()
+            .expect("lock relay listener request receiver");
+        receiver.recv_timeout(timeout).ok()
+    }
+
+    fn shutdown_and_join(&mut self) {
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
+impl Drop for RelayCallbackListener {
+    fn drop(&mut self) {
+        self.shutdown_and_join();
+    }
+}
+
+fn build_http_response(status_code: u16, body: &str) -> Vec<u8> {
+    format!(
+        "HTTP/1.1 {status_code} {}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        status_reason_phrase(status_code),
+        body.len()
+    )
+    .into_bytes()
+}
+
+fn status_reason_phrase(status_code: u16) -> &'static str {
+    match status_code {
+        200 => "OK",
+        201 => "Created",
+        202 => "Accepted",
+        204 => "No Content",
+        301 => "Moved Permanently",
+        302 => "Found",
+        303 => "See Other",
+        307 => "Temporary Redirect",
+        308 => "Permanent Redirect",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        409 => "Conflict",
+        422 => "Unprocessable Content",
+        429 => "Too Many Requests",
+        500 => "Internal Server Error",
+        502 => "Bad Gateway",
+        503 => "Service Unavailable",
+        _ => "Test Response",
+    }
+}
+
+fn read_request_target(stream: &mut TcpStream) -> Option<String> {
+    let raw = read_http_request(stream);
+    if raw.is_empty() {
+        return None;
+    }
+
+    let request_line_end = raw
+        .windows(2)
+        .position(|pair| pair == b"\r\n")
+        .unwrap_or(raw.len());
+    let request_line = String::from_utf8_lossy(&raw[..request_line_end]);
+    let mut parts = request_line.split_whitespace();
+    let _ = parts.next()?;
+    let request_target = parts.next()?;
+    Some(request_target.to_string())
+}
+
+fn read_http_request(stream: &mut TcpStream) -> Vec<u8> {
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let mut raw = Vec::with_capacity(1024);
+    let mut chunk = [0u8; 512];
+    let mut idle_reads = 0u8;
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                raw.extend_from_slice(&chunk[..read]);
+                idle_reads = 0;
+                if http_request_complete(&raw) || raw.len() >= 64 * 1024 {
+                    break;
+                }
+            }
+            Err(err)
+                if err.kind() == std::io::ErrorKind::WouldBlock
+                    || err.kind() == std::io::ErrorKind::TimedOut =>
+            {
+                idle_reads = idle_reads.saturating_add(1);
+                if idle_reads >= 2 {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+    raw
+}
+
+fn http_request_complete(raw: &[u8]) -> bool {
+    let header_end = match raw.windows(4).position(|chunk| chunk == b"\r\n\r\n") {
+        Some(pos) => pos + 4,
+        None => return false,
+    };
+    let headers = String::from_utf8_lossy(&raw[..header_end]);
+    let content_length = headers
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            if name.eq_ignore_ascii_case("content-length") {
+                value.trim().parse::<usize>().ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0);
+    let chunked = headers.lines().any(|line| {
+        let Some((name, value)) = line.split_once(':') else {
+            return false;
+        };
+        name.eq_ignore_ascii_case("transfer-encoding")
+            && value.to_ascii_lowercase().contains("chunked")
+    });
+    if chunked {
+        return raw[header_end..]
+            .windows(5)
+            .any(|window| window == b"0\r\n\r\n");
+    }
+    raw.len() >= header_end + content_length
+}
+
 fn start_usage_server(
     body: &'static str,
     max_requests: usize,
@@ -294,9 +488,12 @@ fn start_usage_server(
         loop {
             match listener.accept() {
                 Ok((mut stream, _)) => {
-                    let mut buf = [0u8; 1024];
-                    let _ = stream.read(&mut buf);
+                    let _ = stream.set_nonblocking(false);
+                    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+                    let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
+                    let _ = read_http_request(&mut stream);
                     let _ = stream.write_all(&response);
+                    let _ = stream.flush();
                     handled += 1;
                     last_activity = Instant::now();
                     if handled >= max_requests {
@@ -323,7 +520,7 @@ fn assert_status_output(env: &TestEnv, args: &[&str], expected_profiles: &[&str]
         env.write_config(&format!("http://{addr}/backend-api"));
         let output = env.run(args);
         assert_contains_all(&output, expected_profiles);
-        if !output.contains("resets ") {
+        if !output.contains("resets ") && !output.contains("Priority ranking") {
             assert!(output.contains("Error: failed to "));
         }
         let _ = handle.join();
@@ -464,6 +661,65 @@ fn ui_load_requires_tty() {
 }
 
 #[test]
+fn ui_relay_login_success() {
+    let env = TestEnv::new();
+    let mut listener = RelayCallbackListener::start(302, "ok").expect("start relay listener");
+    let addr = listener.addr();
+    let url = format!(
+        "http://{addr}/auth/callback?code=test-code&state=test-state",
+    );
+
+    let output = env.run(&["relay-login", "--url", &url]);
+    assert!(output.contains("Relayed callback to local login listener."));
+    let target = listener
+        .recv_request_target(Duration::from_secs(1))
+        .expect("receive callback target");
+    assert_eq!(target, "/auth/callback?code=test-code&state=test-state");
+    listener.shutdown_and_join();
+}
+
+#[test]
+fn ui_relay_login_requires_url_non_interactive() {
+    let env = TestEnv::new();
+    let err = env.run_expect_error(&["relay-login"]);
+    assert!(err.contains("--url is required in non-interactive mode"));
+}
+
+#[test]
+fn ui_relay_login_rejects_invalid_url() {
+    let env = TestEnv::new();
+    let err = env.run_expect_error(&[
+        "relay-login",
+        "--url",
+        "https://localhost:1455/auth/callback?code=test&state=test",
+    ]);
+    assert!(err.contains("callback URL must use http"));
+}
+
+#[test]
+fn ui_relay_login_reports_listener_status() {
+    let env = TestEnv::new();
+    let mut listener =
+        RelayCallbackListener::start(401, "unauthorized").expect("start relay listener");
+    let addr = listener.addr();
+    let url = format!("http://{addr}/auth/callback?code=test-code&state=test-state");
+    let err = env.run_expect_error(&["relay-login", "--url", &url]);
+    assert!(err.contains("returned http status: 401"));
+    listener.shutdown_and_join();
+}
+
+#[test]
+fn ui_relay_login_reports_unreachable_listener() {
+    let env = TestEnv::new();
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
+    let addr = listener.local_addr().expect("local addr");
+    drop(listener);
+    let url = format!("http://{addr}/auth/callback?code=test-code&state=test-state");
+    let err = env.run_expect_error(&["relay-login", "--url", &url]);
+    assert!(err.contains("failed to reach local login listener"));
+}
+
+#[test]
 fn ui_load_unsaved_profile_requires_prompt() {
     let env = TestEnv::new();
     seed_profiles(&env);
@@ -597,10 +853,34 @@ fn ui_status_command() {
     let env = TestEnv::new();
     seed_profiles(&env);
     seed_alpha(&env);
-    assert_status_output(&env, &["status"], &["alpha@example.com"]);
+    assert_status_output(
+        &env,
+        &["status"],
+        &["alpha@example.com", "beta@example.com", "Priority ranking"],
+    );
     let output = env.run(&["status"]);
     assert!(output.contains("alpha@example.com"));
+    assert!(output.contains("beta@example.com"));
+}
+
+#[test]
+fn ui_status_current_command() {
+    let env = TestEnv::new();
+    seed_profiles(&env);
+    seed_alpha(&env);
+    assert_status_output(&env, &["status", "--current"], &["alpha@example.com"]);
+    let output = env.run(&["status", "--current"]);
+    assert!(output.contains("alpha@example.com"));
     assert!(!output.contains("beta@example.com"));
+}
+
+#[test]
+fn ui_status_all_includes_unsaved_current_profile() {
+    let env = TestEnv::new();
+    seed_profiles(&env);
+    seed_current(&env);
+    let output = env.run(&["status"]);
+    assert!(output.contains("current@example.com"));
 }
 
 #[test]
@@ -627,7 +907,7 @@ fn ui_status_all_command() {
     assert_status_output(
         &env,
         &["status", "--all"],
-        &["alpha@example.com", "beta@example.com"],
+        &["alpha@example.com", "beta@example.com", "Priority ranking"],
     );
     let output = env.run(&["status", "--all"]);
     assert_order(&output, "alpha@example.com", "beta@example.com");
@@ -647,7 +927,73 @@ fn ui_status_all_no_usage() {
     let output = env.run(&["status", "--all"]);
     assert!(output.contains("alpha@example.com"));
     assert!(output.contains("beta@example.com"));
-    assert!(output.contains("Error: failed to fetch usage"));
+    assert!(output.contains("UNAVAILABLE"));
+}
+
+#[test]
+fn ui_switch_command() {
+    let env = TestEnv::new();
+    seed_profiles(&env);
+    seed_beta(&env);
+    let body = r#"{"rate_limit":{"primary_window":{"used_percent":20,"limit_window_seconds":18000,"reset_at":2000000000},"secondary_window":{"used_percent":50,"limit_window_seconds":604800,"reset_at":2000600000}}}"#;
+    let (addr, handle) = start_usage_server(body, 8).expect("usage server");
+    env.write_config(&format!("http://{addr}/backend-api"));
+
+    let output = env.run(&["switch"]);
+    assert!(output.contains("Priority ranking"));
+    assert!(output.contains("Loaded profile"));
+    assert!(env.read_auth().contains(ALPHA_ACCOUNT));
+
+    let _ = handle.join();
+}
+
+#[test]
+fn ui_switch_dry_run_does_not_modify_auth() {
+    let env = TestEnv::new();
+    seed_profiles(&env);
+    seed_beta(&env);
+    let before = env.read_auth();
+    let body = r#"{"rate_limit":{"primary_window":{"used_percent":20,"limit_window_seconds":18000,"reset_at":2000000000},"secondary_window":{"used_percent":50,"limit_window_seconds":604800,"reset_at":2000600000}}}"#;
+    let (addr, handle) = start_usage_server(body, 8).expect("usage server");
+    env.write_config(&format!("http://{addr}/backend-api"));
+
+    let output = env.run(&["switch", "--dry-run"]);
+    assert!(output.contains("Dry run: best profile is"));
+    let after = env.read_auth();
+    assert_eq!(before, after);
+
+    let _ = handle.join();
+}
+
+#[test]
+fn ui_switch_fails_when_all_usage_unavailable() {
+    let env = TestEnv::new();
+    seed_profiles(&env);
+    seed_beta(&env);
+    env.write_config("http://127.0.0.1:1/backend-api");
+    let err = env.run_expect_error(&["switch"]);
+    assert!(err.contains("no eligible profile"));
+}
+
+#[test]
+fn ui_migrate_profiles_keeps_source() {
+    let source = TestEnv::new();
+    seed_profiles(&source);
+
+    let target = TestEnv::new();
+    let from = source.codex_dir().to_string_lossy().into_owned();
+    let output = target.run(&["migrate", "--from", &from]);
+    assert!(output.contains("Migration complete"));
+    assert!(output.contains("Source preserved"));
+
+    let list = target.run(&["list"]);
+    assert!(list.contains("alpha@example.com"));
+    assert!(list.contains("beta@example.com"));
+
+    let alpha_path = source.profiles_dir().join(format!("{ALPHA_ID}.json"));
+    let beta_path = source.profiles_dir().join(format!("{BETA_ID}.json"));
+    assert!(alpha_path.is_file());
+    assert!(beta_path.is_file());
 }
 
 #[test]
@@ -691,16 +1037,22 @@ fn ui_status_refresh_updates_profile() {
     env.run(&["save", "--label", "alpha"]);
 
     let refresh_url = format!("http://{refresh_addr}/token");
-    env.run_with_env(
-        &["status"],
+    let output = env.run_with_env(
+        &["status", "--current"],
         &[("CODEX_REFRESH_TOKEN_URL_OVERRIDE", refresh_url.as_str())],
     );
 
     let auth_contents = env.read_auth();
-    assert!(auth_contents.contains("new-access"));
+    assert!(
+        auth_contents.contains("new-access"),
+        "status output:\n{output}\nauth.json:\n{auth_contents}"
+    );
     let profile_path = env.profiles_dir().join(format!("{ALPHA_ID}.json"));
     let profile_contents = fs::read_to_string(profile_path).expect("read profile");
-    assert!(profile_contents.contains("new-access"));
+    assert!(
+        profile_contents.contains("new-access"),
+        "status output:\n{output}\nprofile:\n{profile_contents}"
+    );
 
     let _ = usage_handle.join();
     let _ = refresh_handle.join();

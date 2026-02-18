@@ -93,6 +93,9 @@ mod tests {
     fn ensure_codex_cli_passes_when_codex_exists() {
         let _guard = ENV_MUTEX.lock().unwrap();
         let dir = tempfile::tempdir().expect("tempdir");
+        #[cfg(windows)]
+        let bin = dir.path().join("codex.EXE");
+        #[cfg(not(windows))]
         let bin = dir.path().join("codex");
         fs::write(&bin, "stub").expect("write bin");
         #[cfg(unix)]
@@ -123,9 +126,22 @@ mod tests {
         assert!(!platform_default_install_command().is_empty());
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn command_candidates_non_windows() {
         let candidates = command_candidates("codex");
         assert_eq!(candidates, vec!["codex".to_string()]);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn command_candidates_windows_include_executable_extensions() {
+        let candidates = command_candidates("codex");
+        assert!(!candidates.is_empty());
+        let upper = candidates
+            .iter()
+            .map(|candidate| candidate.to_ascii_uppercase())
+            .collect::<Vec<_>>();
+        assert!(upper.iter().any(|candidate| candidate == "CODEX.EXE"));
     }
 }

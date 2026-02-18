@@ -1,5 +1,6 @@
 use chrono::{DateTime, Local, Utc};
 use colored::Colorize;
+use directories::BaseDirs;
 use inquire::{Confirm, MultiSelect, Select};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -11,10 +12,11 @@ use std::io::{self, IsTerminal as _};
 use std::path::{Path, PathBuf};
 
 use crate::{
-    CANCELLED_MESSAGE, format_action, format_entry_header, format_error, format_list_hint,
-    format_no_profiles, format_save_before_load, format_unsaved_warning, format_warning,
-    inquire_select_render_config, is_inquire_cancel, is_plain, normalize_error, print_output_block,
-    print_output_block_with_frame, style_text, terminal_width, use_color_stderr, use_color_stdout,
+    CANCELLED_MESSAGE, format_action, format_entry_header, format_error, format_hint,
+    format_list_hint, format_no_profiles, format_save_before_load, format_unsaved_warning,
+    format_warning, inquire_select_render_config, is_inquire_cancel, is_plain, normalize_error,
+    print_output_block, print_output_block_with_frame, style_text, terminal_width,
+    use_color_stderr, use_color_stdout,
 };
 use crate::{Paths, command_name, copy_atomic, write_atomic};
 use crate::{
@@ -27,8 +29,37 @@ use crate::{
     format_usage_unavailable, lock_usage, now_seconds, ordered_profiles, read_base_url,
     start_usage_spinner, stop_usage_spinner, usage_unavailable,
 };
+use crate::{reload_ide_best_effort, reload_ide_manual_hint};
 
 const MAX_USAGE_CONCURRENCY: usize = 4;
+const SCORE_7D_WEIGHT: i64 = 70;
+const SCORE_5H_WEIGHT: i64 = 30;
+
+#[derive(Clone, Debug)]
+struct PriorityUsage {
+    seven_day_left: i64,
+    seven_day_reset: Option<String>,
+    five_hour_left: i64,
+    five_hour_reset: Option<String>,
+    tier: u8,
+    score: i64,
+}
+
+#[derive(Clone, Debug)]
+enum PriorityState {
+    Ready(PriorityUsage),
+    Unavailable(String),
+}
+
+#[derive(Clone, Debug)]
+struct PriorityRow {
+    id: String,
+    profile_name: String,
+    label: Option<String>,
+    is_current: bool,
+    candidate: bool,
+    state: PriorityState,
+}
 
 #[derive(Clone, Copy, Default)]
 struct UsageSortKey {
@@ -181,6 +212,14 @@ fn usage_reset_at(window: Option<&UsageWindow>) -> Option<i64> {
     window.map(|value| value.reset_at)
 }
 
+fn usage_reset_remaining(window: Option<&UsageWindow>) -> Option<String> {
+    window
+        .and_then(|value| value.reset_at_relative.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
 fn profile_is_api_key(id: &str, snapshot: &Snapshot) -> bool {
     snapshot
         .tokens
@@ -218,6 +257,305 @@ fn profile_plan_for_sort(id: &str, snapshot: &Snapshot) -> Option<String> {
         .profiles
         .get(id)
         .and_then(|entry| entry.plan.clone())
+}
+
+fn priority_state_for_profile(
+    id: &str,
+    snapshot: &Snapshot,
+    base_url: &str,
+    now: DateTime<Local>,
+) -> PriorityState {
+    let Some(tokens) = snapshot
+        .tokens
+        .get(id)
+        .and_then(|result| result.as_ref().ok())
+    else {
+        return PriorityState::Unavailable("Profile tokens are unreadable".to_string());
+    };
+    priority_state_for_tokens(tokens, base_url, now)
+}
+
+fn priority_state_for_tokens(
+    tokens: &Tokens,
+    base_url: &str,
+    now: DateTime<Local>,
+) -> PriorityState {
+    if is_api_key_profile(tokens) {
+        return PriorityState::Unavailable("Usage unavailable for API key login".to_string());
+    }
+    let (_, plan) = extract_email_and_plan(tokens);
+    if is_free_plan(plan.as_deref()) {
+        return PriorityState::Unavailable("Usage unavailable for free plan".to_string());
+    }
+    let Some(access_token) = tokens.access_token.as_deref() else {
+        return PriorityState::Unavailable("Missing access token".to_string());
+    };
+    let Some(account_id) = token_account_id(tokens) else {
+        return PriorityState::Unavailable("Missing account id".to_string());
+    };
+    let limits = match fetch_usage_limits(base_url, access_token, account_id, now) {
+        Ok(limits) => limits,
+        Err(err) => return PriorityState::Unavailable(normalize_error(&err.message())),
+    };
+    let Some(five_hour_left) = usage_left_percent(limits.five_hour.as_ref()) else {
+        return PriorityState::Unavailable("Missing 5h usage window".to_string());
+    };
+    let Some(seven_day_left) = usage_left_percent(limits.weekly.as_ref()) else {
+        return PriorityState::Unavailable("Missing 7d usage window".to_string());
+    };
+    let five_hour_reset = usage_reset_remaining(limits.five_hour.as_ref());
+    let seven_day_reset = usage_reset_remaining(limits.weekly.as_ref());
+    let tier = if seven_day_left <= 0 {
+        2
+    } else if five_hour_left <= 0 {
+        1
+    } else {
+        0
+    };
+    let score = if tier == 0 {
+        seven_day_left * SCORE_7D_WEIGHT + five_hour_left * SCORE_5H_WEIGHT
+    } else {
+        0
+    };
+    PriorityState::Ready(PriorityUsage {
+        seven_day_left,
+        seven_day_reset,
+        five_hour_left,
+        five_hour_reset,
+        tier,
+        score,
+    })
+}
+
+fn profile_name_for_priority_row(id: &str, snapshot: &Snapshot, label: Option<&str>) -> String {
+    let email = snapshot
+        .tokens
+        .get(id)
+        .and_then(|result| result.as_ref().ok())
+        .and_then(|tokens| extract_email_and_plan(tokens).0)
+        .or_else(|| {
+            snapshot
+                .index
+                .profiles
+                .get(id)
+                .and_then(|entry| entry.email.clone())
+        })
+        .unwrap_or_else(|| id.to_string());
+    match label {
+        Some(label) => format!("{email} [{label}]"),
+        None => email,
+    }
+}
+
+fn priority_rows(
+    paths: &Paths,
+    snapshot: &Snapshot,
+    current_saved_id: Option<&str>,
+    include_unsaved_current: bool,
+) -> Vec<PriorityRow> {
+    let base_url = read_base_url(paths);
+    let now = Local::now();
+    let ids: Vec<String> = snapshot.usage_map.keys().cloned().collect();
+    let build = |id: &String| {
+        let label = label_for_id(&snapshot.labels, id);
+        let profile_name = profile_name_for_priority_row(id, snapshot, label.as_deref());
+        PriorityRow {
+            id: id.clone(),
+            profile_name,
+            label,
+            is_current: current_saved_id == Some(id.as_str()),
+            candidate: true,
+            state: priority_state_for_profile(id, snapshot, &base_url, now),
+        }
+    };
+    let mut rows = if ids.len() > MAX_USAGE_CONCURRENCY {
+        let mut out = Vec::with_capacity(ids.len());
+        for chunk in ids.chunks(MAX_USAGE_CONCURRENCY) {
+            let mut chunk_rows: Vec<PriorityRow> = chunk.par_iter().map(build).collect();
+            out.append(&mut chunk_rows);
+        }
+        out
+    } else {
+        ids.par_iter().map(build).collect::<Vec<_>>()
+    };
+    if include_unsaved_current && current_saved_id.is_none() {
+        if let Ok(tokens) = read_tokens(&paths.auth) {
+            let (email, _) = extract_email_and_plan(&tokens);
+            let profile_name = email.unwrap_or_else(|| "Current profile".to_string());
+            rows.push(PriorityRow {
+                id: "__current__".to_string(),
+                profile_name,
+                label: None,
+                is_current: true,
+                candidate: false,
+                state: priority_state_for_tokens(&tokens, &base_url, now),
+            });
+        }
+    }
+    rows.sort_by(priority_row_cmp);
+    rows
+}
+
+fn priority_sort_label(row: &PriorityRow) -> String {
+    row.label.as_deref().unwrap_or(&row.id).to_ascii_lowercase()
+}
+
+fn priority_row_cmp(left: &PriorityRow, right: &PriorityRow) -> Ordering {
+    match (&left.state, &right.state) {
+        (PriorityState::Ready(left_usage), PriorityState::Ready(right_usage)) => left_usage
+            .tier
+            .cmp(&right_usage.tier)
+            .then_with(|| right_usage.score.cmp(&left_usage.score))
+            .then_with(|| priority_sort_label(left).cmp(&priority_sort_label(right)))
+            .then_with(|| left.id.cmp(&right.id)),
+        (PriorityState::Ready(_), PriorityState::Unavailable(_)) => Ordering::Less,
+        (PriorityState::Unavailable(_), PriorityState::Ready(_)) => Ordering::Greater,
+        (PriorityState::Unavailable(_), PriorityState::Unavailable(_)) => priority_sort_label(left)
+            .cmp(&priority_sort_label(right))
+            .then_with(|| left.id.cmp(&right.id)),
+    }
+}
+
+fn best_ready_row(rows: &[PriorityRow]) -> Option<&PriorityRow> {
+    rows.iter()
+        .find(|row| row.candidate && matches!(row.state, PriorityState::Ready(_)))
+}
+
+fn render_priority_table(rows: &[PriorityRow], use_color: bool) -> String {
+    let headers = [
+        "#", "CUR", "PROFILE", "7D", "7D RESET", "5H", "5H RESET", "TIER", "SCORE", "STATE",
+    ];
+    let mut data = Vec::with_capacity(rows.len());
+    let mut rank = 0usize;
+    for row in rows {
+        let mut rank_text = "-".to_string();
+        let current = if row.is_current { "*" } else { "" }.to_string();
+        let mut seven = "--".to_string();
+        let mut seven_reset = "--".to_string();
+        let mut five = "--".to_string();
+        let mut five_reset = "--".to_string();
+        let mut tier = "--".to_string();
+        let mut score = "--".to_string();
+        let state = match &row.state {
+            PriorityState::Ready(usage) => {
+                if row.candidate {
+                    rank += 1;
+                    rank_text = rank.to_string();
+                }
+                seven = format!("{}%", usage.seven_day_left);
+                seven_reset = usage.seven_day_reset.as_deref().unwrap_or("--").to_string();
+                five = format!("{}%", usage.five_hour_left);
+                five_reset = usage.five_hour_reset.as_deref().unwrap_or("--").to_string();
+                tier = format!("T{}", usage.tier);
+                score = if usage.tier == 0 {
+                    format!("{:.1}", usage.score as f64 / 100.0)
+                } else {
+                    "MIN".to_string()
+                };
+                if row.is_current && !row.candidate {
+                    "CURRENT".to_string()
+                } else {
+                    match usage.tier {
+                        0 => "READY".to_string(),
+                        1 => "5H=0".to_string(),
+                        _ => "7D=0".to_string(),
+                    }
+                }
+            }
+            PriorityState::Unavailable(_) => "UNAVAILABLE".to_string(),
+        };
+        data.push(vec![
+            rank_text,
+            current,
+            row.profile_name.clone(),
+            seven,
+            seven_reset,
+            five,
+            five_reset,
+            tier,
+            score,
+            state,
+        ]);
+    }
+
+    let mut widths: Vec<usize> = headers.iter().map(|value| value.len()).collect();
+    for row in &data {
+        for (idx, value) in row.iter().enumerate() {
+            widths[idx] = widths[idx].max(value.len());
+        }
+    }
+
+    let mut lines = Vec::new();
+    lines.push("Priority ranking (best first)".to_string());
+    lines.push(format_row(&headers, &widths, None, use_color));
+    let separator = widths.iter().map(|w| "-".repeat(*w)).collect::<Vec<_>>();
+    lines.push(format_row_ref(&separator, &widths, None, use_color));
+
+    for row in data {
+        let state_style = row.last().cloned().unwrap_or_default();
+        lines.push(format_row_ref(&row, &widths, Some(&state_style), use_color));
+    }
+
+    let unavailable_rows: Vec<String> = rows
+        .iter()
+        .filter_map(|row| match &row.state {
+            PriorityState::Unavailable(reason) => Some(format!("{}: {}", row.profile_name, reason)),
+            PriorityState::Ready(_) => None,
+        })
+        .collect();
+    if !unavailable_rows.is_empty() {
+        lines.push(String::new());
+        lines.push("Unavailable profiles".to_string());
+        for line in unavailable_rows {
+            lines.push(format!("- {line}"));
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn format_row(row: &[&str], widths: &[usize], state: Option<&str>, use_color: bool) -> String {
+    let parts = row
+        .iter()
+        .enumerate()
+        .map(|(idx, value)| format!("{value:<width$}", width = widths[idx]))
+        .collect::<Vec<_>>();
+    format_row_ref(&parts, widths, state, use_color)
+}
+
+fn format_row_ref(
+    row: &[String],
+    widths: &[usize],
+    state: Option<&str>,
+    use_color: bool,
+) -> String {
+    let mut parts = Vec::with_capacity(row.len());
+    for (idx, value) in row.iter().enumerate() {
+        let padded = format!("{value:<width$}", width = widths[idx]);
+        let styled = if idx + 1 == row.len() {
+            style_priority_state_cell(&padded, state, use_color)
+        } else if idx == 1 && value == "*" {
+            style_text(&padded, use_color, |text| text.cyan().bold())
+        } else {
+            padded
+        };
+        parts.push(styled);
+    }
+    parts.join("  ")
+}
+
+fn style_priority_state_cell(cell: &str, state: Option<&str>, use_color: bool) -> String {
+    let Some(state) = state else {
+        return cell.to_string();
+    };
+    match state {
+        "READY" => style_text(cell, use_color, |text| text.green().bold()),
+        "CURRENT" => style_text(cell, use_color, |text| text.cyan().bold()),
+        "5H=0" => style_text(cell, use_color, |text| text.yellow().bold()),
+        "7D=0" => style_text(cell, use_color, |text| text.red().bold()),
+        "UNAVAILABLE" => style_text(cell, use_color, |text| text.dimmed()),
+        _ => cell.to_string(),
+    }
 }
 
 pub fn save_profile(paths: &Paths, label: Option<String>) -> Result<(), String> {
@@ -265,7 +603,6 @@ pub fn save_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
 
 pub fn load_profile(paths: &Paths, label: Option<String>) -> Result<(), String> {
     let use_color_err = use_color_stderr();
-    let use_color_out = use_color_stdout();
     let no_profiles = format_no_profiles(paths, use_color_err);
     let (mut snapshot, mut ordered) = load_snapshot_ordered(paths, true, &no_profiles)?;
 
@@ -300,7 +637,16 @@ pub fn load_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
             return Err(profile_not_found(use_color_err));
         }
     }
+    load_profile_by_id(paths, &selected_id, &selected_display)
+}
 
+fn load_profile_by_id(
+    paths: &Paths,
+    selected_id: &str,
+    selected_display: &str,
+) -> Result<(), String> {
+    let use_color_err = use_color_stderr();
+    let use_color_out = use_color_stdout();
     let mut store = ProfileStore::load(paths)?;
 
     if let Err(err) = sync_current(
@@ -313,7 +659,7 @@ pub fn load_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
         eprintln!("{warning}");
     }
 
-    let source = profile_path_for_id(&paths.profiles, &selected_id);
+    let source = profile_path_for_id(&paths.profiles, selected_id);
     if !source.is_file() {
         return Err(profile_not_found(use_color_err));
     }
@@ -321,16 +667,13 @@ pub fn load_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
     copy_profile(&source, &paths.auth, "load selected profile to")?;
 
     let now = now_seconds();
-    store.usage_map.insert(selected_id.clone(), now);
-    let label = label_for_id(&store.labels, &selected_id);
-    let tokens = snapshot
-        .tokens
-        .get(&selected_id)
-        .and_then(|result| result.as_ref().ok());
+    store.usage_map.insert(selected_id.to_string(), now);
+    let label = label_for_id(&store.labels, selected_id);
+    let tokens = read_tokens(&source).ok();
     update_profiles_index_entry(
         &mut store.profiles_index,
-        &selected_id,
-        tokens,
+        selected_id,
+        tokens.as_ref(),
         label,
         now,
         true,
@@ -340,6 +683,289 @@ pub fn load_profile(paths: &Paths, label: Option<String>) -> Result<(), String> 
     let message = format_action(&format!("Loaded profile {selected_display}"), use_color_out);
     print_output_block(&message);
     Ok(())
+}
+
+pub fn switch_best_profile(paths: &Paths, dry_run: bool, reload_ide: bool) -> Result<(), String> {
+    let use_color = use_color_stdout();
+    let no_profiles = format_no_profiles(paths, use_color);
+    let snapshot = load_snapshot(paths, false)?;
+    if snapshot.usage_map.is_empty() {
+        print_output_block(&no_profiles);
+        return Ok(());
+    }
+    let current_saved = current_saved_id(paths, &snapshot.usage_map, &snapshot.tokens);
+    let rows = priority_rows(paths, &snapshot, current_saved.as_deref(), false);
+    if rows.is_empty() {
+        print_output_block(&no_profiles);
+        return Ok(());
+    }
+    let table = render_priority_table(&rows, use_color);
+    print_output_block(&table);
+
+    let Some(best) = best_ready_row(&rows) else {
+        let hint = format_hint(
+            "No switch performed because usage data is unavailable for all profiles.",
+            use_color,
+        );
+        return Err(format!(
+            "Error: no eligible profile found for auto-switch.{hint}"
+        ));
+    };
+
+    if dry_run {
+        let message = format_action(
+            &format!("Dry run: best profile is {}", best.profile_name),
+            use_color,
+        );
+        print_output_block(&message);
+        return Ok(());
+    }
+
+    load_profile_by_id(paths, &best.id, &best.profile_name)?;
+
+    if reload_ide {
+        let outcome = reload_ide_best_effort();
+        let mut lines = Vec::new();
+        if outcome.restarted {
+            lines.push(format_action(&outcome.message, use_color));
+        } else {
+            lines.push(format_warning(&outcome.message, use_color));
+        }
+        lines.push(format_hint(reload_ide_manual_hint(), use_color));
+        print_output_block(&lines.join("\n"));
+    }
+
+    Ok(())
+}
+
+pub fn migrate_profiles(
+    paths: &Paths,
+    from: Option<String>,
+    overwrite: bool,
+) -> Result<(), String> {
+    let from_provided = from.as_ref().is_some_and(|value| !value.trim().is_empty());
+    let source_codex = resolve_migration_source_codex(paths, from)?;
+    let source_profiles = source_codex.join("profiles");
+    let source_index_path = source_profiles.join("profiles.json");
+
+    if source_profiles == paths.profiles {
+        if !from_provided {
+            let use_color = use_color_stdout();
+            let message = format_action(
+                "Migration skipped: source and destination are already the same profile storage.",
+                use_color,
+            );
+            let hint = format_hint(
+                "To keep separate switcher storage, set CODEX_PROFILES_HOME to another directory and run migrate again.",
+                use_color,
+            );
+            print_output_block(&format!("{message}\n{hint}"));
+            return Ok(());
+        }
+        return Err(
+            "Error: source and destination profile directories are the same; nothing to migrate."
+                .to_string(),
+        );
+    }
+    if !source_profiles.is_dir() {
+        return Err(format!(
+            "Error: source profiles directory not found: {}",
+            source_profiles.display()
+        ));
+    }
+
+    let source_paths = Paths {
+        codex: source_codex.clone(),
+        auth_codex: source_codex.clone(),
+        auth: source_codex.join("auth.json"),
+        profiles: source_profiles.clone(),
+        profiles_index: source_index_path,
+        profiles_lock: source_profiles.join("profiles.lock"),
+    };
+
+    let mut source_tokens = BTreeMap::new();
+    for path in profile_files(&source_paths.profiles)? {
+        let Some(id) = profile_id_from_path(&path) else {
+            continue;
+        };
+        match read_tokens(&path) {
+            Ok(tokens) => {
+                source_tokens.insert(id, tokens);
+            }
+            Err(err) => {
+                let warning = format_warning(
+                    &format!(
+                        "Skipping invalid source profile {} ({})",
+                        path.display(),
+                        normalize_error(&err)
+                    ),
+                    use_color_stderr(),
+                );
+                eprintln!("{warning}");
+            }
+        }
+    }
+    let source_index = read_profiles_index_relaxed(&source_paths);
+    let mut store = ProfileStore::load(paths)?;
+
+    let mut copied = 0usize;
+    let mut overwritten = 0usize;
+    let mut skipped = 0usize;
+    let mut imported_labels = 0usize;
+    for id in source_tokens.keys() {
+        let source_file = profile_path_for_id(&source_paths.profiles, id);
+        if !source_file.is_file() {
+            continue;
+        }
+        let dest_file = profile_path_for_id(&paths.profiles, id);
+        let existed_before = dest_file.is_file();
+        if dest_file.is_file() && !overwrite {
+            skipped += 1;
+            continue;
+        }
+        copy_profile(&source_file, &dest_file, "migrate profile to")?;
+        if existed_before && overwrite {
+            overwritten += 1;
+        } else {
+            copied += 1;
+        }
+
+        if let Some(src_entry) = source_index.profiles.get(id) {
+            let mut entry = src_entry.clone();
+            if let Some(label) = src_entry.label.as_deref() {
+                let final_label = assign_migrated_label(&mut store.labels, label, id);
+                if final_label.is_some() {
+                    imported_labels += 1;
+                }
+                entry.label = final_label;
+            }
+            let source_last_used = entry.last_used.unwrap_or(0);
+            let dest_last_used = store.usage_map.get(id).copied().unwrap_or(0);
+            if source_last_used > dest_last_used {
+                store.usage_map.insert(id.clone(), source_last_used);
+            } else if !store.usage_map.contains_key(id) {
+                store.usage_map.insert(id.clone(), source_last_used);
+            }
+            store.profiles_index.profiles.insert(id.clone(), entry);
+        } else {
+            store.usage_map.entry(id.clone()).or_insert(0);
+            store.profiles_index.profiles.entry(id.clone()).or_default();
+        }
+    }
+    store.save(paths)?;
+
+    let use_color = use_color_stdout();
+    let summary = format_action(
+        &format!(
+            "Migration complete: copied={copied}, overwritten={overwritten}, skipped={skipped}, labels={imported_labels}"
+        ),
+        use_color,
+    );
+    let source_line = format!("Source preserved: {}", source_paths.profiles.display());
+    let target_line = format!("Destination: {}", paths.profiles.display());
+    print_output_block(&format!("{summary}\n{source_line}\n{target_line}"));
+    Ok(())
+}
+
+fn normalize_source_codex_dir(path: PathBuf) -> PathBuf {
+    if path.join("profiles").is_dir() {
+        return path;
+    }
+    let nested = path.join(".codex");
+    if nested.join("profiles").is_dir() {
+        return nested;
+    }
+    path
+}
+
+fn resolve_migration_source_codex(paths: &Paths, from: Option<String>) -> Result<PathBuf, String> {
+    if let Some(source_raw) = from
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        return Ok(normalize_source_codex_dir(source_raw));
+    }
+
+    let mut candidates = Vec::new();
+    push_unique_path(&mut candidates, paths.auth_codex.clone());
+    if let Some(path) = default_home_codex_dir() {
+        push_unique_path(&mut candidates, path);
+    }
+
+    if let Some(source_codex) = pick_migration_source_codex(&candidates, &paths.profiles) {
+        return Ok(source_codex);
+    }
+
+    Err(format!(
+        "Error: could not auto-detect source profiles directory. Use `{} migrate --from <path>`.",
+        command_name()
+    ))
+}
+
+fn pick_migration_source_codex(
+    candidates: &[PathBuf],
+    destination_profiles: &Path,
+) -> Option<PathBuf> {
+    for candidate in candidates {
+        let normalized = normalize_source_codex_dir(candidate.clone());
+        let source_profiles = normalized.join("profiles");
+        if source_profiles == destination_profiles {
+            continue;
+        }
+        if source_profiles.is_dir() {
+            return Some(normalized);
+        }
+    }
+    None
+}
+
+fn push_unique_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
+    if path.as_os_str().is_empty() {
+        return;
+    }
+    if paths.iter().any(|existing| existing == &path) {
+        return;
+    }
+    paths.push(path);
+}
+
+fn default_home_codex_dir() -> Option<PathBuf> {
+    if let Some(base_dirs) = BaseDirs::new() {
+        return Some(base_dirs.home_dir().join(".codex"));
+    }
+
+    std::env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .map(|path| path.join(".codex"))
+        .or_else(|| {
+            let home = std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .filter(|path| !path.as_os_str().is_empty())?;
+            Some(home.join(".codex"))
+        })
+}
+
+fn assign_migrated_label(labels: &mut Labels, desired: &str, id: &str) -> Option<String> {
+    let trimmed = desired.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if labels.get(trimmed).is_some_and(|existing| existing == id) {
+        return Some(trimmed.to_string());
+    }
+    if !labels.contains_key(trimmed) {
+        labels.insert(trimmed.to_string(), id.to_string());
+        return Some(trimmed.to_string());
+    }
+    for suffix in 2..10_000 {
+        let candidate = format!("{trimmed}-{suffix}");
+        if !labels.contains_key(&candidate) {
+            labels.insert(candidate.clone(), id.to_string());
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 pub fn delete_profile(paths: &Paths, yes: bool, label: Option<String>) -> Result<(), String> {
@@ -496,7 +1122,18 @@ pub fn list_profiles(
 
 pub fn status_profiles(paths: &Paths, all: bool) -> Result<(), String> {
     if all {
-        return list_profiles(paths, true, true, true, true);
+        let use_color = use_color_stdout();
+        let no_profiles = format_no_profiles(paths, use_color);
+        let snapshot = load_snapshot(paths, false)?;
+        if snapshot.usage_map.is_empty() {
+            print_output_block(&no_profiles);
+            return Ok(());
+        }
+        let current_saved = current_saved_id(paths, &snapshot.usage_map, &snapshot.tokens);
+        let rows = priority_rows(paths, &snapshot, current_saved.as_deref(), true);
+        let table = render_priority_table(&rows, use_color);
+        print_output_block(&table);
+        return Ok(());
     }
     let snapshot = load_snapshot(paths, false).ok();
     let current_saved_id = snapshot
@@ -2294,6 +2931,113 @@ mod tests {
         assert_eq!(sanitize_part("A B"), "a-b");
         assert_eq!(profile_base("", ""), "unknown-unknown");
         assert_eq!(short_account_suffix("abcdef123"), "abcdef");
+    }
+
+    #[test]
+    fn normalize_source_codex_dir_prefers_nested_codex() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().join("home");
+        let nested = root.join(".codex");
+        fs::create_dir_all(nested.join("profiles")).unwrap();
+        let normalized = normalize_source_codex_dir(root);
+        assert_eq!(normalized, nested);
+    }
+
+    #[test]
+    fn pick_migration_source_skips_destination_and_picks_existing_source() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let dest_codex = dir.path().join("dest").join(".codex");
+        let source_codex = dir.path().join("source").join(".codex");
+        let dest_profiles = dest_codex.join("profiles");
+        fs::create_dir_all(&dest_profiles).unwrap();
+        fs::create_dir_all(source_codex.join("profiles")).unwrap();
+
+        let picked =
+            pick_migration_source_codex(&[dest_codex, source_codex.clone()], &dest_profiles);
+        assert_eq!(picked.as_deref(), Some(source_codex.as_path()));
+    }
+
+    #[test]
+    fn priority_order_prefers_tier_score_and_label() {
+        let mut rows = vec![
+            PriorityRow {
+                id: "b".to_string(),
+                profile_name: "b@example.com [b]".to_string(),
+                label: Some("b".to_string()),
+                is_current: false,
+                candidate: true,
+                state: PriorityState::Ready(PriorityUsage {
+                    seven_day_left: 40,
+                    seven_day_reset: Some("in 3d".to_string()),
+                    five_hour_left: 0,
+                    five_hour_reset: Some("in 1h".to_string()),
+                    tier: 1,
+                    score: 2800,
+                }),
+            },
+            PriorityRow {
+                id: "a".to_string(),
+                profile_name: "a@example.com [a]".to_string(),
+                label: Some("a".to_string()),
+                is_current: false,
+                candidate: true,
+                state: PriorityState::Ready(PriorityUsage {
+                    seven_day_left: 55,
+                    seven_day_reset: Some("in 4d".to_string()),
+                    five_hour_left: 45,
+                    five_hour_reset: Some("in 2h".to_string()),
+                    tier: 0,
+                    score: 5200,
+                }),
+            },
+            PriorityRow {
+                id: "c".to_string(),
+                profile_name: "c@example.com [c]".to_string(),
+                label: Some("c".to_string()),
+                is_current: false,
+                candidate: true,
+                state: PriorityState::Unavailable("usage failed".to_string()),
+            },
+        ];
+        rows.sort_by(priority_row_cmp);
+        assert_eq!(rows[0].id, "a");
+        assert_eq!(rows[1].id, "b");
+        assert_eq!(rows[2].id, "c");
+    }
+
+    #[test]
+    fn render_priority_table_shows_unavailable_summary() {
+        let rows = vec![
+            PriorityRow {
+                id: "a".to_string(),
+                profile_name: "a@example.com [a]".to_string(),
+                label: Some("a".to_string()),
+                is_current: true,
+                candidate: true,
+                state: PriorityState::Ready(PriorityUsage {
+                    seven_day_left: 90,
+                    seven_day_reset: Some("in 6d".to_string()),
+                    five_hour_left: 50,
+                    five_hour_reset: Some("in 5h".to_string()),
+                    tier: 0,
+                    score: 7800,
+                }),
+            },
+            PriorityRow {
+                id: "b".to_string(),
+                profile_name: "b@example.com [b]".to_string(),
+                label: Some("b".to_string()),
+                is_current: false,
+                candidate: true,
+                state: PriorityState::Unavailable("missing 7d window".to_string()),
+            },
+        ];
+        let output = render_priority_table(&rows, false);
+        assert!(output.contains("Priority ranking"));
+        assert!(output.contains("5H RESET"));
+        assert!(output.contains("7D RESET"));
+        assert!(output.contains("UNAVAILABLE"));
+        assert!(output.contains("Unavailable profiles"));
     }
 
     #[test]

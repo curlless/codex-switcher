@@ -98,7 +98,7 @@ struct RateLimitWindowSnapshot {
 }
 
 pub fn read_base_url(paths: &Paths) -> String {
-    let config_path = paths.codex.join("config.toml");
+    let config_path = paths.auth_codex.join("config.toml");
     if let Ok(contents) = fs::read_to_string(config_path) {
         for line in contents.lines() {
             if let Some(value) = parse_config_value(line, "chatgpt_base_url") {
@@ -862,6 +862,7 @@ mod tests {
         LOCK_FAILPOINT.store(0, Ordering::Relaxed);
     }
 
+    #[cfg(unix)]
     #[test]
     fn lock_usage_open_error() {
         let _guard = LOCK_TEST_MUTEX.lock().unwrap();

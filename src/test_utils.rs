@@ -96,12 +96,72 @@ pub(crate) fn spawn_server(response: String) -> String {
     let addr = listener.local_addr().unwrap();
     thread::spawn(move || {
         if let Ok((mut stream, _)) = listener.accept() {
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(250)));
+            let mut request = Vec::new();
             let mut buf = [0u8; 4096];
-            let _ = stream.read(&mut buf);
+            let mut idle_reads = 0u8;
+            loop {
+                match stream.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        request.extend_from_slice(&buf[..n]);
+                        idle_reads = 0;
+                        if request_complete(&request) {
+                            break;
+                        }
+                    }
+                    Err(err)
+                        if err.kind() == std::io::ErrorKind::WouldBlock
+                            || err.kind() == std::io::ErrorKind::TimedOut =>
+                    {
+                        idle_reads = idle_reads.saturating_add(1);
+                        if idle_reads >= 2 {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
             let _ = stream.write_all(response.as_bytes());
+            let _ = stream.flush();
         }
     });
     format!("http://{}", addr)
+}
+
+fn request_complete(bytes: &[u8]) -> bool {
+    let header_end = match bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+        Some(pos) => pos + 4,
+        None => return false,
+    };
+    let headers = match std::str::from_utf8(&bytes[..header_end]) {
+        Ok(text) => text,
+        Err(_) => return true,
+    };
+    let content_length = headers
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            if name.eq_ignore_ascii_case("content-length") {
+                value.trim().parse::<usize>().ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0);
+    let chunked = headers.lines().any(|line| {
+        let Some((name, value)) = line.split_once(':') else {
+            return false;
+        };
+        name.eq_ignore_ascii_case("transfer-encoding")
+            && value.to_ascii_lowercase().contains("chunked")
+    });
+    if chunked {
+        return bytes[header_end..]
+            .windows(5)
+            .any(|window| window == b"0\r\n\r\n");
+    }
+    bytes.len() >= header_end + content_length
 }
 
 pub(crate) fn build_id_token(email: &str, plan: &str) -> String {
@@ -130,12 +190,14 @@ pub(crate) fn http_ok_response(body: &str, content_type: &str) -> String {
 
 pub(crate) fn make_paths(root: &Path) -> Paths {
     let codex = root.to_path_buf();
+    let auth_codex = codex.clone();
     let auth = codex.join("auth.json");
     let profiles = codex.join("profiles");
     let profiles_index = profiles.join("profiles.json");
     let profiles_lock = profiles.join("profiles.lock");
     Paths {
         codex,
+        auth_codex,
         auth,
         profiles,
         profiles_index,
