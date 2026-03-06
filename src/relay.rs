@@ -149,10 +149,11 @@ mod tests {
 
     #[test]
     fn resolve_callback_url_uses_url_arg() {
-        let value = resolve_callback_url_with(Some(format!("  {VALID_LOCALHOST}  ")), false, || {
-            Ok(String::new())
-        })
-        .unwrap();
+        let value =
+            resolve_callback_url_with(Some(format!("  {VALID_LOCALHOST}  ")), false, || {
+                Ok(String::new())
+            })
+            .unwrap();
         assert_eq!(value, VALID_LOCALHOST);
     }
 
@@ -195,15 +196,15 @@ mod tests {
 
     #[test]
     fn validate_callback_url_rejects_non_http_scheme() {
-        let err =
-            validate_callback_url("https://localhost:1455/auth/callback?code=a&state=b").unwrap_err();
+        let err = validate_callback_url("https://localhost:1455/auth/callback?code=a&state=b")
+            .unwrap_err();
         assert_eq!(err, "Error: callback URL must use http.");
     }
 
     #[test]
     fn validate_callback_url_rejects_non_loopback_host() {
-        let err =
-            validate_callback_url("http://example.com:1455/auth/callback?code=a&state=b").unwrap_err();
+        let err = validate_callback_url("http://example.com:1455/auth/callback?code=a&state=b")
+            .unwrap_err();
         assert_eq!(
             err,
             "Error: callback URL host must be localhost or 127.0.0.1."
@@ -212,13 +213,15 @@ mod tests {
 
     #[test]
     fn validate_callback_url_rejects_missing_port() {
-        let err = validate_callback_url("http://localhost/auth/callback?code=a&state=b").unwrap_err();
+        let err =
+            validate_callback_url("http://localhost/auth/callback?code=a&state=b").unwrap_err();
         assert_eq!(err, "Error: callback URL must include an explicit port.");
     }
 
     #[test]
     fn validate_callback_url_rejects_wrong_path() {
-        let err = validate_callback_url("http://localhost:1455/callback?code=a&state=b").unwrap_err();
+        let err =
+            validate_callback_url("http://localhost:1455/callback?code=a&state=b").unwrap_err();
         assert_eq!(err, "Error: callback URL path must be /auth/callback.");
     }
 
@@ -233,8 +236,8 @@ mod tests {
 
     #[test]
     fn validate_callback_url_rejects_empty_state() {
-        let err = validate_callback_url("http://localhost:1455/auth/callback?code=a&state=")
-            .unwrap_err();
+        let err =
+            validate_callback_url("http://localhost:1455/auth/callback?code=a&state=").unwrap_err();
         assert_eq!(
             err,
             "Error: callback URL must include a non-empty state query param."

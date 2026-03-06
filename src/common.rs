@@ -43,7 +43,7 @@ where
     args.next()
         .and_then(|arg| {
             Path::new(&arg)
-                .file_name()
+                .file_stem()
                 .and_then(|name| name.to_str())
                 .map(|name| name.to_string())
         })

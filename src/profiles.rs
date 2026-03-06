@@ -327,8 +327,8 @@ fn priority_state_for_tokens(
     })
 }
 
-fn profile_name_for_priority_row(id: &str, snapshot: &Snapshot, label: Option<&str>) -> String {
-    let email = snapshot
+fn priority_profile_email(id: &str, snapshot: &Snapshot) -> String {
+    snapshot
         .tokens
         .get(id)
         .and_then(|result| result.as_ref().ok())
@@ -340,11 +340,170 @@ fn profile_name_for_priority_row(id: &str, snapshot: &Snapshot, label: Option<&s
                 .get(id)
                 .and_then(|entry| entry.email.clone())
         })
-        .unwrap_or_else(|| id.to_string());
+        .unwrap_or_else(|| id.to_string())
+}
+
+fn profile_name_for_priority_row(id: &str, snapshot: &Snapshot, label: Option<&str>) -> String {
+    let email = priority_profile_email(id, snapshot);
     match label {
         Some(label) => format!("{email} [{label}]"),
         None => email,
     }
+}
+
+fn priority_identity_key(row: &PriorityRow, snapshot: &Snapshot) -> String {
+    if row.id == "__current__" {
+        return "id:__current__".to_string();
+    }
+    if let Some(tokens) = snapshot
+        .tokens
+        .get(&row.id)
+        .and_then(|result| result.as_ref().ok())
+    {
+        if let Some(account_id) = token_account_id(tokens) {
+            return format!("account:{account_id}");
+        }
+        if let Some(email) = extract_email_and_plan(tokens).0 {
+            return format!("email:{}", email.to_ascii_lowercase());
+        }
+    }
+    if let Some(entry) = snapshot.index.profiles.get(&row.id) {
+        if let Some(account_id) = entry.account_id.as_deref() {
+            return format!("account:{account_id}");
+        }
+        if let Some(email) = entry.email.as_deref() {
+            return format!("email:{}", email.to_ascii_lowercase());
+        }
+    }
+    format!("id:{}", row.id)
+}
+
+fn priority_state_cmp(left: &PriorityState, right: &PriorityState) -> Ordering {
+    match (left, right) {
+        (PriorityState::Ready(left_usage), PriorityState::Ready(right_usage)) => left_usage
+            .tier
+            .cmp(&right_usage.tier)
+            .then_with(|| right_usage.score.cmp(&left_usage.score)),
+        (PriorityState::Ready(_), PriorityState::Unavailable(_)) => Ordering::Less,
+        (PriorityState::Unavailable(_), PriorityState::Ready(_)) => Ordering::Greater,
+        (PriorityState::Unavailable(_), PriorityState::Unavailable(_)) => Ordering::Equal,
+    }
+}
+
+fn priority_row_has_readable_tokens(row: &PriorityRow, snapshot: &Snapshot) -> bool {
+    if row.id == "__current__" {
+        return true;
+    }
+    snapshot
+        .tokens
+        .get(&row.id)
+        .is_some_and(|result| result.is_ok())
+}
+
+fn priority_group_target_cmp(
+    left: &PriorityRow,
+    right: &PriorityRow,
+    snapshot: &Snapshot,
+) -> Ordering {
+    let ordering = right.is_current.cmp(&left.is_current);
+    if ordering != Ordering::Equal {
+        return ordering;
+    }
+    let ordering = right.label.is_some().cmp(&left.label.is_some());
+    if ordering != Ordering::Equal {
+        return ordering;
+    }
+    let ordering = right.candidate.cmp(&left.candidate);
+    if ordering != Ordering::Equal {
+        return ordering;
+    }
+    let left_readable = priority_row_has_readable_tokens(left, snapshot);
+    let right_readable = priority_row_has_readable_tokens(right, snapshot);
+    let ordering = right_readable.cmp(&left_readable);
+    if ordering != Ordering::Equal {
+        return ordering;
+    }
+    let ordering = priority_state_cmp(&left.state, &right.state);
+    if ordering != Ordering::Equal {
+        return ordering;
+    }
+    let left_last_used = snapshot
+        .usage_map
+        .get(&left.id)
+        .copied()
+        .unwrap_or_default();
+    let right_last_used = snapshot
+        .usage_map
+        .get(&right.id)
+        .copied()
+        .unwrap_or_default();
+    right_last_used
+        .cmp(&left_last_used)
+        .then_with(|| left.id.cmp(&right.id))
+}
+
+fn priority_display_label(rows: &[PriorityRow], target: &PriorityRow) -> Option<String> {
+    target
+        .label
+        .clone()
+        .or_else(|| {
+            rows.iter()
+                .find(|row| row.is_current)
+                .and_then(|row| row.label.clone())
+        })
+        .or_else(|| {
+            let mut labels = rows
+                .iter()
+                .filter_map(|row| row.label.clone())
+                .collect::<Vec<_>>();
+            labels.sort_by_key(|label| label.to_ascii_lowercase());
+            labels.into_iter().next()
+        })
+}
+
+fn merge_priority_rows(rows: Vec<PriorityRow>, snapshot: &Snapshot) -> PriorityRow {
+    let target = rows
+        .iter()
+        .min_by(|left, right| priority_group_target_cmp(left, right, snapshot))
+        .expect("priority group is not empty");
+    let state = rows
+        .iter()
+        .min_by(|left, right| {
+            priority_state_cmp(&left.state, &right.state)
+                .then_with(|| priority_group_target_cmp(left, right, snapshot))
+        })
+        .map(|row| row.state.clone())
+        .expect("priority group is not empty");
+    let label = priority_display_label(&rows, target);
+    let profile_name = if target.id == "__current__" {
+        target.profile_name.clone()
+    } else {
+        profile_name_for_priority_row(&target.id, snapshot, label.as_deref())
+    };
+    PriorityRow {
+        id: target.id.clone(),
+        profile_name,
+        label,
+        is_current: rows.iter().any(|row| row.is_current),
+        candidate: rows.iter().any(|row| row.candidate),
+        state,
+    }
+}
+
+fn dedupe_priority_rows(rows: Vec<PriorityRow>, snapshot: &Snapshot) -> Vec<PriorityRow> {
+    let mut grouped: HashMap<String, Vec<PriorityRow>> = HashMap::new();
+    for row in rows {
+        grouped
+            .entry(priority_identity_key(&row, snapshot))
+            .or_default()
+            .push(row);
+    }
+    let mut merged = grouped
+        .into_values()
+        .map(|group| merge_priority_rows(group, snapshot))
+        .collect::<Vec<_>>();
+    merged.sort_by(priority_row_cmp);
+    merged
 }
 
 fn priority_rows(
@@ -392,8 +551,7 @@ fn priority_rows(
             });
         }
     }
-    rows.sort_by(priority_row_cmp);
-    rows
+    dedupe_priority_rows(rows, snapshot)
 }
 
 fn priority_sort_label(row: &PriorityRow) -> String {
@@ -2764,7 +2922,7 @@ fn is_profile_file(path: &Path) -> bool {
     }
     !matches!(
         path.file_name().and_then(|name| name.to_str()),
-        Some("profiles.json")
+        Some("profiles.json" | "update.json")
     )
 }
 

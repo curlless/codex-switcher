@@ -7,8 +7,8 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Mutex;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -665,9 +665,7 @@ fn ui_relay_login_success() {
     let env = TestEnv::new();
     let mut listener = RelayCallbackListener::start(302, "ok").expect("start relay listener");
     let addr = listener.addr();
-    let url = format!(
-        "http://{addr}/auth/callback?code=test-code&state=test-state",
-    );
+    let url = format!("http://{addr}/auth/callback?code=test-code&state=test-state",);
 
     let output = env.run(&["relay-login", "--url", &url]);
     assert!(output.contains("Relayed callback to local login listener."));
