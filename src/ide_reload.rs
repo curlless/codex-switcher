@@ -139,6 +139,8 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
     let mut killed = Vec::new();
     let mut issues = Vec::new();
     let mut cursor_reload_dispatched = false;
+    let should_dispatch_cursor_reload =
+        should_dispatch_cursor_reload(target, !standalone_app_pids.is_empty());
 
     if !dry_run {
         for pid in &standalone_app_pids {
@@ -153,10 +155,12 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
                 Err(err) => issues.push(format!("pid {pid}: failed to run taskkill ({err})")),
             }
         }
-        if let Some(automation) = cursor_automation.as_ref() {
-            match dispatch_cursor_protocol_reload(automation) {
-                Ok(()) => cursor_reload_dispatched = true,
-                Err(err) => issues.push(format!("cursor protocol reload failed ({err})")),
+        if should_dispatch_cursor_reload {
+            if let Some(automation) = cursor_automation.as_ref() {
+                match dispatch_cursor_protocol_reload(automation) {
+                    Ok(()) => cursor_reload_dispatched = true,
+                    Err(err) => issues.push(format!("cursor protocol reload failed ({err})")),
+                }
             }
         }
     }
@@ -295,6 +299,10 @@ fn codex_app_manual_hint() -> &'static str {
 
 fn cursor_helper_hint() -> &'static str {
     "Cursor automation: install the Commands Executor extension (ionutvmi.vscode-commands-executor) to enable protocol-based Reload Window."
+}
+
+fn should_dispatch_cursor_reload(target: ReloadAppTarget, has_standalone_codex: bool) -> bool {
+    !matches!(target, ReloadAppTarget::All) || !has_standalone_codex
 }
 
 fn default_manual_hints(target: ReloadAppTarget) -> Vec<String> {
@@ -534,9 +542,9 @@ fn normalized_path(process: &WindowsProcessInfo) -> Option<String> {
 mod tests {
     #[cfg(windows)]
     use super::{
-        WindowsProcessInfo, build_cursor_reload_uri, has_extension_with_prefix,
+        ReloadAppTarget, WindowsProcessInfo, build_cursor_reload_uri, has_extension_with_prefix,
         is_cursor_extension_process, is_standalone_codex_app_process, parse_windows_command_exe,
-        parse_windows_processes,
+        parse_windows_processes, should_dispatch_cursor_reload,
     };
     #[cfg(windows)]
     use std::fs;
@@ -620,5 +628,13 @@ mod tests {
             path,
             PathBuf::from(r"C:\Users\tompski\AppData\Local\Programs\Cursor\Cursor.exe")
         );
+    }
+
+    #[test]
+    fn all_target_prioritizes_codex_over_cursor_reload() {
+        assert!(!should_dispatch_cursor_reload(ReloadAppTarget::All, true));
+        assert!(should_dispatch_cursor_reload(ReloadAppTarget::All, false));
+        assert!(should_dispatch_cursor_reload(ReloadAppTarget::Codex, true));
+        assert!(should_dispatch_cursor_reload(ReloadAppTarget::Cursor, true));
     }
 }
