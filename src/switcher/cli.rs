@@ -1,5 +1,6 @@
 use clap::{Command, CommandFactory, Parser, Subcommand};
 
+use crate::switcher::ReloadAppTarget;
 use crate::switcher::command_name;
 
 #[derive(Parser)]
@@ -51,12 +52,18 @@ pub enum Commands {
         /// After switching, try to reload IDE processes (best effort)
         #[arg(long)]
         reload_ide: bool,
+        /// After switching, reload only the selected app target
+        #[arg(long = "reload-app", value_enum, value_name = "target")]
+        reload_app: Option<ReloadAppTarget>,
     },
     /// Run the IDE/app reload logic without switching profiles
     ReloadApp {
         /// Inspect targets and print reload guidance without terminating processes
         #[arg(long)]
         dry_run: bool,
+        /// Restrict reload handling to a specific app target
+        #[arg(value_enum, value_name = "target", default_value_t = ReloadAppTarget::All)]
+        target: ReloadAppTarget,
     },
     /// Mark a saved profile so auto-switch skips it
     Reserve {
@@ -111,6 +118,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} reload-app\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} switch --reload-app codex\n  {name} switch --reload-app cursor\n  {name} reload-app\n  {name} reload-app codex --dry-run\n  {name} reload-app cursor --dry-run\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
     )
 }

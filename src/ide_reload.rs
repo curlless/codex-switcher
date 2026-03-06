@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 #[cfg(windows)]
 use serde::Deserialize;
 #[cfg(windows)]
@@ -13,10 +14,40 @@ pub struct IdeReloadOutcome {
     pub manual_hints: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum ReloadAppTarget {
+    #[default]
+    All,
+    Codex,
+    Cursor,
+}
+
+impl ReloadAppTarget {
+    fn includes_codex(self) -> bool {
+        matches!(self, Self::All | Self::Codex)
+    }
+
+    fn includes_cursor(self) -> bool {
+        matches!(self, Self::All | Self::Cursor)
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Codex => "codex",
+            Self::Cursor => "cursor",
+        }
+    }
+}
+
 pub fn reload_ide_best_effort() -> IdeReloadOutcome {
+    reload_ide_target_best_effort(ReloadAppTarget::All)
+}
+
+pub fn reload_ide_target_best_effort(target: ReloadAppTarget) -> IdeReloadOutcome {
     #[cfg(windows)]
     {
-        reload_windows(false)
+        reload_windows(false, target)
     }
     #[cfg(not(windows))]
     {
@@ -24,18 +55,19 @@ pub fn reload_ide_best_effort() -> IdeReloadOutcome {
             attempted: false,
             restarted: false,
             message: "IDE auto-reload is only implemented for Windows in this build.".to_string(),
-            manual_hints: vec![
-                "Cursor Codex extension: run Command Palette -> Developer: Reload Window."
-                    .to_string(),
-            ],
+            manual_hints: default_manual_hints(target),
         }
     }
 }
 
 pub fn inspect_ide_reload() -> IdeReloadOutcome {
+    inspect_ide_reload_target(ReloadAppTarget::All)
+}
+
+pub fn inspect_ide_reload_target(target: ReloadAppTarget) -> IdeReloadOutcome {
     #[cfg(windows)]
     {
-        reload_windows(true)
+        reload_windows(true, target)
     }
     #[cfg(not(windows))]
     {
@@ -43,10 +75,7 @@ pub fn inspect_ide_reload() -> IdeReloadOutcome {
             attempted: false,
             restarted: false,
             message: "IDE auto-reload is only implemented for Windows in this build.".to_string(),
-            manual_hints: vec![
-                "Cursor Codex extension: run Command Palette -> Developer: Reload Window."
-                    .to_string(),
-            ],
+            manual_hints: default_manual_hints(target),
         }
     }
 }
@@ -63,7 +92,7 @@ struct WindowsProcessInfo {
 }
 
 #[cfg(windows)]
-fn reload_windows(dry_run: bool) -> IdeReloadOutcome {
+fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
     let processes = match list_reload_targets() {
         Ok(processes) => processes,
         Err(err) => {
@@ -71,18 +100,23 @@ fn reload_windows(dry_run: bool) -> IdeReloadOutcome {
                 attempted: false,
                 restarted: false,
                 message: format!("Reload hint: failed to inspect running IDE processes ({err})."),
-                manual_hints: default_manual_hints(),
+                manual_hints: default_manual_hints(target),
             };
         }
     };
 
-    let cursor_detected = processes.iter().any(is_cursor_process);
-    let extension_detected = processes.iter().any(is_cursor_extension_process);
-    let standalone_app_pids: Vec<u32> = processes
-        .iter()
-        .filter(|process| is_standalone_codex_app_process(process))
-        .map(|process| process.process_id)
-        .collect();
+    let cursor_detected = target.includes_cursor() && processes.iter().any(is_cursor_process);
+    let extension_detected =
+        target.includes_cursor() && processes.iter().any(is_cursor_extension_process);
+    let standalone_app_pids: Vec<u32> = if target.includes_codex() {
+        processes
+            .iter()
+            .filter(|process| is_standalone_codex_app_process(process))
+            .map(|process| process.process_id)
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     let mut killed = Vec::new();
     let mut issues = Vec::new();
@@ -110,7 +144,7 @@ fn reload_windows(dry_run: bool) -> IdeReloadOutcome {
         manual_hints.push(codex_app_manual_hint().to_string());
     }
     if manual_hints.is_empty() {
-        manual_hints = default_manual_hints();
+        manual_hints = default_manual_hints(target);
     }
 
     if dry_run {
@@ -192,28 +226,31 @@ fn reload_windows(dry_run: bool) -> IdeReloadOutcome {
     IdeReloadOutcome {
         attempted: false,
         restarted: false,
-        message: "Reload hint: no supported Cursor/Codex Windows targets were detected."
-            .to_string(),
+        message: format!(
+            "Reload hint: no supported Cursor/Codex Windows targets were detected for target '{}'.",
+            target.label()
+        ),
         manual_hints,
     }
 }
 
-#[cfg(windows)]
 fn cursor_manual_hint() -> &'static str {
     "Cursor Codex extension: run Command Palette -> Developer: Reload Window."
 }
 
-#[cfg(windows)]
 fn codex_app_manual_hint() -> &'static str {
     "Codex app for Windows: if account state still looks stale, close and reopen the app after the switch."
 }
 
-#[cfg(windows)]
-fn default_manual_hints() -> Vec<String> {
-    vec![
-        cursor_manual_hint().to_string(),
-        codex_app_manual_hint().to_string(),
-    ]
+fn default_manual_hints(target: ReloadAppTarget) -> Vec<String> {
+    let mut hints = Vec::new();
+    if target.includes_cursor() {
+        hints.push(cursor_manual_hint().to_string());
+    }
+    if target.includes_codex() {
+        hints.push(codex_app_manual_hint().to_string());
+    }
+    hints
 }
 
 #[cfg(windows)]

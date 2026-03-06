@@ -104,8 +104,19 @@ fn run(cli: Cli) -> Result<(), String> {
         Commands::Switch {
             dry_run,
             reload_ide,
-        } => switch_best_profile(&paths, dry_run, reload_ide),
-        Commands::ReloadApp { dry_run } => reload_app(dry_run),
+            reload_app,
+        } => {
+            if reload_ide && reload_app.is_some() {
+                return Err("Error: --reload-ide cannot be combined with --reload-app.".to_string());
+            }
+            let reload_target = if reload_ide {
+                Some(ReloadAppTarget::All)
+            } else {
+                reload_app
+            };
+            switch_best_profile(&paths, dry_run, reload_target)
+        }
+        Commands::ReloadApp { dry_run, target } => reload_app(dry_run, target),
         Commands::Migrate { from, overwrite } => migrate_profiles(&paths, from, overwrite),
         Commands::Delete { yes, label } => delete_profile(&paths, yes, label),
         Commands::RelayLogin { url } => relay_login(url),

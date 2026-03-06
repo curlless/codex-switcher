@@ -11,7 +11,6 @@ use std::fs;
 use std::io::{self, IsTerminal as _};
 use std::path::{Path, PathBuf};
 
-use crate::reload_ide_best_effort;
 use crate::{
     CANCELLED_MESSAGE, format_action, format_entry_header, format_error, format_hint,
     format_list_hint, format_no_profiles, format_save_before_load, format_unsaved_warning,
@@ -20,6 +19,7 @@ use crate::{
     use_color_stderr, use_color_stdout,
 };
 use crate::{Paths, command_name, copy_atomic, write_atomic};
+use crate::{ReloadAppTarget, inspect_ide_reload_target, reload_ide_target_best_effort};
 use crate::{
     Tokens, extract_email_and_plan, is_api_key_profile, is_free_plan, is_profile_ready,
     profile_error, read_tokens, read_tokens_opt, refresh_profile_tokens, require_identity,
@@ -843,7 +843,11 @@ fn load_profile_by_id(
     Ok(())
 }
 
-pub fn switch_best_profile(paths: &Paths, dry_run: bool, reload_ide: bool) -> Result<(), String> {
+pub fn switch_best_profile(
+    paths: &Paths,
+    dry_run: bool,
+    reload_target: Option<ReloadAppTarget>,
+) -> Result<(), String> {
     let use_color = use_color_stdout();
     let no_profiles = format_no_profiles(paths, use_color);
     let snapshot = load_snapshot(paths, false)?;
@@ -881,8 +885,8 @@ pub fn switch_best_profile(paths: &Paths, dry_run: bool, reload_ide: bool) -> Re
 
     load_profile_by_id(paths, &best.id, &best.profile_name)?;
 
-    if reload_ide {
-        let outcome = reload_ide_best_effort();
+    if let Some(reload_target) = reload_target {
+        let outcome = reload_ide_target_best_effort(reload_target);
         let mut lines = Vec::new();
         if outcome.restarted {
             lines.push(format_action(&outcome.message, use_color));
@@ -898,12 +902,12 @@ pub fn switch_best_profile(paths: &Paths, dry_run: bool, reload_ide: bool) -> Re
     Ok(())
 }
 
-pub fn reload_app(dry_run: bool) -> Result<(), String> {
+pub fn reload_app(dry_run: bool, target: ReloadAppTarget) -> Result<(), String> {
     let use_color = use_color_stdout();
     let outcome = if dry_run {
-        crate::inspect_ide_reload()
+        inspect_ide_reload_target(target)
     } else {
-        reload_ide_best_effort()
+        reload_ide_target_best_effort(target)
     };
     let mut lines = Vec::new();
     if outcome.restarted {
