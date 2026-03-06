@@ -153,11 +153,42 @@ flowchart LR
 | `list` | Show saved profiles ordered by last use. |
 | `status [--current] [--all] [--label <name>]` | Show usage details and ranking state. |
 | `switch [--dry-run] [--reload-ide]` | Pick the best non-reserved profile from remaining limits. |
+| `reload-app [codex|cursor] [--dry-run]` | Reload the preferred app target without switching profiles. |
+| `config show` / `config edit` | Inspect or edit `codex-switcher` preferences. |
 | `reserve --label <name>` | Mark a saved profile as excluded from auto-switch. |
 | `unreserve --label <name>` | Remove the exclusion and allow auto-switch again. |
 | `migrate [--from <path>] [--overwrite]` | Copy profiles from another Codex directory into this storage. |
 | `delete [--yes] [--label <name>]` | Remove saved profiles without logging out the current session. |
 | `relay-login [--url <callback_url>]` | Relay an existing Roo or Codex callback URL into a running local listener. |
+
+## Cursor Extension Reload
+
+For protocol-based Cursor reloads, install the
+[`ionutvmi.vscode-commands-executor`](https://marketplace.visualstudio.com/items?itemName=ionutvmi.vscode-commands-executor)
+extension inside Cursor first.
+
+Recommended setup:
+
+1. Install the Commands Executor extension in Cursor.
+2. Run `codex-switcher reload-app cursor --dry-run` once to verify detection.
+3. Run `codex-switcher reload-app cursor` when you want the automated Cursor reload path.
+4. On the first protocol-triggered run, approve the external `cursor://...` open prompt if
+   Cursor or Windows asks for trust/allow confirmation.
+
+If you do not want protocol automation, the manual fallback is still:
+
+- Command Palette -> `Developer: Reload Window`
+
+The default target for `reload-app` and the optional post-`switch` auto-reload behavior live in
+`~/.codex/profiles/config.toml`:
+
+```toml
+[reload]
+primary_target = "codex"
+
+[switch]
+reload_after_switch = false
+```
 
 ## Reserved Profiles
 
