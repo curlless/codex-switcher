@@ -11,6 +11,7 @@ use std::fs;
 use std::io::{self, IsTerminal as _};
 use std::path::{Path, PathBuf};
 
+use crate::switcher::reload_ide_best_effort;
 use crate::switcher::{
     CANCELLED_MESSAGE, format_action, format_entry_header, format_error, format_hint,
     format_list_hint, format_no_profiles, format_save_before_load, format_unsaved_warning,
@@ -29,7 +30,6 @@ use crate::switcher::{
     format_usage_unavailable, lock_usage, now_seconds, ordered_profiles, read_base_url,
     start_usage_spinner, stop_usage_spinner, usage_unavailable,
 };
-use crate::switcher::{reload_ide_best_effort, reload_ide_manual_hint};
 
 const MAX_USAGE_CONCURRENCY: usize = 4;
 const SCORE_7D_WEIGHT: i64 = 70;
@@ -887,7 +887,9 @@ pub fn switch_best_profile(paths: &Paths, dry_run: bool, reload_ide: bool) -> Re
         } else {
             lines.push(format_warning(&outcome.message, use_color));
         }
-        lines.push(format_hint(reload_ide_manual_hint(), use_color));
+        for hint in outcome.manual_hints {
+            lines.push(format_hint(&hint, use_color));
+        }
         print_output_block(&lines.join("\n"));
     }
 
