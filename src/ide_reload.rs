@@ -105,6 +105,13 @@ struct CursorProtocolAutomation {
 }
 
 #[cfg(windows)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CodexAppLaunchTarget {
+    executable_path: PathBuf,
+    app_user_model_id: Option<String>,
+}
+
+#[cfg(windows)]
 fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
     let processes = match list_reload_targets() {
         Ok(processes) => processes,
@@ -135,10 +142,16 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
     } else {
         Vec::new()
     };
+    let codex_launch_target = if target.includes_codex() {
+        resolve_codex_app_launch_target(&processes)
+    } else {
+        None
+    };
 
     let mut killed = Vec::new();
     let mut issues = Vec::new();
     let mut cursor_reload_dispatched = false;
+    let mut codex_relaunched = false;
     let should_dispatch_cursor_reload =
         should_dispatch_cursor_reload(target, !standalone_app_pids.is_empty());
 
@@ -153,6 +166,16 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
                     issues.push(format!("pid {pid}: taskkill exited with {}", output.status))
                 }
                 Err(err) => issues.push(format!("pid {pid}: failed to run taskkill ({err})")),
+            }
+        }
+        if !killed.is_empty() {
+            if let Some(launch_target) = codex_launch_target.as_ref() {
+                match dispatch_codex_app_reload(launch_target) {
+                    Ok(()) => codex_relaunched = true,
+                    Err(err) => issues.push(format!("codex relaunch failed ({err})")),
+                }
+            } else {
+                issues.push("codex relaunch failed (could not resolve launch target)".to_string());
             }
         }
         if should_dispatch_cursor_reload {
@@ -185,6 +208,11 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
                 "Reload hint: dry run detected standalone Codex app processes (PID {}).",
                 join_pids(&standalone_app_pids)
             );
+            if codex_launch_target.is_some() {
+                message.push_str(" Relaunch target is available.");
+            } else {
+                message.push_str(" Relaunch target could not be resolved.");
+            }
             if cursor_detected || extension_detected {
                 if let Some(automation) = cursor_automation.as_ref() {
                     message.push_str(&format!(
@@ -224,10 +252,17 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
     }
 
     if !killed.is_empty() {
-        let mut message = format!(
-            "Reload hint: terminated standalone Codex app processes (PID {}).",
-            join_pids(&killed)
-        );
+        let mut message = if codex_relaunched {
+            format!(
+                "Reload hint: restarted standalone Codex app (terminated PID {} and launched it again).",
+                join_pids(&killed)
+            )
+        } else {
+            format!(
+                "Reload hint: terminated standalone Codex app processes (PID {}).",
+                join_pids(&killed)
+            )
+        };
         if cursor_reload_dispatched {
             message.push_str(" Cursor reload was requested via protocol command path.");
         } else if cursor_detected || extension_detected {
@@ -294,7 +329,7 @@ fn cursor_manual_hint() -> &'static str {
 }
 
 fn codex_app_manual_hint() -> &'static str {
-    "Codex app for Windows: if account state still looks stale, close and reopen the app after the switch."
+    "Codex app for Windows: if relaunch fails or account state still looks stale, open the app again manually."
 }
 
 fn cursor_helper_hint() -> &'static str {
@@ -461,6 +496,94 @@ fn parse_windows_command_exe(raw: &str) -> Option<PathBuf> {
 }
 
 #[cfg(windows)]
+fn resolve_codex_app_launch_target(
+    processes: &[WindowsProcessInfo],
+) -> Option<CodexAppLaunchTarget> {
+    let executable_path = processes
+        .iter()
+        .find_map(standalone_codex_executable_path)?;
+    Some(CodexAppLaunchTarget {
+        app_user_model_id: build_codex_app_user_model_id(&executable_path),
+        executable_path,
+    })
+}
+
+#[cfg(windows)]
+fn standalone_codex_executable_path(process: &WindowsProcessInfo) -> Option<PathBuf> {
+    if !is_standalone_codex_app_process(process) {
+        return None;
+    }
+    process
+        .executable_path
+        .as_ref()
+        .map(PathBuf::from)
+        .filter(|path| {
+            path.file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("Codex.exe"))
+        })
+}
+
+#[cfg(windows)]
+fn dispatch_codex_app_reload(launch_target: &CodexAppLaunchTarget) -> Result<(), String> {
+    let mut errors = Vec::new();
+    if let Some(app_user_model_id) = launch_target.app_user_model_id.as_deref() {
+        let status = Command::new("explorer.exe")
+            .arg(format!(r"shell:AppsFolder\{app_user_model_id}"))
+            .status();
+        match status {
+            Ok(status) if status.success() => return Ok(()),
+            Ok(status) => errors.push(format!("explorer.exe exited with status {status}")),
+            Err(err) => errors.push(format!("failed to launch via AppsFolder ({err})")),
+        }
+    }
+
+    Command::new(&launch_target.executable_path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|err| {
+            errors.push(format!(
+                "failed to launch executable {} ({err})",
+                launch_target.executable_path.display()
+            ));
+            errors.join("; ")
+        })
+}
+
+#[cfg(windows)]
+fn build_codex_app_user_model_id(executable_path: &Path) -> Option<String> {
+    let package_dir = codex_package_dir(executable_path)?;
+    let package_dir_name = package_dir.file_name()?.to_str()?;
+    let publisher_id = package_dir_name.split_once("__")?.1;
+    let manifest_path = package_dir.join("AppxManifest.xml");
+    let manifest = fs::read_to_string(manifest_path).ok()?;
+    let identity_name = extract_xml_attribute(&manifest, "Identity", "Name")?;
+    let application_id = extract_xml_attribute(&manifest, "Application", "Id")?;
+    Some(format!("{identity_name}_{publisher_id}!{application_id}"))
+}
+
+#[cfg(windows)]
+fn codex_package_dir(executable_path: &Path) -> Option<&Path> {
+    executable_path.ancestors().find(|ancestor| {
+        ancestor
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("OpenAI.Codex_") && name.contains("__"))
+    })
+}
+
+#[cfg(windows)]
+fn extract_xml_attribute(xml: &str, tag: &str, attribute: &str) -> Option<String> {
+    let open_tag = format!("<{tag} ");
+    let start = xml.find(&open_tag)?;
+    let fragment = &xml[start..xml[start..].find('>')? + start];
+    let needle = format!(r#"{attribute}=""#);
+    let attr_start = fragment.find(&needle)? + needle.len();
+    let rest = &fragment[attr_start..];
+    let attr_end = rest.find('"')?;
+    Some(rest[..attr_end].to_string())
+}
+
+#[cfg(windows)]
 fn list_reload_targets() -> Result<Vec<WindowsProcessInfo>, String> {
     let output = Command::new("powershell")
         .args([
@@ -525,9 +648,9 @@ fn is_cursor_extension_process(process: &WindowsProcessInfo) -> bool {
 
 #[cfg(windows)]
 fn is_standalone_codex_app_process(process: &WindowsProcessInfo) -> bool {
-    normalized_path(process)
-        .as_deref()
-        .is_some_and(|path| path.contains("\\windowsapps\\openai.codex_"))
+    normalized_path(process).as_deref().is_some_and(|path| {
+        path.contains("\\windowsapps\\openai.codex_") && path.ends_with("\\app\\codex.exe")
+    })
 }
 
 #[cfg(windows)]
@@ -542,7 +665,8 @@ fn normalized_path(process: &WindowsProcessInfo) -> Option<String> {
 mod tests {
     #[cfg(windows)]
     use super::{
-        ReloadAppTarget, WindowsProcessInfo, build_cursor_reload_uri, has_extension_with_prefix,
+        ReloadAppTarget, WindowsProcessInfo, build_codex_app_user_model_id,
+        build_cursor_reload_uri, extract_xml_attribute, has_extension_with_prefix,
         is_cursor_extension_process, is_standalone_codex_app_process, parse_windows_command_exe,
         parse_windows_processes, should_dispatch_cursor_reload,
     };
@@ -594,6 +718,39 @@ mod tests {
         assert!(!is_standalone_codex_app_process(&extension));
         assert!(is_standalone_codex_app_process(&app));
         assert!(!is_cursor_extension_process(&app));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn build_codex_app_user_model_id_reads_manifest() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let package_dir = dir
+            .path()
+            .join("OpenAI.Codex_26.304.1528.0_x64__2p2nqsd0c76g0");
+        fs::create_dir_all(package_dir.join("app")).expect("package dir");
+        fs::write(
+            package_dir.join("AppxManifest.xml"),
+            r#"<?xml version="1.0"?><Package><Identity Name="OpenAI.Codex" /><Applications><Application Id="App" Executable="app\Codex.exe" /></Applications></Package>"#,
+        )
+        .expect("manifest");
+        fs::write(package_dir.join("app").join("Codex.exe"), "").expect("exe");
+        let aumid = build_codex_app_user_model_id(&package_dir.join("app").join("Codex.exe"))
+            .expect("aumid");
+        assert_eq!(aumid, "OpenAI.Codex_2p2nqsd0c76g0!App");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn extract_xml_attribute_reads_expected_value() {
+        let xml = r#"<Package><Identity Name="OpenAI.Codex" /><Applications><Application Id="App" /></Applications></Package>"#;
+        assert_eq!(
+            extract_xml_attribute(xml, "Identity", "Name").as_deref(),
+            Some("OpenAI.Codex")
+        );
+        assert_eq!(
+            extract_xml_attribute(xml, "Application", "Id").as_deref(),
+            Some("App")
+        );
     }
 
     #[cfg(windows)]
