@@ -1,8 +1,14 @@
 use clap::ValueEnum;
 #[cfg(windows)]
+use directories::BaseDirs;
+#[cfg(windows)]
 use serde::Deserialize;
 #[cfg(windows)]
 use serde_json::Value;
+#[cfg(windows)]
+use std::fs;
+#[cfg(windows)]
+use std::path::{Path, PathBuf};
 #[cfg(windows)]
 use std::process::Command;
 
@@ -92,6 +98,13 @@ struct WindowsProcessInfo {
 }
 
 #[cfg(windows)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CursorProtocolAutomation {
+    cursor_exe: PathBuf,
+    uri: String,
+}
+
+#[cfg(windows)]
 fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
     let processes = match list_reload_targets() {
         Ok(processes) => processes,
@@ -108,6 +121,11 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
     let cursor_detected = target.includes_cursor() && processes.iter().any(is_cursor_process);
     let extension_detected =
         target.includes_cursor() && processes.iter().any(is_cursor_extension_process);
+    let cursor_automation = if cursor_detected || extension_detected {
+        resolve_cursor_protocol_automation()
+    } else {
+        None
+    };
     let standalone_app_pids: Vec<u32> = if target.includes_codex() {
         processes
             .iter()
@@ -120,6 +138,7 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
 
     let mut killed = Vec::new();
     let mut issues = Vec::new();
+    let mut cursor_reload_dispatched = false;
 
     if !dry_run {
         for pid in &standalone_app_pids {
@@ -134,11 +153,20 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
                 Err(err) => issues.push(format!("pid {pid}: failed to run taskkill ({err})")),
             }
         }
+        if let Some(automation) = cursor_automation.as_ref() {
+            match dispatch_cursor_protocol_reload(automation) {
+                Ok(()) => cursor_reload_dispatched = true,
+                Err(err) => issues.push(format!("cursor protocol reload failed ({err})")),
+            }
+        }
     }
 
     let mut manual_hints = Vec::new();
     if cursor_detected || extension_detected {
         manual_hints.push(cursor_manual_hint().to_string());
+        if cursor_automation.is_none() {
+            manual_hints.push(cursor_helper_hint().to_string());
+        }
     }
     if !standalone_app_pids.is_empty() {
         manual_hints.push(codex_app_manual_hint().to_string());
@@ -154,7 +182,16 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
                 join_pids(&standalone_app_pids)
             );
             if cursor_detected || extension_detected {
-                message.push_str(" Cursor extension would still require a separate window reload.");
+                if let Some(automation) = cursor_automation.as_ref() {
+                    message.push_str(&format!(
+                        " Cursor protocol reload is available via {}.",
+                        automation.uri
+                    ));
+                } else {
+                    message.push_str(
+                        " Cursor extension would still require a separate window reload.",
+                    );
+                }
             }
             return IdeReloadOutcome {
                 attempted: false,
@@ -168,8 +205,15 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
             return IdeReloadOutcome {
                 attempted: false,
                 restarted: false,
-                message: "Reload hint: dry run detected Cursor Codex extension; actual reload would still be manual via Reload Window."
-                    .to_string(),
+                message: if let Some(automation) = cursor_automation.as_ref() {
+                    format!(
+                        "Reload hint: dry run detected Cursor Codex extension; protocol reload is available via {}.",
+                        automation.uri
+                    )
+                } else {
+                    "Reload hint: dry run detected Cursor Codex extension; actual reload would still be manual via Reload Window."
+                        .to_string()
+                },
                 manual_hints,
             };
         }
@@ -180,7 +224,9 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
             "Reload hint: terminated standalone Codex app processes (PID {}).",
             join_pids(&killed)
         );
-        if cursor_detected || extension_detected {
+        if cursor_reload_dispatched {
+            message.push_str(" Cursor reload was requested via protocol command path.");
+        } else if cursor_detected || extension_detected {
             message.push_str(
                 " Cursor stays running because extension reload requires a window reload.",
             );
@@ -204,10 +250,15 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
 
     if cursor_detected || extension_detected {
         return IdeReloadOutcome {
-            attempted: false,
-            restarted: false,
-            message: "Reload hint: detected Cursor Codex extension; automatic extension reload is not implemented."
-                .to_string(),
+            attempted: cursor_reload_dispatched,
+            restarted: cursor_reload_dispatched,
+            message: if cursor_reload_dispatched {
+                "Reload hint: requested Cursor Codex extension reload via protocol command path."
+                    .to_string()
+            } else {
+                "Reload hint: detected Cursor Codex extension; automatic extension reload is not implemented."
+                    .to_string()
+            },
             manual_hints,
         };
     }
@@ -242,10 +293,15 @@ fn codex_app_manual_hint() -> &'static str {
     "Codex app for Windows: if account state still looks stale, close and reopen the app after the switch."
 }
 
+fn cursor_helper_hint() -> &'static str {
+    "Cursor automation: install the Commands Executor extension (ionutvmi.vscode-commands-executor) to enable protocol-based Reload Window."
+}
+
 fn default_manual_hints(target: ReloadAppTarget) -> Vec<String> {
     let mut hints = Vec::new();
     if target.includes_cursor() {
         hints.push(cursor_manual_hint().to_string());
+        hints.push(cursor_helper_hint().to_string());
     }
     if target.includes_codex() {
         hints.push(codex_app_manual_hint().to_string());
@@ -259,6 +315,141 @@ fn join_pids(pids: &[u32]) -> String {
         .map(|pid| pid.to_string())
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+#[cfg(windows)]
+const CURSOR_PROTOCOL_SCHEME: &str = "cursor";
+#[cfg(windows)]
+const COMMANDS_EXECUTOR_EXTENSION_ID: &str = "ionutvmi.vscode-commands-executor";
+
+#[cfg(windows)]
+fn resolve_cursor_protocol_automation() -> Option<CursorProtocolAutomation> {
+    let cursor_exe = resolve_cursor_exe_path()?;
+    if !cursor_commands_executor_installed() {
+        return None;
+    }
+    Some(CursorProtocolAutomation {
+        cursor_exe,
+        uri: build_cursor_reload_uri(),
+    })
+}
+
+#[cfg(windows)]
+fn dispatch_cursor_protocol_reload(automation: &CursorProtocolAutomation) -> Result<(), String> {
+    let status = Command::new(&automation.cursor_exe)
+        .args(["--open-url", "--", &automation.uri])
+        .status()
+        .map_err(|err| format!("failed to launch Cursor protocol handler ({err})"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("Cursor exited with status {status}"))
+    }
+}
+
+#[cfg(windows)]
+fn build_cursor_reload_uri() -> String {
+    let command_payload = r#"[{"id":"workbench.action.reloadWindow"}]"#;
+    format!(
+        "{CURSOR_PROTOCOL_SCHEME}://{COMMANDS_EXECUTOR_EXTENSION_ID}/runCommands?data={}",
+        percent_encode_query_value(command_payload)
+    )
+}
+
+#[cfg(windows)]
+fn percent_encode_query_value(raw: &str) -> String {
+    let mut encoded = String::with_capacity(raw.len() * 3);
+    for byte in raw.bytes() {
+        let is_unreserved = matches!(
+            byte,
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~'
+        );
+        if is_unreserved {
+            encoded.push(byte as char);
+        } else {
+            encoded.push('%');
+            encoded.push_str(&format!("{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+#[cfg(windows)]
+fn cursor_commands_executor_installed() -> bool {
+    cursor_extensions_dir()
+        .and_then(|dir| {
+            has_extension_with_prefix(&dir, COMMANDS_EXECUTOR_EXTENSION_ID).then_some(dir)
+        })
+        .is_some()
+}
+
+#[cfg(windows)]
+fn cursor_extensions_dir() -> Option<PathBuf> {
+    let home = BaseDirs::new()?.home_dir().to_path_buf();
+    Some(home.join(".cursor").join("extensions"))
+}
+
+#[cfg(windows)]
+fn has_extension_with_prefix(dir: &Path, prefix: &str) -> bool {
+    fs::read_dir(dir)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.filter_map(Result::ok))
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .any(|name| name == prefix || name.starts_with(&format!("{prefix}-")))
+}
+
+#[cfg(windows)]
+fn resolve_cursor_exe_path() -> Option<PathBuf> {
+    local_cursor_exe_path()
+        .filter(|path| path.is_file())
+        .or_else(|| {
+            query_cursor_protocol_command()
+                .and_then(|command| parse_windows_command_exe(&command))
+                .filter(|path| path.is_file())
+        })
+}
+
+#[cfg(windows)]
+fn local_cursor_exe_path() -> Option<PathBuf> {
+    let local_app_data = std::env::var_os("LOCALAPPDATA")?;
+    Some(
+        PathBuf::from(local_app_data)
+            .join("Programs")
+            .join("Cursor")
+            .join("Cursor.exe"),
+    )
+}
+
+#[cfg(windows)]
+fn query_cursor_protocol_command() -> Option<String> {
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-ItemProperty 'Registry::HKEY_CLASSES_ROOT\\cursor\\shell\\open\\command').'('(default)')'",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!value.is_empty()).then_some(value)
+}
+
+#[cfg(windows)]
+fn parse_windows_command_exe(raw: &str) -> Option<PathBuf> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some(rest) = trimmed.strip_prefix('"') {
+        let end = rest.find('"')?;
+        return Some(PathBuf::from(&rest[..end]));
+    }
+    trimmed.split_whitespace().next().map(PathBuf::from)
 }
 
 #[cfg(windows)]
@@ -343,9 +534,14 @@ fn normalized_path(process: &WindowsProcessInfo) -> Option<String> {
 mod tests {
     #[cfg(windows)]
     use super::{
-        WindowsProcessInfo, is_cursor_extension_process, is_standalone_codex_app_process,
+        WindowsProcessInfo, build_cursor_reload_uri, has_extension_with_prefix,
+        is_cursor_extension_process, is_standalone_codex_app_process, parse_windows_command_exe,
         parse_windows_processes,
     };
+    #[cfg(windows)]
+    use std::fs;
+    #[cfg(windows)]
+    use std::path::PathBuf;
 
     #[cfg(windows)]
     #[test]
@@ -390,5 +586,39 @@ mod tests {
         assert!(!is_standalone_codex_app_process(&extension));
         assert!(is_standalone_codex_app_process(&app));
         assert!(!is_cursor_extension_process(&app));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn build_cursor_reload_uri_targets_reload_window_command() {
+        let uri = build_cursor_reload_uri();
+        assert!(uri.starts_with("cursor://ionutvmi.vscode-commands-executor/runCommands?data="));
+        assert!(uri.contains("workbench.action.reloadWindow"));
+        assert!(uri.contains("%5B%7B"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn has_extension_with_prefix_matches_versioned_directory() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::create_dir_all(dir.path().join("ionutvmi.vscode-commands-executor-1.0.0"))
+            .expect("create extension dir");
+        assert!(has_extension_with_prefix(
+            dir.path(),
+            "ionutvmi.vscode-commands-executor"
+        ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn parse_windows_command_exe_reads_quoted_command() {
+        let path = parse_windows_command_exe(
+            r#""C:\Users\tompski\AppData\Local\Programs\Cursor\Cursor.exe" "--open-url" "--" "%1""#,
+        )
+        .expect("parse exe");
+        assert_eq!(
+            path,
+            PathBuf::from(r"C:\Users\tompski\AppData\Local\Programs\Cursor\Cursor.exe")
+        );
     }
 }
