@@ -460,6 +460,7 @@ fn paths_for_update(codex_home: PathBuf) -> Paths {
         auth: codex_home.join("auth.json"),
         profiles_index: profiles.join("profiles.json"),
         profiles_lock: profiles.join("profiles.lock"),
+        switcher_config: profiles.join("config.toml"),
         codex: codex_home,
         profiles,
     }

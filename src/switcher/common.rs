@@ -18,6 +18,7 @@ pub struct Paths {
     pub profiles: PathBuf,
     pub profiles_index: PathBuf,
     pub profiles_lock: PathBuf,
+    pub switcher_config: PathBuf,
 }
 
 pub fn command_name() -> &'static str {
@@ -98,6 +99,7 @@ pub fn resolve_paths() -> Result<Paths, String> {
     let profiles = codex_dir.join("profiles");
     let profiles_index = profiles.join("profiles.json");
     let profiles_lock = profiles.join("profiles.lock");
+    let switcher_config = profiles.join("config.toml");
     Ok(Paths {
         codex: codex_dir,
         auth_codex,
@@ -105,6 +107,7 @@ pub fn resolve_paths() -> Result<Paths, String> {
         profiles,
         profiles_index,
         profiles_lock,
+        switcher_config,
     })
 }
 
@@ -208,6 +211,7 @@ pub fn ensure_paths(paths: &Paths) -> Result<(), String> {
 
     ensure_file_or_absent(&paths.profiles_index)?;
     ensure_file_or_absent(&paths.profiles_lock)?;
+    ensure_file_or_absent(&paths.switcher_config)?;
 
     OpenOptions::new()
         .create(true)

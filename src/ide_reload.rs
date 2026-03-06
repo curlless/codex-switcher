@@ -1,8 +1,7 @@
 use clap::ValueEnum;
 #[cfg(windows)]
 use directories::BaseDirs;
-#[cfg(windows)]
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 #[cfg(windows)]
 use serde_json::Value;
 #[cfg(windows)]
@@ -20,7 +19,8 @@ pub struct IdeReloadOutcome {
     pub manual_hints: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ReloadAppTarget {
     #[default]
     All,

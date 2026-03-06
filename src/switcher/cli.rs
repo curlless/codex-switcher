@@ -61,9 +61,14 @@ pub enum Commands {
         /// Inspect targets and print reload guidance without terminating processes
         #[arg(long)]
         dry_run: bool,
-        /// Restrict reload handling to a specific app target
-        #[arg(value_enum, value_name = "target", default_value_t = ReloadAppTarget::All)]
-        target: ReloadAppTarget,
+        /// Restrict reload handling to a specific app target (defaults to config reload.primary_target)
+        #[arg(value_enum, value_name = "target")]
+        target: Option<ReloadAppTarget>,
+    },
+    /// Show or edit codex-switcher config
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
     },
     /// Mark a saved profile so auto-switch skips it
     Reserve {
@@ -108,6 +113,14 @@ pub enum Commands {
     },
 }
 
+#[derive(Subcommand)]
+pub enum ConfigCommands {
+    /// Open the config file in your editor
+    Edit,
+    /// Print config path and current contents
+    Show,
+}
+
 pub fn command_with_examples() -> Command {
     let name = command_name();
     let mut cmd = Cli::command();
@@ -118,6 +131,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} switch --reload-app codex\n  {name} switch --reload-app cursor\n  {name} reload-app\n  {name} reload-app codex --dry-run\n  {name} reload-app cursor --dry-run\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} switch --reload-app codex\n  {name} switch --reload-app cursor\n  {name} reload-app\n  {name} reload-app codex --dry-run\n  {name} reload-app cursor --dry-run\n  {name} config show\n  {name} config edit\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
     )
 }

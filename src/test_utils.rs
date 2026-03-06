@@ -195,6 +195,7 @@ pub(crate) fn make_paths(root: &Path) -> Paths {
     let profiles = codex.join("profiles");
     let profiles_index = profiles.join("profiles.json");
     let profiles_lock = profiles.join("profiles.lock");
+    let switcher_config = profiles.join("config.toml");
     Paths {
         codex,
         auth_codex,
@@ -202,5 +203,6 @@ pub(crate) fn make_paths(root: &Path) -> Paths {
         profiles,
         profiles_index,
         profiles_lock,
+        switcher_config,
     }
 }

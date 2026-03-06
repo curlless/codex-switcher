@@ -986,6 +986,7 @@ pub fn migrate_profiles(
         profiles: source_profiles.clone(),
         profiles_index: source_index_path,
         profiles_lock: source_profiles.join("profiles.lock"),
+        switcher_config: source_profiles.join("config.toml"),
     };
 
     let mut source_tokens = BTreeMap::new();

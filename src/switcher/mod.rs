@@ -1,7 +1,7 @@
 use clap::{FromArgMatches, error::ErrorKind};
 use std::process::Command as ProcessCommand;
 
-use crate::switcher::cli::{Cli, Commands, command_with_examples};
+use crate::switcher::cli::{Cli, Commands, ConfigCommands, command_with_examples};
 
 pub fn run_cli() {
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
@@ -57,6 +57,13 @@ fn run(cli: Cli) -> Result<(), String> {
     let paths = resolve_paths()?;
     ensure_paths(&paths)?;
 
+    if let Commands::Config { command } = &cli.command {
+        return match command {
+            ConfigCommands::Edit => edit_config(&paths),
+            ConfigCommands::Show => show_config(&paths),
+        };
+    }
+
     ensure_codex_cli(detect_install_source())?;
 
     let check_for_update_on_startup = (std::env::var_os("CODEX_SWITCHER_ENABLE_UPDATE").is_some()
@@ -77,6 +84,7 @@ fn run(cli: Cli) -> Result<(), String> {
     let _ = sync_current_readonly(&paths);
 
     match cli.command {
+        Commands::Config { .. } => unreachable!("config handled before startup checks"),
         Commands::Save { label } => save_profile(&paths, label),
         Commands::Load { label } => load_profile(&paths, label),
         Commands::List => list_profiles(&paths, false, false, false, false),
@@ -114,11 +122,14 @@ fn run(cli: Cli) -> Result<(), String> {
             let reload_target = if reload_ide {
                 Some(ReloadAppTarget::All)
             } else {
-                reload_app
+                switch_reload_target(&paths, reload_app)?
             };
             switch_best_profile(&paths, dry_run, reload_target)
         }
-        Commands::ReloadApp { dry_run, target } => reload_app(dry_run, target),
+        Commands::ReloadApp { dry_run, target } => {
+            let target = effective_reload_target(&paths, target)?;
+            reload_app(dry_run, target)
+        }
         Commands::Reserve { label } => reserve_profile(&paths, label),
         Commands::Unreserve { label } => unreserve_profile(&paths, label),
         Commands::Migrate { from, overwrite } => migrate_profiles(&paths, from, overwrite),
@@ -145,6 +156,7 @@ fn run_update_action(action: UpdateAction) -> Result<(), String> {
 mod auth;
 mod cli;
 mod common;
+mod config;
 mod ide_reload;
 mod profiles;
 mod relay;
@@ -157,6 +169,7 @@ mod usage;
 
 pub use auth::*;
 pub use common::*;
+pub use config::*;
 pub use ide_reload::*;
 pub use profiles::*;
 pub use relay::*;
