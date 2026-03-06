@@ -147,6 +147,7 @@ fn switcher_help_shows_relay_login() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("relay-login"));
+    assert!(stdout.contains("reload-app"));
     assert!(stdout.contains("reserve"));
     assert!(stdout.contains("unreserve"));
     let _ = fs::remove_dir_all(home);

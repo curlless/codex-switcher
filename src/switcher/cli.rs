@@ -52,6 +52,12 @@ pub enum Commands {
         #[arg(long)]
         reload_ide: bool,
     },
+    /// Run the IDE/app reload logic without switching profiles
+    ReloadApp {
+        /// Inspect targets and print reload guidance without terminating processes
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Mark a saved profile so auto-switch skips it
     Reserve {
         /// Reserve the profile matching this label
@@ -105,6 +111,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} reload-app\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
     )
 }

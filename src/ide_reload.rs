@@ -16,7 +16,26 @@ pub struct IdeReloadOutcome {
 pub fn reload_ide_best_effort() -> IdeReloadOutcome {
     #[cfg(windows)]
     {
-        reload_windows()
+        reload_windows(false)
+    }
+    #[cfg(not(windows))]
+    {
+        IdeReloadOutcome {
+            attempted: false,
+            restarted: false,
+            message: "IDE auto-reload is only implemented for Windows in this build.".to_string(),
+            manual_hints: vec![
+                "Cursor Codex extension: run Command Palette -> Developer: Reload Window."
+                    .to_string(),
+            ],
+        }
+    }
+}
+
+pub fn inspect_ide_reload() -> IdeReloadOutcome {
+    #[cfg(windows)]
+    {
+        reload_windows(true)
     }
     #[cfg(not(windows))]
     {
@@ -44,7 +63,7 @@ struct WindowsProcessInfo {
 }
 
 #[cfg(windows)]
-fn reload_windows() -> IdeReloadOutcome {
+fn reload_windows(dry_run: bool) -> IdeReloadOutcome {
     let processes = match list_reload_targets() {
         Ok(processes) => processes,
         Err(err) => {
@@ -68,14 +87,18 @@ fn reload_windows() -> IdeReloadOutcome {
     let mut killed = Vec::new();
     let mut issues = Vec::new();
 
-    for pid in &standalone_app_pids {
-        let output = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/F"])
-            .output();
-        match output {
-            Ok(output) if output.status.success() => killed.push(*pid),
-            Ok(output) => issues.push(format!("pid {pid}: taskkill exited with {}", output.status)),
-            Err(err) => issues.push(format!("pid {pid}: failed to run taskkill ({err})")),
+    if !dry_run {
+        for pid in &standalone_app_pids {
+            let output = Command::new("taskkill")
+                .args(["/PID", &pid.to_string(), "/F"])
+                .output();
+            match output {
+                Ok(output) if output.status.success() => killed.push(*pid),
+                Ok(output) => {
+                    issues.push(format!("pid {pid}: taskkill exited with {}", output.status))
+                }
+                Err(err) => issues.push(format!("pid {pid}: failed to run taskkill ({err})")),
+            }
         }
     }
 
@@ -88,6 +111,34 @@ fn reload_windows() -> IdeReloadOutcome {
     }
     if manual_hints.is_empty() {
         manual_hints = default_manual_hints();
+    }
+
+    if dry_run {
+        if !standalone_app_pids.is_empty() {
+            let mut message = format!(
+                "Reload hint: dry run detected standalone Codex app processes (PID {}).",
+                join_pids(&standalone_app_pids)
+            );
+            if cursor_detected || extension_detected {
+                message.push_str(" Cursor extension would still require a separate window reload.");
+            }
+            return IdeReloadOutcome {
+                attempted: false,
+                restarted: false,
+                message,
+                manual_hints,
+            };
+        }
+
+        if cursor_detected || extension_detected {
+            return IdeReloadOutcome {
+                attempted: false,
+                restarted: false,
+                message: "Reload hint: dry run detected Cursor Codex extension; actual reload would still be manual via Reload Window."
+                    .to_string(),
+                manual_hints,
+            };
+        }
     }
 
     if !killed.is_empty() {

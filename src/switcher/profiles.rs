@@ -896,6 +896,26 @@ pub fn switch_best_profile(paths: &Paths, dry_run: bool, reload_ide: bool) -> Re
     Ok(())
 }
 
+pub fn reload_app(dry_run: bool) -> Result<(), String> {
+    let use_color = use_color_stdout();
+    let outcome = if dry_run {
+        crate::switcher::inspect_ide_reload()
+    } else {
+        reload_ide_best_effort()
+    };
+    let mut lines = Vec::new();
+    if outcome.restarted {
+        lines.push(format_action(&outcome.message, use_color));
+    } else {
+        lines.push(format_warning(&outcome.message, use_color));
+    }
+    for hint in outcome.manual_hints {
+        lines.push(format_hint(&hint, use_color));
+    }
+    print_output_block(&lines.join("\n"));
+    Ok(())
+}
+
 pub fn reserve_profile(paths: &Paths, label: Option<String>) -> Result<(), String> {
     set_profile_reserved(paths, label, true)
 }

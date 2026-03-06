@@ -105,6 +105,7 @@ fn run(cli: Cli) -> Result<(), String> {
             dry_run,
             reload_ide,
         } => switch_best_profile(&paths, dry_run, reload_ide),
+        Commands::ReloadApp { dry_run } => reload_app(dry_run),
         Commands::Migrate { from, overwrite } => migrate_profiles(&paths, from, overwrite),
         Commands::Delete { yes, label } => delete_profile(&paths, yes, label),
         Commands::RelayLogin { url } => relay_login(url),

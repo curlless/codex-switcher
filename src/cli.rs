@@ -52,6 +52,12 @@ pub enum Commands {
         #[arg(long)]
         reload_ide: bool,
     },
+    /// Run the IDE/app reload logic without switching profiles
+    ReloadApp {
+        /// Inspect targets and print reload guidance without terminating processes
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Copy profiles from another Codex directory into current storage
     Migrate {
         /// Source Codex directory (contains profiles/ and profiles.json)
@@ -91,6 +97,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} reload-app\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
     )
 }
