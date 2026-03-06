@@ -13,6 +13,11 @@ and reserved profiles for dedicated workloads such as VPS agents or OpenClaw.
 authentication. It keeps `codex-profiles` package compatibility while recommending
 the `codex-switcher` binary for side-by-side use.
 
+This repository is based on the original
+[`codex-profiles`](https://github.com/midhunmonachan/codex-profiles) project and
+extends it with local workflow changes, reserved-profile support, and repository-specific
+release/docs cleanup.
+
 Use it when you need to:
 
 - save multiple Codex logins on one machine
