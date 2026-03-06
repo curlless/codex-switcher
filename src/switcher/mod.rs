@@ -1,7 +1,7 @@
 use clap::{FromArgMatches, error::ErrorKind};
 use std::process::Command as ProcessCommand;
 
-use crate::cli::{Cli, Commands, command_with_examples};
+use crate::switcher::cli::{Cli, Commands, command_with_examples};
 
 pub fn run_cli() {
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
@@ -59,7 +59,9 @@ fn run(cli: Cli) -> Result<(), String> {
 
     ensure_codex_cli(detect_install_source())?;
 
-    let check_for_update_on_startup = std::env::var_os("CODEX_PROFILES_ENABLE_UPDATE").is_some()
+    let check_for_update_on_startup = (std::env::var_os("CODEX_SWITCHER_ENABLE_UPDATE").is_some()
+        || std::env::var_os("CODEX_PROFILES_ENABLE_UPDATE").is_some())
+        && std::env::var_os("CODEX_SWITCHER_SKIP_UPDATE").is_none()
         && std::env::var_os("CODEX_PROFILES_SKIP_UPDATE").is_none();
     let update_config = UpdateConfig {
         codex_home: paths.codex.clone(),
@@ -105,6 +107,8 @@ fn run(cli: Cli) -> Result<(), String> {
             dry_run,
             reload_ide,
         } => switch_best_profile(&paths, dry_run, reload_ide),
+        Commands::Reserve { label } => reserve_profile(&paths, label),
+        Commands::Unreserve { label } => unreserve_profile(&paths, label),
         Commands::Migrate { from, overwrite } => migrate_profiles(&paths, from, overwrite),
         Commands::Delete { yes, label } => delete_profile(&paths, yes, label),
         Commands::RelayLogin { url } => relay_login(url),
@@ -133,8 +137,7 @@ mod ide_reload;
 mod profiles;
 mod relay;
 mod requirements;
-pub mod switcher;
-#[cfg(test)]
+#[cfg(all(test, feature = "switcher-unit-tests"))]
 mod test_utils;
 mod ui;
 mod updates;
@@ -150,10 +153,10 @@ pub use ui::*;
 pub use updates::*;
 pub use usage::*;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "switcher-unit-tests"))]
 mod tests {
     use super::*;
-    use crate::test_utils::{make_paths, set_env_guard};
+    use crate::switcher::test_utils::{make_paths, set_env_guard};
     use std::ffi::OsString;
     use std::fs;
     #[cfg(unix)]
@@ -161,19 +164,19 @@ mod tests {
 
     #[test]
     fn run_cli_with_args_help() {
-        let args = vec![OsString::from("codex-profiles")];
+        let args = vec![OsString::from("codex-switcher")];
         run_cli_with_args(args).unwrap();
     }
 
     #[test]
     fn run_cli_with_args_display_help() {
-        let args = vec![OsString::from("codex-profiles"), OsString::from("--help")];
+        let args = vec![OsString::from("codex-switcher"), OsString::from("--help")];
         run_cli_with_args(args).unwrap();
     }
 
     #[test]
     fn run_cli_with_args_errors() {
-        let args = vec![OsString::from("codex-profiles"), OsString::from("nope")];
+        let args = vec![OsString::from("codex-switcher"), OsString::from("nope")];
         let err = run_cli_with_args(args).unwrap_err();
         assert!(err.contains("error"));
     }
@@ -205,8 +208,8 @@ mod tests {
         let paths = make_paths(dir.path());
         fs::create_dir_all(&paths.profiles).unwrap();
         let home = dir.path().to_string_lossy().into_owned();
-        let _home = set_env_guard("CODEX_PROFILES_HOME", Some(&home));
-        let _skip = set_env_guard("CODEX_PROFILES_SKIP_UPDATE", Some("1"));
+        let _home = set_env_guard("CODEX_SWITCHER_HOME", Some(&home));
+        let _skip = set_env_guard("CODEX_SWITCHER_SKIP_UPDATE", Some("1"));
         let cli = Cli {
             plain: true,
             command: Commands::List,
