@@ -214,6 +214,16 @@ user variables yet.
 For `reload-app codex`, plain `reload-app`, and `switch` when the reload target includes `codex`,
 the command now auto-populates `[codex_app]` first if the configured path is missing or stale.
 
+Observed Codex app workaround on Windows:
+
+1. Let `reload-app codex` restart the app.
+2. In Codex app, click `Sign in`.
+3. Wait about 2 to 3 seconds.
+4. Cancel the sign-in flow.
+5. Close Codex app and open it again.
+
+This extra reopen is currently what makes the app reliably pick up the switched profile.
+
 ## Reserved Profiles
 
 Reserved profiles are still visible, loadable, and queryable. They are simply
