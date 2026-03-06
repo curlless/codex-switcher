@@ -29,7 +29,7 @@
 
 ## Testing
 
-- Rust unit tests in `src/*.rs` and `src/switcher/*.rs`
+- Rust unit tests in `src/lib.rs` and `src/switcher/*.rs`
 - Rust integration tests in `tests/`
 - Feature-gated suite: `switcher-unit-tests`
 
@@ -50,4 +50,4 @@
 ## Known Migration Context
 
 - The project originated from `codex-profiles`
-- The current codebase still contains a duplicated legacy root Rust tree alongside the active `src/switcher/*` tree
+- The runtime migration to `codex-switcher` is now normalized around the canonical `src/switcher/*` tree and thin crate-root re-exports

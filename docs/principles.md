@@ -2,9 +2,9 @@
 
 ## Source of Truth
 
-- `src/switcher/*` is the active runtime path for the shipped CLI.
+- `src/switcher/*` is the canonical runtime path for the shipped CLI and library exports.
 - New behavior should land in the canonical implementation first.
-- Legacy compatibility surfaces must not evolve independently.
+- Do not recreate a second compiled runtime tree under crate root modules.
 
 ## Compatibility Policy
 

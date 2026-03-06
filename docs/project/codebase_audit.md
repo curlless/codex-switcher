@@ -4,7 +4,7 @@ Date: `2026-03-07`
 
 ## Executive Summary
 
-The repository is in a materially healthier state than the initial audit snapshot, but one large structural debt item remains.
+The repository is in a materially healthier state than the initial audit snapshot. The largest migration debt item from the first audit pass has already been removed.
 
 Resolved in this pass:
 
@@ -15,7 +15,7 @@ Resolved in this pass:
 
 Remaining top risk:
 
-- duplicated Rust runtime trees under `src/*` and `src/switcher/*`
+- oversized switcher modules, especially in profile/ranking code
 
 ## Compliance Score
 
@@ -44,38 +44,31 @@ Overall score: `8.1 / 10`
 
 ### Remaining findings
 
-- the canonical runtime is still duplicated between root modules and `src/switcher/*`
+- the canonical runtime now compiles from one implementation tree
 - profile and rendering modules remain oversized
 - dependency drift remains in the Rust dependency set
 - Node wrapper packaging still needs a reproducible registry/lockfile story
 
 ## Key Findings
 
-### 1. Duplicated runtime tree remains the dominant debt
+### 1. Runtime duplication has been removed from the compiled code path
 
 Evidence:
 
 - active path: `src/main.rs -> src/switcher/mod.rs`
-- duplicated implementations still exist under `src/*.rs`
+- crate root now re-exports the canonical implementation from `src/lib.rs`
+- legacy duplicated root modules were removed
 
-Impact:
+Result:
 
-- every maintenance change risks divergence
-- audit and review costs stay artificially high
-- dependency and security fixes must still be mirrored
-
-Recommended action:
-
-1. declare `src/switcher/*` as the canonical runtime
-2. convert root modules to compatibility re-exports where possible
-3. remove duplicated implementations module-by-module
+- maintenance now targets one Rust implementation tree
+- clippy and test verification no longer pay duplication overhead for root modules
 
 ### 2. Large profile/rendering modules still need decomposition
 
 Hotspots:
 
 - `src/switcher/profiles.rs`
-- `src/profiles.rs`
 - `src/switcher/mod.rs`
 
 Recommended action:
@@ -92,10 +85,9 @@ Open issues:
 
 ## Current Remediation Order
 
-1. finish migration collapse from duplicated root tree to one canonical runtime tree
-2. split oversized profile and rendering modules
-3. refresh direct Rust dependencies with regression coverage
-4. harden npm/native distribution and lockfile strategy
+1. split oversized profile and rendering modules
+2. refresh direct Rust dependencies with regression coverage
+3. harden npm/native distribution and lockfile strategy
 
 ## Validation
 
@@ -115,10 +107,10 @@ Result:
 
 Detailed worker reports are preserved in:
 
-- [621-security.md](/F:/cursor%20projects/codex-switcher/docs/project/.audit/ln-620/2026-03-07/621-security.md)
-- [622-build.md](/F:/cursor%20projects/codex-switcher/docs/project/.audit/ln-620/2026-03-07/622-build.md)
-- [623-principles.md](/F:/cursor%20projects/codex-switcher/docs/project/.audit/ln-620/2026-03-07/623-principles.md)
-- [624-quality.md](/F:/cursor%20projects/codex-switcher/docs/project/.audit/ln-620/2026-03-07/624-quality.md)
-- [625-dependencies.md](/F:/cursor%20projects/codex-switcher/docs/project/.audit/ln-620/2026-03-07/625-dependencies.md)
-- [626-dead-code.md](/F:/cursor%20projects/codex-switcher/docs/project/.audit/ln-620/2026-03-07/626-dead-code.md)
-- [628-concurrency.md](/F:/cursor%20projects/codex-switcher/docs/project/.audit/ln-620/2026-03-07/628-concurrency.md)
+- [621-security.md](.audit/ln-620/2026-03-07/621-security.md)
+- [622-build.md](.audit/ln-620/2026-03-07/622-build.md)
+- [623-principles.md](.audit/ln-620/2026-03-07/623-principles.md)
+- [624-quality.md](.audit/ln-620/2026-03-07/624-quality.md)
+- [625-dependencies.md](.audit/ln-620/2026-03-07/625-dependencies.md)
+- [626-dead-code.md](.audit/ln-620/2026-03-07/626-dead-code.md)
+- [628-concurrency.md](.audit/ln-620/2026-03-07/628-concurrency.md)

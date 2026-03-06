@@ -15,6 +15,7 @@ Manage multiple Codex CLI accounts with fast switching, usage-aware ranking, and
   <a href="#quick-start"><strong>Quick Start</strong></a> |
   <a href="#what-makes-it-useful"><strong>Features</strong></a> |
   <a href="#commands"><strong>Commands</strong></a> |
+  <a href="#documentation"><strong>Docs</strong></a> |
   <a href="#development"><strong>Development</strong></a>
 </p>
 
@@ -142,7 +143,7 @@ flowchart LR
 | `load [--label <name>]` | Load a saved profile from the picker or by label. |
 | `list` | Show saved profiles ordered by last use. |
 | `status [--current] [--all] [--label <name>]` | Show usage details and ranking state. |
-| `switch [--dry-run] [--reload-ide]` | Pick the best non-reserved profile from remaining limits. |
+| `switch [--dry-run] [--reload-ide] [--reload-app <target>]` | Pick the best non-reserved profile from remaining limits. |
 | `reload-app [codex|cursor] [--dry-run]` | Reload the preferred app target without switching profiles. |
 | `config show` / `config edit` / `config detect-codex-app [--write-env]` | Inspect config, edit preferences, or detect the standalone Codex app install path. |
 | `reserve --label <name>` | Mark a saved profile as excluded from auto-switch. |
@@ -272,6 +273,15 @@ Example:
 ```bash
 codex-switcher relay-login --url "http://localhost:1455/auth/callback?code=...&state=..."
 ```
+
+## Documentation
+
+- [docs/README.md](docs/README.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/principles.md](docs/principles.md)
+- [docs/project/tech_stack.md](docs/project/tech_stack.md)
+- [docs/project/codebase_audit.md](docs/project/codebase_audit.md)
+- [tests/README.md](tests/README.md)
 
 ## Development
 
