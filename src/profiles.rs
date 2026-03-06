@@ -893,9 +893,10 @@ pub fn switch_best_profile(
         if matches!(
             reload_target,
             ReloadAppTarget::All | ReloadAppTarget::Cursor
-        ) && !manual_hints
-            .iter()
-            .any(|hint| hint.contains("ionutvmi.vscode-commands-executor"))
+        ) && !outcome.message.contains("protocol reload is available")
+            && !manual_hints
+                .iter()
+                .any(|hint| hint.contains("ionutvmi.vscode-commands-executor"))
         {
             manual_hints.push(CURSOR_PROTOCOL_HELPER_HINT.to_string());
         }
@@ -923,6 +924,7 @@ pub fn reload_app(dry_run: bool, target: ReloadAppTarget) -> Result<(), String> 
     let mut lines = Vec::new();
     let mut manual_hints = outcome.manual_hints;
     if matches!(target, ReloadAppTarget::All | ReloadAppTarget::Cursor)
+        && !outcome.message.contains("protocol reload is available")
         && !manual_hints
             .iter()
             .any(|hint| hint.contains("ionutvmi.vscode-commands-executor"))
