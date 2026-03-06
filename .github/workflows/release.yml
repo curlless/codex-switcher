@@ -163,7 +163,7 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           
           # Safety gate: only commit to production repository
-          if [[ "${GITHUB_REPOSITORY}" != "midhunmonachan/codex-profiles" ]]; then
+          if [[ "${GITHUB_REPOSITORY}" != "1Voin1/codex-switcher" ]]; then
             echo "Skipping checksum commit: not production repository (current: ${GITHUB_REPOSITORY})"
             echo "Checksums generated but not committed to repo"
             ls -la dist/checksums/
@@ -179,14 +179,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # Fetch and checkout main branch (workflow starts in detached HEAD from tag)
-          git fetch origin main
-          git checkout main
+          # Fetch and checkout default branch (workflow starts in detached HEAD from tag)
+          default_branch="${{ github.event.repository.default_branch }}"
+          if [[ -z "${default_branch}" ]]; then
+            default_branch="develop"
+          fi
+          git fetch origin "${default_branch}"
+          git checkout "${default_branch}"
           
           # Commit and push
           git add "checksums/v${version}.txt"
           git commit -m "chore: add checksums for v${version}"
-          git push origin main
+          git push origin "${default_branch}"
 
       - name: Publish to crates.io
         if: ${{ !contains(github.ref_name, '-') }}
@@ -194,7 +198,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           # Safety gate: only publish from production repository
-          if [[ "${GITHUB_REPOSITORY}" != "midhunmonachan/codex-profiles" ]]; then
+          if [[ "${GITHUB_REPOSITORY}" != "1Voin1/codex-switcher" ]]; then
             echo "Skipping crates.io publish: not production repository (current: ${GITHUB_REPOSITORY})"
             exit 0
           fi
@@ -214,7 +218,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           # Safety gate: only publish from production repository
-          if [[ "${GITHUB_REPOSITORY}" != "midhunmonachan/codex-profiles" ]]; then
+          if [[ "${GITHUB_REPOSITORY}" != "1Voin1/codex-switcher" ]]; then
             echo "Skipping npm publish: not production repository (current: ${GITHUB_REPOSITORY})"
             exit 0
           fi

@@ -11,8 +11,8 @@ use crate::{Paths, UpdateCache, lock_usage, read_profiles_index, write_profiles_
 const HOMEBREW_CASK_URL: &str =
     "https://raw.githubusercontent.com/Homebrew/homebrew-cask/HEAD/Casks/c/codex-profiles.rb";
 const LATEST_RELEASE_URL: &str =
-    "https://api.github.com/repos/midhunmonachan/codex-profiles/releases/latest";
-const RELEASE_NOTES_URL: &str = "https://github.com/midhunmonachan/codex-profiles/releases/latest";
+    "https://api.github.com/repos/1Voin1/codex-switcher/releases/latest";
+const RELEASE_NOTES_URL: &str = "https://github.com/1Voin1/codex-switcher/releases/latest";
 const HOMEBREW_CASK_URL_OVERRIDE_ENV_VAR: &str = "CODEX_PROFILES_HOMEBREW_CASK_URL";
 const LATEST_RELEASE_URL_OVERRIDE_ENV_VAR: &str = "CODEX_PROFILES_LATEST_RELEASE_URL";
 const UPDATE_AVAILABLE: &str = "Update available!";

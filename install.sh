@@ -5,7 +5,7 @@
 set -euo pipefail
 
 VERSION="${CODEX_PROFILES_VERSION:-0.1.0}"
-REPO="midhunmonachan/codex-profiles"
+REPO="1Voin1/codex-switcher"
 INSTALL_DIR="${CODEX_PROFILES_INSTALL_DIR:-$HOME/.local/bin}"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -140,7 +140,7 @@ main() {
     local archive_name="codex-profiles-${target}.tar.gz"
     local archive_url="$base_url/$archive_name"
     
-    local checksum_url="https://raw.githubusercontent.com/$REPO/main/checksums/v${VERSION}.txt"
+    local checksum_url="https://raw.githubusercontent.com/$REPO/develop/checksums/v${VERSION}.txt"
     
     TMPDIR_INSTALL="$(mktemp -d)"
     trap cleanup EXIT

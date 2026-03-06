@@ -1,37 +1,43 @@
-<h1 align="center">Codex Profiles</h1>
+# codex-switcher
 
-<p align="center">Manage multiple Codex CLI profiles and switch between them instantly.</p>
+Manage multiple Codex CLI accounts with fast profile switching, usage-aware ranking,
+and reserved profiles for dedicated workloads such as VPS agents or OpenClaw.
 
-<p align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/midhunmonachan/codex-profiles/tests.yml?branch=main&label=tests" alt="Tests" />
-  <img src="https://img.shields.io/github/v/release/midhunmonachan/codex-profiles" alt="Release" />
-  <img src="https://img.shields.io/github/stars/midhunmonachan/codex-profiles?style=flat" alt="Stars" />
-  <img src="https://img.shields.io/github/license/midhunmonachan/codex-profiles?color=blue" alt="License" />
-</p>
+[![Tests](https://img.shields.io/github/actions/workflow/status/1Voin1/codex-switcher/tests.yml?branch=develop&label=tests)](https://github.com/1Voin1/codex-switcher/actions/workflows/tests.yml)
+[![Release](https://img.shields.io/github/v/release/1Voin1/codex-switcher)](https://github.com/1Voin1/codex-switcher/releases)
+[![License](https://img.shields.io/github/license/1Voin1/codex-switcher?color=blue)](LICENSE)
 
-<p align="center">
-  <a href="#overview">Overview</a> •
-  <a href="#install">Install</a> •
-  <a href="#uninstall">Uninstall</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#faq">FAQ</a>
-</p>
+## Why this repo exists
 
----
+`codex-switcher` is the maintained repository for a profile manager around Codex CLI
+authentication. It keeps `codex-profiles` package compatibility while recommending
+the `codex-switcher` binary for side-by-side use.
 
-## Overview
+Use it when you need to:
 
-Codex Profiles helps you manage multiple Codex CLI logins on a single machine.
-It saves the current login and lets you switch in seconds, making it ideal for
-personal and team accounts across multiple organizations.
+- save multiple Codex logins on one machine
+- switch to the best account based on remaining 7d and 5h limits
+- reserve specific accounts so automatic switching never touches them
+- keep a separate storage home while still reading auth from your main Codex setup
+- relay an existing Roo or Codex callback URL into a local login listener
+
+## Requirements
+
+- [Codex CLI](https://developers.openai.com/codex/cli/)
+- One of:
+  - ChatGPT subscription for Codex login
+  - OpenAI API key
 
 ## Install
 
-> [!IMPORTANT]
-> Requires [Codex CLI](https://developers.openai.com/codex/cli/) (with ChatGPT subscription or OpenAI API key).
+### Recommended binary name
 
-> [!TIP]
-> Looking for a Teams promo? [See details](https://www.reddit.com/r/ChatGPTPromptGenius/comments/1lo7v0u/chatgpt_team_for_1_first_month_up_to_5_users/)
+The repository publishes both command names:
+
+- `codex-switcher`
+- `codex-profiles`
+
+For new setups, use `codex-switcher`.
 
 ### NPM
 
@@ -51,219 +57,140 @@ bun install -g codex-profiles
 cargo install codex-profiles
 ```
 
-### Manual Install
-
-Automatically detects your OS/architecture, downloads the correct binary, verifies checksums:
+### Manual install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/midhunmonachan/codex-profiles/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/develop/install.sh | bash
 ```
 
-## Uninstall
+## Quick start
 
-> [!WARNING]
-> Legacy script support is ending. Remove `cx` and use this version instead.
->
-> ```bash
-> rm ~/.local/bin/cx
-> ```
->
-> If you installed with a custom command name (`mycmd`), remove that name instead:
->
-> ```bash
-> rm ~/.local/bin/mycmd
-> ```
-
-### NPM
+Save the current login:
 
 ```bash
-npm uninstall -g codex-profiles
+codex-switcher save --label work
 ```
 
-### Run In Parallel With Existing Install
-
-If you want to keep the existing global `codex-profiles` and run this fork in parallel:
+Load a saved login:
 
 ```bash
-# Keep auth/config reading from your main Codex directory
-set CODEX_PROFILES_AUTH_DIR=%USERPROFILE%\\.codex
-
-# Use a separate storage home for this fork
-set CODEX_PROFILES_HOME=%USERPROFILE%\\codex-switcher-home
+codex-switcher load --label work
 ```
 
-Then migrate old profiles into the new storage (source is preserved):
+Preview the best profile without switching:
 
 ```bash
+codex-switcher switch --dry-run
+```
+
+Reserve an account so auto-switch skips it:
+
+```bash
+codex-switcher reserve --label openclaw-raymond
+codex-switcher reserve --label openclaw-benjamin
+```
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `save [--label <name>]` | Save the current `auth.json` as a named profile. |
+| `load [--label <name>]` | Load a saved profile from the picker or by label. |
+| `list` | Show saved profiles ordered by last use. |
+| `status [--current] [--all] [--label <name>]` | Show usage details and ranking state. |
+| `switch [--dry-run] [--reload-ide]` | Pick the best non-reserved profile from remaining limits. |
+| `reserve --label <name>` | Mark a saved profile as excluded from auto-switch. |
+| `unreserve --label <name>` | Remove the exclusion and allow auto-switch again. |
+| `migrate [--from <path>] [--overwrite]` | Copy profiles from another Codex directory into this storage. |
+| `delete [--yes] [--label <name>]` | Remove saved profiles without logging out the current session. |
+| `relay-login [--url <callback_url>]` | Relay an existing Roo or Codex callback URL into a running local listener. |
+
+## Reserved profiles
+
+Reserved profiles are visible, loadable, and queryable, but excluded from the
+automatic candidate pool used by `switch`.
+
+Typical use case:
+
+- keep 1 or 2 accounts dedicated to background agents
+- continue using `switch` locally without stealing those accounts
+- manually load the reserved account only when you explicitly choose to
+
+`switch --dry-run` displays reserved profiles with a `[reserved]` marker.
+
+## Storage model
+
+By default, saved profiles live under `~/.codex/profiles/`.
+
+| File | Purpose |
+| --- | --- |
+| `{email-plan}.json` | Saved profile payload. |
+| `profiles.json` | Profile metadata such as labels, active profile, last-used time, and reservation state. |
+| `profiles.lock` | File lock for safe concurrent updates. |
+
+Relevant environment variables:
+
+- `CODEX_PROFILES_HOME`: alternate storage root for saved profiles
+- `CODEX_PROFILES_AUTH_DIR`: alternate auth/config source directory
+- `CODEX_PROFILES_ENABLE_UPDATE=1`: opt in to startup update checks
+
+Parallel install example on Windows:
+
+```powershell
+$env:CODEX_PROFILES_AUTH_DIR = "$env:USERPROFILE\\.codex"
+$env:CODEX_PROFILES_HOME = "$env:USERPROFILE\\codex-switcher-home"
 codex-switcher migrate
 ```
 
-This fork also exposes a parallel-safe command alias:
+## Relay login
+
+Use `relay-login` only when the normal login flow is already running in another terminal.
+
+Accepted callback URLs must:
+
+- use `http`
+- target `localhost` or `127.0.0.1`
+- include an explicit port
+- use the exact path `/auth/callback`
+- include non-empty `code` and `state` query values
+
+Example:
 
 ```bash
-codex-switcher --help
+codex-switcher relay-login --url "http://localhost:1455/auth/callback?code=...&state=..."
 ```
 
-### Bun
+## Development
+
+Core local checks:
 
 ```bash
-bun uninstall -g codex-profiles
+make precommit
 ```
 
-### Cargo
+Other useful targets:
 
 ```bash
-cargo uninstall codex-profiles
+make fmt
+make clippy
+make test
+make coverage
 ```
 
-### Manual Uninstall
-
-```bash
-rm ~/.local/bin/codex-profiles
-```
-
-## Usage
-
-> [!TIP]
-> Commands are interactive unless you pass `--label`.
-
-> [!NOTE]
-> Automatic update checks are opt-in in this fork. Enable with `CODEX_PROFILES_ENABLE_UPDATE=1`.
-
-| Command | Description |
-| --- | --- |
-| `codex-profiles save [--label <name>]` | Save the current `auth.json` as a profile, optionally labeled. |
-| `codex-profiles load [--label <name>]` | Load a profile from the picker without re-login (or by label). |
-| `codex-profiles switch [--dry-run] [--reload-ide]` | Rank profiles by remaining usage (7d/5h) and switch to the highest-priority profile. |
-| `codex-profiles migrate [--from <path>] [--overwrite]` | Copy profiles from another Codex directory into current storage without deleting source profiles. If `--from` is omitted, source is auto-detected. |
-| `codex-profiles list` | List profiles ordered by last used. |
-| `codex-profiles status [--current] [--all] [--label <name>]` | Show usage ranking for all profiles (default), current profile only, or a specific label. |
-| `codex-profiles relay-login [--url <callback_url>]` | Relay an already-issued Roo/Codex callback URL to a running local login listener (`http://localhost:<port>/auth/callback?...`). |
-| `codex-profiles delete [--yes] [--label <name>]` | Delete profiles from the picker (or by label). |
-
-> `codex-switcher` supports the exact same commands as `codex-profiles` and is recommended for parallel usage.
-
-### Roo callback relay (`relay-login`)
-
-Use this when a Codex/Roo login listener is already running locally and you need to replay the callback URL.
-
-1. Start normal login in Codex CLI and keep that terminal open (listener running).
-2. Complete auth in browser and copy the full callback URL.
-3. Run:
-
-```bash
-codex-switcher relay-login --url "http://localhost:<port>/auth/callback?code=...&state=..."
-```
-
-If `--url` is omitted in an interactive terminal, the command prompts once for the callback URL.
-
-Strict callback URL requirements:
-
-- Scheme must be `http`
-- Host must be `localhost` or `127.0.0.1`
-- Port is required
-- Path must be exactly `/auth/callback`
-- Query must include non-empty `code` and `state`
-- URL fragments (`#...`) are rejected
-
-> [!IMPORTANT]
-> `relay-login` is relay-only. It does not start login, does not create PKCE state, and does not bypass PKCE validation.
-
-> [!NOTE]
-> If relay fails with connection/timeout errors, ensure the original login listener is still running and relay a fresh callback URL.
-
-> [!WARNING]
-> Deleting a profile does not log you out. It only removes the saved profile file.
-
-Quick example:
-
-```console
-$ codex-profiles save --label team
-Saved profile mail@company.com (Team)
-
-$ codex-profiles load --label team
-Loaded profile mail@company.com (Team)
-
-$ codex-profiles switch
-Priority ranking (best first)
-#  CUR  PROFILE                       7D   5H   TIER  SCORE  STATE
-1  *    mail@company.com [team]      91%  68%  T0    84.1   READY
-2       personal@mail.com [personal] 43%  12%  T0    33.7   READY
-Loaded profile mail@company.com (Team)
-```
-
-> [!NOTE]
-> Saved profiles are stored under `<CODEX_PROFILES_HOME>/.codex/profiles/` (default: `~/.codex/profiles/`).
-> Auth/config are read from `<CODEX_PROFILES_AUTH_DIR>` when set, otherwise from the same directory.
->
-> | File | Purpose |
-> | --- | --- |
-> | `{email-plan}.json` | Saved profiles. |
-> | `profiles.json` | Profile metadata (labels, last-used, active). |
-> | `profiles.lock` | Lock file for safe updates. |
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md),
+[SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## FAQ
 
-<details>
-<summary>Is my auth file uploaded anywhere?</summary>
+### Is my auth file uploaded anywhere?
 
-> No. Everything stays on your machine. This tool only copies files locally.
-</details>
+No. The tool copies files locally and keeps credentials on your machine.
 
-<details>
-<summary>What is a “profile” in this tool?</summary>
+### Does deleting a profile log me out?
 
-> A profile is a saved copy of your `~/.codex/auth.json`. Each profile represents
-> one Codex login.
-</details>
+No. It only removes the saved profile snapshot from the local store.
 
-<details>
-<summary>How do I save and switch between accounts?</summary>
+### Can I keep personal, work, and VPS accounts separate?
 
-> Log in with Codex CLI, then run `codex-profiles save --label <name>`. To switch
-> later, run `codex-profiles load --label <name>`.
-</details>
-
-<details>
-<summary>What happens if I run load without saving?</summary>
-
-> You will be prompted to save the current profile, continue without saving, or
-> cancel.
-</details>
-
-<details>
-<summary>Can I keep personal and work accounts separate?</summary>
-
-> Yes. Save each account with a label (for example, `personal` and `work`) and
-> switch with the label.
-</details>
-
-<details>
-<summary>How can I verify my installation?</summary>
-
-> After installing, verify it works:
->
-> ```bash
-> # Check version
-> codex-profiles --help
->
-> # Verify Codex CLI is detected
-> codex-profiles list
-> # Should show: "No profiles saved yet" (not an error about missing Codex CLI)
-> ```
->
-> If you see "Codex CLI not found", install it from [here](https://developers.openai.com/codex/cli/).
-</details>
-
-<details>
-<summary>Can I contribute to this project?</summary>
-
-> Yes! Contributions are welcome. For non-trivial changes (new features, significant
-> refactors), please open an [issue](https://github.com/midhunmonachan/codex-profiles/issues)
-> or [discussion](https://github.com/midhunmonachan/codex-profiles/discussions) first
-> to discuss your idea and avoid wasted effort.
->
-> For minor changes (bug fixes, typos, docs), feel free to submit a PR directly.
->
-> See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
-</details>
+Yes. Save each account with a distinct label and reserve dedicated accounts when
+you do not want automatic switching to use them.

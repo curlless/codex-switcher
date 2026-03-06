@@ -1,6 +1,7 @@
 {
   "name": "codex-profiles",
   "version": "0.1.0",
+  "description": "Manage multiple Codex CLI auth profiles with usage-aware switching and reserved accounts.",
   "license": "MIT",
   "bin": {
     "codex-profiles": "bin/codex-profiles.js",
@@ -20,8 +21,12 @@
   "files": [
     "bin"
   ],
+  "homepage": "https://github.com/1Voin1/codex-switcher#readme",
+  "bugs": {
+    "url": "https://github.com/1Voin1/codex-switcher/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/midhunmonachan/codex-profiles.git"
+    "url": "git+https://github.com/1Voin1/codex-switcher.git"
   }
 }

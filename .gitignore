@@ -6,6 +6,10 @@
 # Development folders
 /.code
 /.sisyphus
+/.tmp
+/memory-bank
+*.tar.gz
+.DS_Store
 
 # Python
 __pycache__/

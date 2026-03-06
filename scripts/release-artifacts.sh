@@ -86,17 +86,17 @@ cask "codex-profiles" do
 
   on_arm do
     sha256 "${darwin_arm_sha}"
-    url "https://github.com/midhunmonachan/codex-profiles/releases/download/v#{version}/codex-profiles-aarch64-apple-darwin.tar.gz"
+    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-profiles-aarch64-apple-darwin.tar.gz"
   end
 
   on_intel do
     sha256 "${darwin_x64_sha}"
-    url "https://github.com/midhunmonachan/codex-profiles/releases/download/v#{version}/codex-profiles-x86_64-apple-darwin.tar.gz"
+    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-profiles-x86_64-apple-darwin.tar.gz"
   end
 
   name "Codex Profiles"
   desc "Manage multiple Codex CLI auth profiles"
-  homepage "https://github.com/midhunmonachan/codex-profiles"
+  homepage "https://github.com/1Voin1/codex-switcher"
 
   binary "codex-profiles"
 end

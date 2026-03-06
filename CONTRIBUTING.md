@@ -1,12 +1,12 @@
 # Contributing
 
-Thanks for helping improve Codex Profiles.
+Thanks for helping improve codex-switcher.
 
 ## Before You Start
 
 **For non-trivial changes (new features, significant refactors, breaking changes):**
 
-Please open an [issue](https://github.com/midhunmonachan/codex-profiles/issues) or [discussion](https://github.com/midhunmonachan/codex-profiles/discussions) first to:
+Please open an [issue](https://github.com/1Voin1/codex-switcher/issues) or [discussion](https://github.com/1Voin1/codex-switcher/discussions) first to:
 - Discuss your proposed changes
 - Get feedback on your approach
 - Confirm the feature/fix aligns with project goals
@@ -110,4 +110,4 @@ make release-tag ARGS="--bump patch"
 
 ## Questions?
 
-Not sure if your idea fits? Ask in [Discussions](https://github.com/midhunmonachan/codex-profiles/discussions) - we're happy to help!
+Not sure if your idea fits? Ask in [Discussions](https://github.com/1Voin1/codex-switcher/discussions) and describe the use case you are trying to solve.

@@ -2,10 +2,10 @@
 name = "codex-profiles"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.93"
 license = "MIT"
 description = "Manage multiple Codex CLI auth profiles"
-repository = "https://github.com/midhunmonachan/codex-profiles"
-homepage = "https://github.com/midhunmonachan/codex-profiles"
+repository = "https://github.com/1Voin1/codex-switcher"
 documentation = "https://docs.rs/codex-profiles"
 readme = "README.md"
 keywords = ["codex", "cli", "profile", "auth", "openai"]
@@ -16,6 +16,8 @@ exclude = [
     "bin/",
     "dist/",
     "target/",
+    ".tmp/",
+    "memory-bank/",
     "*.profraw",
     "*.profdata",
     "coverage/",
