@@ -38,7 +38,7 @@ impl TestEnv {
             .expect("time")
             .as_nanos();
         let home = env::temp_dir().join(format!(
-            "codex-profiles-test-{}-{nanos}",
+            "codex-switcher-test-{}-{nanos}",
             std::process::id()
         ));
         fs::create_dir_all(home.join(".codex")).expect("create codex dir");
@@ -172,7 +172,7 @@ impl TestEnv {
         cmd.args(args)
             .env("HOME", &self.home)
             .env("CODEX_PROFILES_HOME", &self.home)
-            .env("CODEX_PROFILES_COMMAND", "codex-profiles")
+            .env("CODEX_PROFILES_COMMAND", "codex-switcher")
             .env("CODEX_PROFILES_SKIP_UPDATE", "1")
             .env("NO_COLOR", "1")
             .env("LANG", "C")
@@ -254,7 +254,7 @@ fn ascii_only(raw: &str) -> String {
 }
 
 fn resolve_bin_path() -> PathBuf {
-    if let Ok(path) = env::var("CARGO_BIN_EXE_codex-profiles") {
+    if let Ok(path) = env::var("CARGO_BIN_EXE_codex-switcher") {
         return PathBuf::from(path);
     }
     let exe = env::current_exe().expect("current exe");
@@ -263,9 +263,9 @@ fn resolve_bin_path() -> PathBuf {
         .and_then(|path| path.parent())
         .expect("target dir");
     let bin_name = if cfg!(windows) {
-        "codex-profiles.exe"
+        "codex-switcher.exe"
     } else {
-        "codex-profiles"
+        "codex-switcher"
     };
     target_dir.join(bin_name)
 }
@@ -779,7 +779,7 @@ fn ui_list_command() {
     let output = env.run(&["list"]);
     assert!(output.contains("current@example.com"));
     assert!(output.contains("WARNING: This profile is not saved yet."));
-    assert!(output.contains("Run `codex-profiles save` to save this profile."));
+    assert!(output.contains("Run `codex-switcher save` to save this profile."));
     assert!(output.contains("alpha@example.com"));
     assert!(output.contains("beta@example.com"));
     assert_order(&output, "current@example.com", "alpha@example.com");

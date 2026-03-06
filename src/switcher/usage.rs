@@ -14,7 +14,7 @@ use crate::switcher::{Paths, command_name};
 use crate::switcher::{is_plain, style_text, use_color_stdout, use_tty_stderr};
 
 const DEFAULT_BASE_URL: &str = "https://chatgpt.com/backend-api";
-const USER_AGENT: &str = "codex-profiles";
+const USER_AGENT: &str = "codex-switcher";
 #[cfg(not(test))]
 const LOCK_TIMEOUT: Duration = Duration::from_secs(10);
 const LOCK_RETRY_DELAY: Duration = Duration::from_secs(1);

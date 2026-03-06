@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `relay-login [--url <callback_url>]` command to forward an already-issued Roo/Codex loopback callback URL to a running local login listener
 - `relay-login` docs covering strict callback URL requirements and relay-only semantics (no login bootstrap, no PKCE bypass)
 - `CODEX_PROFILES_AUTH_DIR` support to read auth/config from a separate Codex directory (parallel mode)
-- Added `codex-switcher` binary alias for side-by-side usage with existing `codex-profiles`
+- Removed the legacy `codex-profiles` command alias and standardized on `codex-switcher`
 
 ### Changed
 

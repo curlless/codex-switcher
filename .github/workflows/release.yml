@@ -81,19 +81,19 @@ jobs:
         include:
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            binary: codex-profiles
+            binary: codex-switcher
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            binary: codex-profiles
+            binary: codex-switcher
           - runner: macos-15-large
             target: x86_64-apple-darwin
-            binary: codex-profiles
+            binary: codex-switcher
           - runner: macos-15
             target: aarch64-apple-darwin
-            binary: codex-profiles
+            binary: codex-switcher
           - runner: windows-2025
             target: x86_64-pc-windows-msvc
-            binary: codex-profiles.exe
+            binary: codex-switcher.exe
 
     steps:
       - uses: actions/checkout@v6
@@ -117,13 +117,13 @@ jobs:
         run: |
           set -euo pipefail
           cargo fetch --locked
-          cargo build --release --target ${{ matrix.target }} --bin codex-profiles --locked
+          cargo build --release --target ${{ matrix.target }} --bin codex-switcher --locked
           echo "Build output:"
           ls -la target/${{ matrix.target }}/release || true
       - name: Upload binary
         uses: actions/upload-artifact@v6
         with:
-          name: codex-profiles-${{ matrix.target }}
+          name: codex-switcher-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/${{ matrix.binary }}
           if-no-files-found: error
 
@@ -234,10 +234,10 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
           
           # Publish main package
-          npm publish dist/npm-packages/codex-profiles-${version}.tgz --access public
+          npm publish dist/npm-packages/codex-switcher-${version}.tgz --access public
           
           # Publish platform packages
-          for pkg in dist/npm-packages/codex-profiles-*-*.tgz; do
+          for pkg in dist/npm-packages/codex-switcher-*-*.tgz; do
             npm publish "$pkg" --access public
           done
 

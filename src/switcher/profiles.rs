@@ -483,7 +483,11 @@ fn merge_priority_rows(rows: Vec<PriorityRow>, snapshot: &Snapshot) -> PriorityR
         .map(|row| row.state.clone())
         .expect("priority group is not empty");
     let label = priority_display_label(&rows, target);
-    let profile_name = profile_name_for_priority_row(&target.id, snapshot, label.as_deref());
+    let profile_name = if target.id == "__current__" {
+        target.profile_name.clone()
+    } else {
+        profile_name_for_priority_row(&target.id, snapshot, label.as_deref())
+    };
     PriorityRow {
         id: target.id.clone(),
         profile_name,

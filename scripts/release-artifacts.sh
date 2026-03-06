@@ -47,17 +47,17 @@ sha256_file() {
   fi
 }
 
-for artifact_dir in "${artifacts_dir}"/codex-profiles-*; do
-  target="${artifact_dir##*/codex-profiles-}"
-  binary="codex-profiles"
+for artifact_dir in "${artifacts_dir}"/codex-switcher-*; do
+  target="${artifact_dir##*/codex-switcher-}"
+  binary="codex-switcher"
   if [[ "${target}" == *windows* ]]; then
-    binary="codex-profiles.exe"
+    binary="codex-switcher.exe"
   fi
 
   if [[ "${target}" == *windows* ]]; then
-    (cd "${artifact_dir}" && zip -j "${release_dir}/codex-profiles-${target}.exe.zip" "${binary}")
+    (cd "${artifact_dir}" && zip -j "${release_dir}/codex-switcher-${target}.exe.zip" "${binary}")
   else
-    tar -C "${artifact_dir}" -czf "${release_dir}/codex-profiles-${target}.tar.gz" "${binary}"
+    tar -C "${artifact_dir}" -czf "${release_dir}/codex-switcher-${target}.tar.gz" "${binary}"
   fi
 done
 
@@ -68,37 +68,37 @@ done
 npm pack --pack-destination "${npm_packages_dir}"
 
 cargo package --locked
-crate_path="target/package/codex-profiles-${version}.crate"
+crate_path="target/package/codex-switcher-${version}.crate"
 if [[ ! -f "${crate_path}" ]]; then
   echo "Missing crate package at ${crate_path}" >&2
   exit 1
 fi
 cp "${crate_path}" "${cargo_dir}/"
 
-darwin_x64="${release_dir}/codex-profiles-x86_64-apple-darwin.tar.gz"
-darwin_arm="${release_dir}/codex-profiles-aarch64-apple-darwin.tar.gz"
+darwin_x64="${release_dir}/codex-switcher-x86_64-apple-darwin.tar.gz"
+darwin_arm="${release_dir}/codex-switcher-aarch64-apple-darwin.tar.gz"
 if [[ -f "${darwin_x64}" && -f "${darwin_arm}" ]]; then
   darwin_x64_sha="$(sha256_file "${darwin_x64}")"
   darwin_arm_sha="$(sha256_file "${darwin_arm}")"
-  cat > "${homebrew_dir}/codex-profiles.rb" <<EOF
-cask "codex-profiles" do
+  cat > "${homebrew_dir}/codex-switcher.rb" <<EOF
+cask "codex-switcher" do
   version "${version}"
 
   on_arm do
     sha256 "${darwin_arm_sha}"
-    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-profiles-aarch64-apple-darwin.tar.gz"
+    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-switcher-aarch64-apple-darwin.tar.gz"
   end
 
   on_intel do
     sha256 "${darwin_x64_sha}"
-    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-profiles-x86_64-apple-darwin.tar.gz"
+    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-switcher-x86_64-apple-darwin.tar.gz"
   end
 
-  name "Codex Profiles"
+  name "codex-switcher"
   desc "Manage multiple Codex CLI auth profiles"
   homepage "https://github.com/1Voin1/codex-switcher"
 
-  binary "codex-profiles"
+  binary "codex-switcher"
 end
 EOF
 else

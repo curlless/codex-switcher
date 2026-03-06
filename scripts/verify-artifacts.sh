@@ -41,12 +41,12 @@ fi
 
 has_release_assets=0
 shopt -s nullglob
-for artifact_dir in "${out_dir}/artifacts"/codex-profiles-*; do
-  target="${artifact_dir##*/codex-profiles-}"
+for artifact_dir in "${out_dir}/artifacts"/codex-switcher-*; do
+  target="${artifact_dir##*/codex-switcher-}"
   if [[ "${target}" == *windows* ]]; then
-    expected="${release_dir}/codex-profiles-${target}.exe.zip"
+    expected="${release_dir}/codex-switcher-${target}.exe.zip"
   else
-    expected="${release_dir}/codex-profiles-${target}.tar.gz"
+    expected="${release_dir}/codex-switcher-${target}.tar.gz"
   fi
   if [[ ! -f "${expected}" ]]; then
     echo "Missing release asset: ${expected}" >&2
@@ -61,22 +61,22 @@ if [[ "${has_release_assets}" -eq 0 ]]; then
   exit 1
 fi
 
-main_pkg="${npm_packages_dir}/codex-profiles-${version}.tgz"
+main_pkg="${npm_packages_dir}/codex-switcher-${version}.tgz"
 if [[ ! -f "${main_pkg}" ]]; then
   echo "Missing npm main package: ${main_pkg}" >&2
   exit 1
 fi
 
-crate="${cargo_dir}/codex-profiles-${version}.crate"
+crate="${cargo_dir}/codex-switcher-${version}.crate"
 if [[ ! -f "${crate}" ]]; then
   echo "Missing cargo crate: ${crate}" >&2
   exit 1
 fi
 
-if [[ -f "${release_dir}/codex-profiles-aarch64-apple-darwin.tar.gz" || \
-      -f "${release_dir}/codex-profiles-x86_64-apple-darwin.tar.gz" ]]; then
-  if [[ ! -f "${homebrew_dir}/codex-profiles.rb" ]]; then
-    echo "Missing Homebrew cask: ${homebrew_dir}/codex-profiles.rb" >&2
+if [[ -f "${release_dir}/codex-switcher-aarch64-apple-darwin.tar.gz" || \
+      -f "${release_dir}/codex-switcher-x86_64-apple-darwin.tar.gz" ]]; then
+  if [[ ! -f "${homebrew_dir}/codex-switcher.rb" ]]; then
+    echo "Missing Homebrew cask: ${homebrew_dir}/codex-switcher.rb" >&2
     exit 1
   fi
 fi

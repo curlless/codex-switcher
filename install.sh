@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installer for codex-profiles
+# Installer for codex-switcher
 # Detects OS/arch, downloads binary from releases, verifies checksum from repo
 
 set -euo pipefail
@@ -130,14 +130,14 @@ main() {
     need_cmd chmod
     need_cmd tar
     
-    info "Installing codex-profiles v$VERSION"
+    info "Installing codex-switcher v$VERSION"
     
     local target
     target="$(detect_platform)"
     info "Detected platform: $target"
     
     local base_url="https://github.com/$REPO/releases/download/v$VERSION"
-    local archive_name="codex-profiles-${target}.tar.gz"
+    local archive_name="codex-switcher-${target}.tar.gz"
     local archive_url="$base_url/$archive_name"
     
     local checksum_url="https://raw.githubusercontent.com/$REPO/develop/checksums/v${VERSION}.txt"
@@ -164,16 +164,16 @@ main() {
     tar -xzf "$archive_path" -C "$tmpdir" || error "extraction failed"
     
     # Determine binary name based on OS
-    local binary_name="codex-profiles"
+    local binary_name="codex-switcher"
     if [[ "$target" == *"windows"* ]]; then
-        binary_name="codex-profiles.exe"
+        binary_name="codex-switcher.exe"
     fi
     
     local binary_path
     if [ -f "$tmpdir/$binary_name" ]; then
         binary_path="$tmpdir/$binary_name"
-    elif [ -f "$tmpdir/codex-profiles/$binary_name" ]; then
-        binary_path="$tmpdir/codex-profiles/$binary_name"
+    elif [ -f "$tmpdir/codex-switcher/$binary_name" ]; then
+        binary_path="$tmpdir/codex-switcher/$binary_name"
     else
         error "binary not found in archive (looking for $binary_name)"
     fi
@@ -222,7 +222,7 @@ usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
-Install codex-profiles by downloading the correct binary for your platform.
+Install codex-switcher by downloading the correct binary for your platform.
 
 Options:
   -v, --version VERSION    Install specific version (default: $VERSION)

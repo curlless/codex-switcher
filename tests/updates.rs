@@ -1,4 +1,4 @@
-use codex_profiles::{
+use codex_switcher::{
     InstallSource, detect_install_source_inner, extract_version_from_cask,
     extract_version_from_latest_tag, is_newer,
 };
@@ -20,7 +20,7 @@ fn detects_install_source_without_env_mutation() {
     assert_eq!(
         detect_install_source_inner(
             true,
-            std::path::Path::new("/opt/homebrew/bin/codex-profiles"),
+            std::path::Path::new("/opt/homebrew/bin/codex-switcher"),
             false,
             false,
         ),
@@ -29,7 +29,7 @@ fn detects_install_source_without_env_mutation() {
     assert_eq!(
         detect_install_source_inner(
             true,
-            std::path::Path::new("/usr/local/bin/codex-profiles"),
+            std::path::Path::new("/usr/local/bin/codex-switcher"),
             false,
             false,
         ),
@@ -40,7 +40,7 @@ fn detects_install_source_without_env_mutation() {
 #[test]
 fn parses_version_from_cask_contents() {
     let cask = r#"
-        cask "codex-profiles" do
+        cask "codex-switcher" do
           version "0.55.0"
         end
     "#;

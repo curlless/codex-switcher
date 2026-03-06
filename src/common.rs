@@ -49,11 +49,11 @@ where
                 .map(|name| name.to_string())
         })
         .filter(|name| !name.is_empty())
-        .unwrap_or_else(|| "codex-profiles".to_string())
+        .unwrap_or_else(|| "codex-switcher".to_string())
 }
 
 pub fn package_command_name() -> &'static str {
-    "codex-profiles"
+    "codex-switcher"
 }
 
 #[cfg(unix)]
@@ -413,9 +413,9 @@ mod tests {
 
     #[test]
     fn compute_command_name_uses_args() {
-        let args = vec![OsString::from("/usr/bin/codex-profiles")];
+        let args = vec![OsString::from("/usr/bin/codex-switcher")];
         let name = compute_command_name_from(None, args.into_iter());
-        assert_eq!(name, "codex-profiles");
+        assert_eq!(name, "codex-switcher");
     }
 
     #[test]
@@ -428,7 +428,7 @@ mod tests {
     #[test]
     fn compute_command_name_fallback() {
         let name = compute_command_name_from(None, Vec::new().into_iter());
-        assert_eq!(name, "codex-profiles");
+        assert_eq!(name, "codex-switcher");
     }
 
     #[test]

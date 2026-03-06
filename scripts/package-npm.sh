@@ -13,39 +13,39 @@ fi
 rm -rf "${out_dir}"
 mkdir -p "${out_dir}"
 
-for artifact_dir in "${artifacts_dir}"/codex-profiles-*; do
-  target="${artifact_dir##*/codex-profiles-}"
+for artifact_dir in "${artifacts_dir}"/codex-switcher-*; do
+  target="${artifact_dir##*/codex-switcher-}"
   pkg=""
   os=""
   cpu=""
-  bin_name="codex-profiles"
+  bin_name="codex-switcher"
 
   case "${target}" in
     x86_64-unknown-linux-gnu)
-      pkg="codex-profiles-linux-x64"
+      pkg="codex-switcher-linux-x64"
       os="linux"
       cpu="x64"
       ;;
     aarch64-unknown-linux-gnu)
-      pkg="codex-profiles-linux-arm64"
+      pkg="codex-switcher-linux-arm64"
       os="linux"
       cpu="arm64"
       ;;
     x86_64-apple-darwin)
-      pkg="codex-profiles-darwin-x64"
+      pkg="codex-switcher-darwin-x64"
       os="darwin"
       cpu="x64"
       ;;
     aarch64-apple-darwin)
-      pkg="codex-profiles-darwin-arm64"
+      pkg="codex-switcher-darwin-arm64"
       os="darwin"
       cpu="arm64"
       ;;
     x86_64-pc-windows-msvc)
-      pkg="codex-profiles-win32-x64"
+      pkg="codex-switcher-win32-x64"
       os="win32"
       cpu="x64"
-      bin_name="codex-profiles.exe"
+      bin_name="codex-switcher.exe"
       ;;
     *)
       echo "Skipping unsupported target ${target}" >&2
@@ -68,7 +68,7 @@ for artifact_dir in "${artifacts_dir}"/codex-profiles-*; do
   "os": ["${os}"],
   "cpu": ["${cpu}"],
   "files": ["bin"],
-  "description": "Platform binary for codex-profiles"
+  "description": "Platform binary for codex-switcher"
 }
 JSON
 done

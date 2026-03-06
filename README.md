@@ -25,8 +25,7 @@ Manage multiple Codex CLI accounts with fast switching, usage-aware ranking, and
 ## Why It Exists
 
 `codex-switcher` is the maintained repository for a profile manager around Codex CLI
-authentication. It preserves `codex-profiles` package compatibility while recommending
-the `codex-switcher` binary for side-by-side use.
+authentication. It is now published and documented as `codex-switcher`.
 
 > This repository is based on the original
 > [`codex-profiles`](https://github.com/midhunmonachan/codex-profiles) project
@@ -82,22 +81,13 @@ automation, you usually need more than "login once and overwrite auth.json".
 
 ## Install
 
-### Preferred command name
-
-This repository publishes both command names:
-
-- `codex-switcher`
-- `codex-profiles`
-
-For new setups, prefer `codex-switcher`.
-
 ### Package installs
 
 | Source | Command |
 | --- | --- |
-| npm | `npm install -g codex-profiles` |
-| Bun | `bun install -g codex-profiles` |
-| Cargo | `cargo install codex-profiles` |
+| npm | `npm install -g codex-switcher` |
+| Bun | `bun install -g codex-switcher` |
+| Cargo | `cargo install codex-switcher` |
 
 ### Manual install
 

@@ -185,19 +185,19 @@ mod tests {
 
     #[test]
     fn run_cli_with_args_help() {
-        let args = vec![OsString::from("codex-profiles")];
+        let args = vec![OsString::from("codex-switcher")];
         run_cli_with_args(args).unwrap();
     }
 
     #[test]
     fn run_cli_with_args_display_help() {
-        let args = vec![OsString::from("codex-profiles"), OsString::from("--help")];
+        let args = vec![OsString::from("codex-switcher"), OsString::from("--help")];
         run_cli_with_args(args).unwrap();
     }
 
     #[test]
     fn run_cli_with_args_errors() {
-        let args = vec![OsString::from("codex-profiles"), OsString::from("nope")];
+        let args = vec![OsString::from("codex-switcher"), OsString::from("nope")];
         let err = run_cli_with_args(args).unwrap_err();
         assert!(err.contains("error"));
     }

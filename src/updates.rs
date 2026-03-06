@@ -9,7 +9,7 @@ use crate::{Paths, UpdateCache, lock_usage, read_profiles_index, write_profiles_
 
 // We use the latest version from the cask if installation is via homebrew - homebrew does not immediately pick up the latest release and can lag behind.
 const HOMEBREW_CASK_URL: &str =
-    "https://raw.githubusercontent.com/Homebrew/homebrew-cask/HEAD/Casks/c/codex-profiles.rb";
+    "https://raw.githubusercontent.com/Homebrew/homebrew-cask/HEAD/Casks/c/codex-switcher.rb";
 const LATEST_RELEASE_URL: &str =
     "https://api.github.com/repos/1Voin1/codex-switcher/releases/latest";
 const RELEASE_NOTES_URL: &str = "https://github.com/1Voin1/codex-switcher/releases/latest";
@@ -20,11 +20,11 @@ const UPDATE_AVAILABLE: &str = "Update available!";
 /// Update action the CLI should perform after the prompt exits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpdateAction {
-    /// Update via `npm install -g codex-profiles`.
+    /// Update via `npm install -g codex-switcher`.
     NpmGlobalLatest,
-    /// Update via `bun install -g codex-profiles`.
+    /// Update via `bun install -g codex-switcher`.
     BunGlobalLatest,
-    /// Update via `brew upgrade codex-profiles`.
+    /// Update via `brew upgrade codex-switcher`.
     BrewUpgrade,
 }
 
@@ -40,9 +40,9 @@ impl UpdateAction {
     /// Returns the list of command-line arguments for invoking the update.
     pub fn command_args(self) -> (&'static str, &'static [&'static str]) {
         match self {
-            UpdateAction::NpmGlobalLatest => ("npm", &["install", "-g", "codex-profiles"]),
-            UpdateAction::BunGlobalLatest => ("bun", &["install", "-g", "codex-profiles"]),
-            UpdateAction::BrewUpgrade => ("brew", &["upgrade", "codex-profiles"]),
+            UpdateAction::NpmGlobalLatest => ("npm", &["install", "-g", "codex-switcher"]),
+            UpdateAction::BunGlobalLatest => ("bun", &["install", "-g", "codex-switcher"]),
+            UpdateAction::BrewUpgrade => ("brew", &["upgrade", "codex-switcher"]),
         }
     }
 
@@ -86,7 +86,7 @@ pub fn detect_install_source_inner(
 
 fn is_brew_install(current_exe: &std::path::Path) -> bool {
     (current_exe.starts_with("/opt/homebrew") || current_exe.starts_with("/usr/local"))
-        && current_exe.file_name().and_then(|name| name.to_str()) == Some("codex-profiles")
+        && current_exe.file_name().and_then(|name| name.to_str()) == Some("codex-switcher")
 }
 
 pub(crate) fn get_update_action() -> Option<UpdateAction> {
@@ -353,7 +353,7 @@ pub fn extract_version_from_latest_tag(latest_tag_name: &str) -> anyhow::Result<
 fn fetch_version_from_cask() -> Option<String> {
     let response = update_agent()
         .get(&homebrew_cask_url())
-        .header("User-Agent", "codex-profiles")
+        .header("User-Agent", "codex-switcher")
         .call();
     match response {
         Ok(mut resp) => {
@@ -368,7 +368,7 @@ fn fetch_version_from_cask() -> Option<String> {
 fn fetch_version_from_release() -> Option<String> {
     let response = update_agent()
         .get(&latest_release_url())
-        .header("User-Agent", "codex-profiles")
+        .header("User-Agent", "codex-switcher")
         .call();
     match response {
         Ok(mut resp) => {
@@ -529,7 +529,7 @@ mod tests {
 
     #[test]
     fn detect_install_source_inner_variants() {
-        let exe = PathBuf::from("/usr/local/bin/codex-profiles");
+        let exe = PathBuf::from("/usr/local/bin/codex-switcher");
         assert_eq!(
             detect_install_source_inner(true, &exe, false, false),
             InstallSource::Brew

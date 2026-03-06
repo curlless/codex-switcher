@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Unified entry point for Codex Profiles.
+// Unified entry point for codex-switcher.
 
 import { spawn } from "node:child_process";
 import { existsSync } from "fs";
@@ -15,11 +15,11 @@ const { platform, arch } = process;
 const require = createRequire(import.meta.url);
 
 const PLATFORM_PACKAGES = {
-  "linux-x64": "codex-profiles-linux-x64",
-  "linux-arm64": "codex-profiles-linux-arm64",
-  "darwin-x64": "codex-profiles-darwin-x64",
-  "darwin-arm64": "codex-profiles-darwin-arm64",
-  "win32-x64": "codex-profiles-win32-x64",
+  "linux-x64": "codex-switcher-linux-x64",
+  "linux-arm64": "codex-switcher-linux-arm64",
+  "darwin-x64": "codex-switcher-darwin-x64",
+  "darwin-arm64": "codex-switcher-darwin-arm64",
+  "win32-x64": "codex-switcher-win32-x64",
 };
 
 const platformKey = `${platform}-${arch}`;
@@ -39,7 +39,7 @@ try {
 
 const packageDir = path.dirname(packageJsonPath);
 const codexBinaryName =
-  process.platform === "win32" ? "codex-profiles.exe" : "codex-profiles";
+  process.platform === "win32" ? "codex-switcher.exe" : "codex-switcher";
 const binaryPath = path.join(packageDir, "bin", codexBinaryName);
 if (!existsSync(binaryPath)) {
   throw new Error(
@@ -56,7 +56,7 @@ const invokedName = path.basename(invokedPath).replace(/\.js$/, "");
 // receives a fatal signal, both processes exit in a predictable manner.
 
 /**
- * Use heuristics to detect the package manager that was used to install Codex Profiles
+ * Use heuristics to detect the package manager that was used to install codex-switcher
  * in order to give the user a hint about how to update it.
  */
 function detectPackageManager() {
