@@ -64,8 +64,6 @@ fn run(cli: Cli) -> Result<(), String> {
         };
     }
 
-    ensure_codex_cli(detect_install_source())?;
-
     let check_for_update_on_startup = std::env::var_os("CODEX_PROFILES_ENABLE_UPDATE").is_some()
         && std::env::var_os("CODEX_PROFILES_SKIP_UPDATE").is_none();
     let update_config = UpdateConfig {
