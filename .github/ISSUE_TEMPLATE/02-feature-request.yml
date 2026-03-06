@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a product, workflow, or UX improvement.
+title: "[feature] "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for concrete improvements. For early brainstorming or design discussion, start a GitHub Discussion first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow gap
+      description: What user problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the change you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider?
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected impact
+      description: Who benefits, and how would this improve switching, auth management, or maintenance?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and discussions first.
+          required: true
+        - label: This request is not a support question or one-off local setup problem.
+          required: true

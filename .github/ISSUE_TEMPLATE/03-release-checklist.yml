@@ -1,0 +1,38 @@
+name: Release checklist
+description: Prepare and track a tagged release from develop.
+title: "[release] "
+labels:
+  - release
+  - maintenance
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to prepare a release candidate before creating the tag.
+  - type: input
+    id: version
+    attributes:
+      label: Target version
+      description: Semantic version to release.
+      placeholder: 0.1.1
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Release scope
+      description: Summarize what is included in this release.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Release gates
+      options:
+        - label: CHANGELOG and README are up to date.
+        - label: Cargo and npm metadata point to this repository.
+        - label: All targeted tests passed on the release candidate.
+        - label: Installation instructions were smoke-tested.
+        - label: Security-sensitive changes were reviewed.
+        - label: Release notes draft is ready.
+        - label: Tag name and version bump match exactly.

@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a functional problem, regression, or unexpected behavior.
+title: "[bug] "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for real defects only. For setup questions or open-ended discussion, use GitHub Discussions.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is broken?
+      placeholder: A short description of the defect.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands or actions needed to reproduce the issue.
+      placeholder: |
+        1. Run ...
+        2. Save profile ...
+        3. Switch ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened in reality? Include errors or screenshots if useful.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, installation source, command name, and any relevant environment variables.
+      placeholder: |
+        OS:
+        Install source:
+        Command:
+        Env vars:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Paste the smallest useful excerpt. Redact tokens and callback URLs.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and did not find the same defect.
+          required: true
+        - label: I removed or redacted secrets, tokens, and private callback URLs.
+          required: true
