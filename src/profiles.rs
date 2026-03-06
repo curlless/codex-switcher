@@ -34,6 +34,7 @@ use crate::{
 const MAX_USAGE_CONCURRENCY: usize = 4;
 const SCORE_7D_WEIGHT: i64 = 70;
 const SCORE_5H_WEIGHT: i64 = 30;
+const CURSOR_PROTOCOL_HELPER_HINT: &str = "Cursor automation: install the Commands Executor extension (ionutvmi.vscode-commands-executor) to enable protocol-based Reload Window.";
 
 #[derive(Clone, Debug)]
 struct PriorityUsage {
@@ -888,12 +889,22 @@ pub fn switch_best_profile(
     if let Some(reload_target) = reload_target {
         let outcome = reload_ide_target_best_effort(reload_target);
         let mut lines = Vec::new();
+        let mut manual_hints = outcome.manual_hints;
+        if matches!(
+            reload_target,
+            ReloadAppTarget::All | ReloadAppTarget::Cursor
+        ) && !manual_hints
+            .iter()
+            .any(|hint| hint.contains("ionutvmi.vscode-commands-executor"))
+        {
+            manual_hints.push(CURSOR_PROTOCOL_HELPER_HINT.to_string());
+        }
         if outcome.restarted {
             lines.push(format_action(&outcome.message, use_color));
         } else {
             lines.push(format_warning(&outcome.message, use_color));
         }
-        for hint in outcome.manual_hints {
+        for hint in manual_hints {
             lines.push(format_hint(&hint, use_color));
         }
         print_output_block(&lines.join("\n"));
@@ -910,12 +921,20 @@ pub fn reload_app(dry_run: bool, target: ReloadAppTarget) -> Result<(), String> 
         reload_ide_target_best_effort(target)
     };
     let mut lines = Vec::new();
+    let mut manual_hints = outcome.manual_hints;
+    if matches!(target, ReloadAppTarget::All | ReloadAppTarget::Cursor)
+        && !manual_hints
+            .iter()
+            .any(|hint| hint.contains("ionutvmi.vscode-commands-executor"))
+    {
+        manual_hints.push(CURSOR_PROTOCOL_HELPER_HINT.to_string());
+    }
     if outcome.restarted {
         lines.push(format_action(&outcome.message, use_color));
     } else {
         lines.push(format_warning(&outcome.message, use_color));
     }
-    for hint in outcome.manual_hints {
+    for hint in manual_hints {
         lines.push(format_hint(&hint, use_color));
     }
     print_output_block(&lines.join("\n"));
