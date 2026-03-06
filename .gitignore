@@ -8,7 +8,12 @@
 /.sisyphus
 /.tmp
 /.local
-/.pipeline
+/.pipeline/*
+!/.pipeline/state.json
+!/.pipeline/preflight.json
+!/.pipeline/logs/
+/.pipeline/logs/*
+!/.pipeline/logs/.gitkeep
 /memory-bank
 *.tar.gz
 .DS_Store

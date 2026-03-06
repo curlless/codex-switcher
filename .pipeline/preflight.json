@@ -1,0 +1,40 @@
+{
+  "prepared_at": "2026-03-07T03:38:38.4648208+05:00",
+  "mode": "standard",
+  "provider": "linear",
+  "provider_rationale": "Linear MCP is reachable in the current Codex session.",
+  "checks": [
+    {
+      "name": "git_repository_available",
+      "status": "PASS",
+      "details": "Repository root detected at F:/cursor projects/codex-switcher."
+    },
+    {
+      "name": "provider_resolved",
+      "status": "PASS",
+      "details": "Selected provider is linear."
+    },
+    {
+      "name": "kanban_source_ready",
+      "status": "PASS",
+      "details": "Created docs/tasks/kanban_board.md starter board."
+    },
+    {
+      "name": "pipeline_state_scaffold_present",
+      "status": "PASS",
+      "details": "Created .pipeline/state.json and .pipeline/logs/."
+    },
+    {
+      "name": "required_ln_skills_discoverable",
+      "status": "PASS",
+      "details": "ln-300, ln-310, ln-400, ln-500, ln-1000 are discoverable from local skills directories."
+    },
+    {
+      "name": "multi_agent_enabled",
+      "status": "PASS",
+      "details": "Codex session exposes subagent tooling."
+    }
+  ],
+  "unresolved_blockers": [],
+  "next_command": "run skill ln-1000-pipeline-orchestrator"
+}
