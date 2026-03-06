@@ -18,8 +18,11 @@ use crate::{
     print_output_block, print_output_block_with_frame, style_text, terminal_width,
     use_color_stderr, use_color_stdout,
 };
-use crate::{Paths, command_name, copy_atomic, write_atomic};
-use crate::{ReloadAppTarget, inspect_ide_reload_target, reload_ide_target_best_effort};
+use crate::{Paths, codex_app_override, command_name, copy_atomic, write_atomic};
+use crate::{
+    ReloadAppTarget, inspect_ide_reload_target_with_codex_override,
+    reload_ide_target_best_effort_with_codex_override,
+};
 use crate::{
     Tokens, extract_email_and_plan, is_api_key_profile, is_free_plan, is_profile_ready,
     profile_error, read_tokens, read_tokens_opt, refresh_profile_tokens, require_identity,
@@ -887,7 +890,11 @@ pub fn switch_best_profile(
     load_profile_by_id(paths, &best.id, &best.profile_name)?;
 
     if let Some(reload_target) = reload_target {
-        let outcome = reload_ide_target_best_effort(reload_target);
+        let codex_override = codex_app_override(paths)?;
+        let outcome = reload_ide_target_best_effort_with_codex_override(
+            reload_target,
+            codex_override.as_ref(),
+        );
         let mut lines = Vec::new();
         let mut manual_hints = outcome.manual_hints;
         if matches!(
@@ -914,12 +921,13 @@ pub fn switch_best_profile(
     Ok(())
 }
 
-pub fn reload_app(dry_run: bool, target: ReloadAppTarget) -> Result<(), String> {
+pub fn reload_app(paths: &Paths, dry_run: bool, target: ReloadAppTarget) -> Result<(), String> {
     let use_color = use_color_stdout();
+    let codex_override = codex_app_override(paths)?;
     let outcome = if dry_run {
-        inspect_ide_reload_target(target)
+        inspect_ide_reload_target_with_codex_override(target, codex_override.as_ref())
     } else {
-        reload_ide_target_best_effort(target)
+        reload_ide_target_best_effort_with_codex_override(target, codex_override.as_ref())
     };
     let mut lines = Vec::new();
     let mut manual_hints = outcome.manual_hints;

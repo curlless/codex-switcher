@@ -61,6 +61,7 @@ fn run(cli: Cli) -> Result<(), String> {
         return match command {
             ConfigCommands::Edit => edit_config(&paths),
             ConfigCommands::Show => show_config(&paths),
+            ConfigCommands::DetectCodexApp { write_env } => detect_codex_app(&paths, *write_env),
         };
     }
 
@@ -124,7 +125,7 @@ fn run(cli: Cli) -> Result<(), String> {
         }
         Commands::ReloadApp { dry_run, target } => {
             let target = effective_reload_target(&paths, target)?;
-            reload_app(dry_run, target)
+            reload_app(&paths, dry_run, target)
         }
         Commands::Migrate { from, overwrite } => migrate_profiles(&paths, from, overwrite),
         Commands::Delete { yes, label } => delete_profile(&paths, yes, label),

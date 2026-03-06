@@ -19,6 +19,19 @@ pub struct IdeReloadOutcome {
     pub manual_hints: Vec<String>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CodexAppOverride {
+    pub executable_path: Option<PathBuf>,
+    pub app_user_model_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodexAppDiscovery {
+    pub executable_path: PathBuf,
+    pub app_user_model_id: Option<String>,
+    pub source: String,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ReloadAppTarget {
@@ -51,9 +64,16 @@ pub fn reload_ide_best_effort() -> IdeReloadOutcome {
 }
 
 pub fn reload_ide_target_best_effort(target: ReloadAppTarget) -> IdeReloadOutcome {
+    reload_ide_target_best_effort_with_codex_override(target, None)
+}
+
+pub fn reload_ide_target_best_effort_with_codex_override(
+    target: ReloadAppTarget,
+    codex_override: Option<&CodexAppOverride>,
+) -> IdeReloadOutcome {
     #[cfg(windows)]
     {
-        reload_windows(false, target)
+        reload_windows(false, target, codex_override)
     }
     #[cfg(not(windows))]
     {
@@ -71,9 +91,16 @@ pub fn inspect_ide_reload() -> IdeReloadOutcome {
 }
 
 pub fn inspect_ide_reload_target(target: ReloadAppTarget) -> IdeReloadOutcome {
+    inspect_ide_reload_target_with_codex_override(target, None)
+}
+
+pub fn inspect_ide_reload_target_with_codex_override(
+    target: ReloadAppTarget,
+    codex_override: Option<&CodexAppOverride>,
+) -> IdeReloadOutcome {
     #[cfg(windows)]
     {
-        reload_windows(true, target)
+        reload_windows(true, target, codex_override)
     }
     #[cfg(not(windows))]
     {
@@ -109,10 +136,15 @@ struct CursorProtocolAutomation {
 struct CodexAppLaunchTarget {
     executable_path: PathBuf,
     app_user_model_id: Option<String>,
+    source: String,
 }
 
 #[cfg(windows)]
-fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
+fn reload_windows(
+    dry_run: bool,
+    target: ReloadAppTarget,
+    codex_override: Option<&CodexAppOverride>,
+) -> IdeReloadOutcome {
     let processes = match list_reload_targets() {
         Ok(processes) => processes,
         Err(err) => {
@@ -143,7 +175,7 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
         Vec::new()
     };
     let codex_launch_target = if target.includes_codex() {
-        resolve_codex_app_launch_target(&processes)
+        resolve_codex_app_launch_target(&processes, codex_override)
     } else {
         None
     };
@@ -208,8 +240,12 @@ fn reload_windows(dry_run: bool, target: ReloadAppTarget) -> IdeReloadOutcome {
                 "Reload hint: dry run detected standalone Codex app processes (PID {}).",
                 join_pids(&standalone_app_pids)
             );
-            if codex_launch_target.is_some() {
-                message.push_str(" Relaunch target is available.");
+            if let Some(launch_target) = codex_launch_target.as_ref() {
+                message.push_str(&format!(
+                    " Relaunch target is available ({})",
+                    launch_target.source
+                ));
+                message.push('.');
             } else {
                 message.push_str(" Relaunch target could not be resolved.");
             }
@@ -498,13 +534,63 @@ fn parse_windows_command_exe(raw: &str) -> Option<PathBuf> {
 #[cfg(windows)]
 fn resolve_codex_app_launch_target(
     processes: &[WindowsProcessInfo],
+    codex_override: Option<&CodexAppOverride>,
 ) -> Option<CodexAppLaunchTarget> {
+    if let Some(launch_target) = codex_launch_target_from_override(codex_override) {
+        return Some(launch_target);
+    }
+    if let Some(launch_target) =
+        codex_launch_target_from_override(env_codex_app_override().as_ref())
+    {
+        return Some(launch_target);
+    }
     let executable_path = processes
         .iter()
         .find_map(standalone_codex_executable_path)?;
     Some(CodexAppLaunchTarget {
         app_user_model_id: build_codex_app_user_model_id(&executable_path),
         executable_path,
+        source: "running process".to_string(),
+    })
+}
+
+#[cfg(windows)]
+fn codex_launch_target_from_override(
+    override_: Option<&CodexAppOverride>,
+) -> Option<CodexAppLaunchTarget> {
+    let override_ = override_?;
+    let executable_path = override_
+        .executable_path
+        .as_ref()
+        .filter(|path| path.is_file())
+        .cloned()
+        .or_else(|| {
+            override_
+                .app_user_model_id
+                .as_ref()
+                .and_then(|_| local_codex_exe_path())
+        })?;
+    Some(CodexAppLaunchTarget {
+        executable_path,
+        app_user_model_id: override_.app_user_model_id.clone(),
+        source: "override".to_string(),
+    })
+}
+
+#[cfg(windows)]
+fn env_codex_app_override() -> Option<CodexAppOverride> {
+    let executable_path = std::env::var_os("CODEX_SWITCHER_CODEX_APP_PATH")
+        .or_else(|| std::env::var_os("CODEX_PROFILES_CODEX_APP_PATH"))
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from);
+    let app_user_model_id = std::env::var("CODEX_SWITCHER_CODEX_APP_AUMID")
+        .ok()
+        .or_else(|| std::env::var("CODEX_PROFILES_CODEX_APP_AUMID").ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    (executable_path.is_some() || app_user_model_id.is_some()).then_some(CodexAppOverride {
+        executable_path,
+        app_user_model_id,
     })
 }
 
@@ -562,6 +648,16 @@ fn build_codex_app_user_model_id(executable_path: &Path) -> Option<String> {
 }
 
 #[cfg(windows)]
+fn local_codex_exe_path() -> Option<PathBuf> {
+    query_codex_app_packages()
+        .into_iter()
+        .flatten()
+        .find_map(|package| {
+            codex_launch_target_from_package(&package).map(|target| target.executable_path)
+        })
+}
+
+#[cfg(windows)]
 fn codex_package_dir(executable_path: &Path) -> Option<&Path> {
     executable_path.ancestors().find(|ancestor| {
         ancestor
@@ -581,6 +677,107 @@ fn extract_xml_attribute(xml: &str, tag: &str, attribute: &str) -> Option<String
     let rest = &fragment[attr_start..];
     let attr_end = rest.find('"')?;
     Some(rest[..attr_end].to_string())
+}
+
+#[cfg(windows)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+struct AppxPackageInfo {
+    #[serde(rename = "PackageFamilyName")]
+    package_family_name: Option<String>,
+    #[serde(rename = "InstallLocation")]
+    install_location: Option<String>,
+}
+
+#[cfg(windows)]
+pub fn detect_codex_app_discovery(
+    codex_override: Option<&CodexAppOverride>,
+) -> Result<CodexAppDiscovery, String> {
+    let processes = list_reload_targets()?;
+    if let Some(target) = resolve_codex_app_launch_target(&processes, codex_override) {
+        return Ok(CodexAppDiscovery {
+            executable_path: target.executable_path,
+            app_user_model_id: target.app_user_model_id,
+            source: target.source,
+        });
+    }
+    if let Some(target) = query_codex_app_packages()
+        .map_err(|err| format!("failed to query installed Codex app ({err})"))?
+        .into_iter()
+        .find_map(|package| codex_launch_target_from_package(&package))
+    {
+        return Ok(CodexAppDiscovery {
+            executable_path: target.executable_path,
+            app_user_model_id: target.app_user_model_id,
+            source: target.source,
+        });
+    }
+    Err("could not locate Codex app installation".to_string())
+}
+
+#[cfg(not(windows))]
+pub fn detect_codex_app_discovery(
+    _codex_override: Option<&CodexAppOverride>,
+) -> Result<CodexAppDiscovery, String> {
+    Err("Codex app detection is only implemented for Windows in this build.".to_string())
+}
+
+#[cfg(windows)]
+fn query_codex_app_packages() -> Result<Vec<AppxPackageInfo>, String> {
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-AppxPackage -Name 'OpenAI.Codex' | Select-Object PackageFamilyName, InstallLocation | ConvertTo-Json -Compress",
+        ])
+        .output()
+        .map_err(|err| format!("failed to run Get-AppxPackage ({err})"))?;
+    if !output.status.success() {
+        return Err(format!("PowerShell exited with {}", output.status));
+    }
+    parse_appx_packages(&String::from_utf8_lossy(&output.stdout))
+}
+
+#[cfg(windows)]
+fn parse_appx_packages(raw: &str) -> Result<Vec<AppxPackageInfo>, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    let value: Value = serde_json::from_str(trimmed)
+        .map_err(|err| format!("failed to parse appx JSON ({err})"))?;
+    match value {
+        Value::Null => Ok(Vec::new()),
+        Value::Array(_) => serde_json::from_value(value)
+            .map_err(|err| format!("failed to decode appx package list ({err})")),
+        Value::Object(_) => serde_json::from_value(value)
+            .map(|package| vec![package])
+            .map_err(|err| format!("failed to decode appx package entry ({err})")),
+        _ => Err("unexpected JSON shape from appx query".to_string()),
+    }
+}
+
+#[cfg(windows)]
+fn codex_launch_target_from_package(package: &AppxPackageInfo) -> Option<CodexAppLaunchTarget> {
+    let install_location = package
+        .install_location
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)?;
+    let executable_path = install_location.join("app").join("Codex.exe");
+    let app_user_model_id = package
+        .package_family_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|family| format!("{family}!App"))
+        .or_else(|| build_codex_app_user_model_id(&executable_path));
+    Some(CodexAppLaunchTarget {
+        executable_path,
+        app_user_model_id,
+        source: "Get-AppxPackage".to_string(),
+    })
 }
 
 #[cfg(windows)]
@@ -665,9 +862,10 @@ fn normalized_path(process: &WindowsProcessInfo) -> Option<String> {
 mod tests {
     #[cfg(windows)]
     use super::{
-        ReloadAppTarget, WindowsProcessInfo, build_codex_app_user_model_id,
-        build_cursor_reload_uri, extract_xml_attribute, has_extension_with_prefix,
-        is_cursor_extension_process, is_standalone_codex_app_process, parse_windows_command_exe,
+        AppxPackageInfo, CodexAppOverride, ReloadAppTarget, WindowsProcessInfo,
+        build_codex_app_user_model_id, build_cursor_reload_uri, codex_launch_target_from_package,
+        extract_xml_attribute, has_extension_with_prefix, is_cursor_extension_process,
+        is_standalone_codex_app_process, parse_appx_packages, parse_windows_command_exe,
         parse_windows_processes, should_dispatch_cursor_reload,
     };
     #[cfg(windows)]
@@ -750,6 +948,59 @@ mod tests {
         assert_eq!(
             extract_xml_attribute(xml, "Application", "Id").as_deref(),
             Some("App")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn parse_appx_packages_accepts_single_object() {
+        let raw = r#"{"PackageFamilyName":"OpenAI.Codex_2p2nqsd0c76g0","InstallLocation":"C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.304.1528.0_x64__2p2nqsd0c76g0"}"#;
+        let packages = parse_appx_packages(raw).expect("packages");
+        assert_eq!(packages.len(), 1);
+        assert_eq!(
+            packages[0].package_family_name.as_deref(),
+            Some("OpenAI.Codex_2p2nqsd0c76g0")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn codex_launch_target_from_package_uses_package_family_name() {
+        let package = AppxPackageInfo {
+            package_family_name: Some("OpenAI.Codex_2p2nqsd0c76g0".to_string()),
+            install_location: Some(
+                "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.304.1528.0_x64__2p2nqsd0c76g0"
+                    .to_string(),
+            ),
+        };
+        let target = codex_launch_target_from_package(&package).expect("target");
+        assert_eq!(
+            target.app_user_model_id.as_deref(),
+            Some("OpenAI.Codex_2p2nqsd0c76g0!App")
+        );
+        assert!(
+            target
+                .executable_path
+                .to_string_lossy()
+                .ends_with("app\\Codex.exe")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn override_can_supply_codex_path_without_running_process() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let exe = dir.path().join("Codex.exe");
+        fs::write(&exe, "").expect("exe");
+        let override_ = CodexAppOverride {
+            executable_path: Some(exe.clone()),
+            app_user_model_id: Some("OpenAI.Codex_test!App".to_string()),
+        };
+        let target = super::codex_launch_target_from_override(Some(&override_)).expect("target");
+        assert_eq!(target.executable_path, exe);
+        assert_eq!(
+            target.app_user_model_id.as_deref(),
+            Some("OpenAI.Codex_test!App")
         );
     }
 

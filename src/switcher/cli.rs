@@ -119,6 +119,12 @@ pub enum ConfigCommands {
     Edit,
     /// Print config path and current contents
     Show,
+    /// Detect the standalone Codex app installation and optionally persist it to user env vars
+    DetectCodexApp {
+        /// Write detected path/AUMID into persistent user environment variables
+        #[arg(long)]
+        write_env: bool,
+    },
 }
 
 pub fn command_with_examples() -> Command {
@@ -131,6 +137,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} switch --reload-app codex\n  {name} switch --reload-app cursor\n  {name} reload-app\n  {name} reload-app codex --dry-run\n  {name} reload-app cursor --dry-run\n  {name} config show\n  {name} config edit\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} switch --reload-app codex\n  {name} switch --reload-app cursor\n  {name} reload-app\n  {name} reload-app codex --dry-run\n  {name} reload-app cursor --dry-run\n  {name} config show\n  {name} config edit\n  {name} config detect-codex-app --write-env\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
     )
 }

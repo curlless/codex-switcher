@@ -154,7 +154,7 @@ flowchart LR
 | `status [--current] [--all] [--label <name>]` | Show usage details and ranking state. |
 | `switch [--dry-run] [--reload-ide]` | Pick the best non-reserved profile from remaining limits. |
 | `reload-app [codex|cursor] [--dry-run]` | Reload the preferred app target without switching profiles. |
-| `config show` / `config edit` | Inspect or edit `codex-switcher` preferences. |
+| `config show` / `config edit` / `config detect-codex-app [--write-env]` | Inspect config, edit preferences, or detect the standalone Codex app install path. |
 | `reserve --label <name>` | Mark a saved profile as excluded from auto-switch. |
 | `unreserve --label <name>` | Remove the exclusion and allow auto-switch again. |
 | `migrate [--from <path>] [--overwrite]` | Copy profiles from another Codex directory into this storage. |
@@ -188,7 +188,28 @@ primary_target = "codex"
 
 [switch]
 reload_after_switch = false
+
+[codex_app]
+# Optional explicit override for standalone Codex app detection
+# path = "C:\\Program Files\\WindowsApps\\OpenAI.Codex_...\\app\\Codex.exe"
+# app_user_model_id = "OpenAI.Codex_xxxxx!App"
 ```
+
+Detection order for Codex app reloads is:
+
+1. `[codex_app]` override from `config.toml`
+2. `CODEX_SWITCHER_CODEX_APP_PATH` / `CODEX_PROFILES_CODEX_APP_PATH`
+3. running Codex app process inspection
+4. `Get-AppxPackage OpenAI.Codex`
+
+To detect the current machine and persist the result to user env vars:
+
+```powershell
+codex-switcher config detect-codex-app --write-env
+```
+
+Open a new terminal after using `--write-env`, otherwise the current shell will not see the new
+user variables yet.
 
 ## Reserved Profiles
 
@@ -219,6 +240,8 @@ By default, saved profiles live under `~/.codex/profiles/`.
 | --- | --- |
 | `CODEX_PROFILES_HOME` | Alternate storage root for saved profiles |
 | `CODEX_PROFILES_AUTH_DIR` | Alternate auth/config source directory |
+| `CODEX_SWITCHER_CODEX_APP_PATH` / `CODEX_PROFILES_CODEX_APP_PATH` | Explicit standalone Codex app path override |
+| `CODEX_SWITCHER_CODEX_APP_AUMID` / `CODEX_PROFILES_CODEX_APP_AUMID` | Optional AppUserModelID override for relaunch |
 | `CODEX_PROFILES_ENABLE_UPDATE=1` | Opt in to startup update checks |
 
 ### Parallel install example on Windows
