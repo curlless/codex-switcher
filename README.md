@@ -211,6 +211,9 @@ codex-switcher config detect-codex-app --write-env
 Open a new terminal after using `--write-env`, otherwise the current shell will not see the new
 user variables yet.
 
+For `reload-app codex`, plain `reload-app`, and `switch` when the reload target includes `codex`,
+the command now auto-populates `[codex_app]` first if the configured path is missing or stale.
+
 ## Reserved Profiles
 
 Reserved profiles are still visible, loadable, and queryable. They are simply

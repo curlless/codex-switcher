@@ -149,8 +149,9 @@ pub fn edit_config(paths: &Paths) -> Result<(), String> {
 
 pub fn detect_codex_app(paths: &Paths, write_env: bool) -> Result<(), String> {
     ensure_switcher_config_exists(paths)?;
-    let config = load_switcher_config(paths)?;
+    let mut config = load_switcher_config(paths)?;
     let discovery = detect_codex_app_discovery(codex_app_override_from_config(&config).as_ref())?;
+    let saved_to_config = persist_detected_codex_app(paths, &mut config, &discovery)?;
     if write_env {
         persist_user_env_var("CODEX_SWITCHER_CODEX_APP_PATH", &discovery.executable_path)?;
         persist_user_env_var("CODEX_PROFILES_CODEX_APP_PATH", &discovery.executable_path)?;
@@ -176,6 +177,14 @@ pub fn detect_codex_app(paths: &Paths, write_env: bool) -> Result<(), String> {
             "Config override fields: [codex_app].path = \"{}\"",
             discovery.executable_path.display()
         ),
+        use_color,
+    ));
+    lines.push(format_hint(
+        if saved_to_config {
+            "Saved detected Codex app path into [codex_app] in config.toml."
+        } else {
+            "Config already contains the detected Codex app path."
+        },
         use_color,
     ));
     if write_env {
@@ -217,6 +226,17 @@ pub fn codex_app_override(paths: &Paths) -> Result<Option<CodexAppOverride>, Str
     Ok(codex_app_override_from_config(&config))
 }
 
+pub fn ensure_codex_app_override(paths: &Paths) -> Result<Option<CodexAppOverride>, String> {
+    ensure_switcher_config_exists(paths)?;
+    let mut config = load_switcher_config(paths)?;
+    if has_valid_codex_app_path(&config) {
+        return Ok(codex_app_override_from_config(&config));
+    }
+    let discovery = detect_codex_app_discovery(codex_app_override_from_config(&config).as_ref())?;
+    persist_detected_codex_app(paths, &mut config, &discovery)?;
+    Ok(codex_app_override_from_config(&config))
+}
+
 fn ensure_switcher_config_exists(paths: &Paths) -> Result<(), String> {
     if paths.switcher_config.exists() {
         return Ok(());
@@ -227,32 +247,70 @@ fn ensure_switcher_config_exists(paths: &Paths) -> Result<(), String> {
 }
 
 fn default_switcher_config_template() -> String {
-    concat!(
-        "# codex-switcher configuration\n",
-        "# This file is stored next to your saved profiles index.\n",
-        "#\n",
-        "# reload.primary_target controls the default target for `reload-app`\n",
-        "# and for auto-reload after `switch` when enabled below.\n",
-        "\n",
-        "[reload]\n",
-        "primary_target = \"codex\"\n",
-        "\n",
-        "[switch]\n",
-        "reload_after_switch = false\n",
-        "\n",
-        "[editor]\n",
-        "# Optional editor command for `codex-switcher config edit`.\n",
-        "# Examples: \"code --wait\", \"cursor --wait\", \"notepad\"\n",
-        "# command = \"code --wait\"\n",
-        "\n",
-        "[codex_app]\n",
-        "# Optional explicit path to standalone Codex.exe\n",
-        "# path = \"C:\\\\Program Files\\\\WindowsApps\\\\OpenAI.Codex_...\\\\app\\\\Codex.exe\"\n",
-        "# Optional explicit AppUserModelID for AppsFolder relaunch\n",
-        "# app_user_model_id = \"OpenAI.Codex_xxxxx!App\"\n",
-        ""
-    )
-    .to_string()
+    render_switcher_config(&SwitcherConfig::default())
+}
+
+fn render_switcher_config(config: &SwitcherConfig) -> String {
+    let mut rendered = String::from("# codex-switcher configuration\n");
+    rendered.push_str("# This file is stored next to your saved profiles index.\n");
+    rendered.push_str("#\n");
+    rendered.push_str("# reload.primary_target controls the default target for `reload-app`\n");
+    rendered.push_str("# and for auto-reload after `switch` when enabled below.\n");
+    rendered.push_str("\n[reload]\n");
+    rendered.push_str(&format!(
+        "primary_target = {}\n",
+        toml_basic_string(reload_target_name(config.reload.primary_target))
+    ));
+    rendered.push_str("\n[switch]\n");
+    rendered.push_str(&format!(
+        "reload_after_switch = {}\n",
+        config.switch.reload_after_switch
+    ));
+    rendered.push_str("\n[editor]\n");
+    rendered.push_str("# Optional editor command for `codex-switcher config edit`.\n");
+    rendered.push_str("# Examples: \"code --wait\", \"cursor --wait\", \"notepad\"\n");
+    if let Some(command) = config
+        .editor
+        .command
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        rendered.push_str(&format!("command = {}\n", toml_basic_string(command)));
+    } else {
+        rendered.push_str("# command = \"code --wait\"\n");
+    }
+    rendered.push_str("\n[codex_app]\n");
+    rendered.push_str("# Optional explicit path to standalone Codex.exe\n");
+    if let Some(path) = config
+        .codex_app
+        .path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        rendered.push_str(&format!("path = {}\n", toml_basic_string(path)));
+    } else {
+        rendered.push_str(
+            "# path = \"C:\\\\Program Files\\\\WindowsApps\\\\OpenAI.Codex_...\\\\app\\\\Codex.exe\"\n",
+        );
+    }
+    rendered.push_str("# Optional explicit AppUserModelID for AppsFolder relaunch\n");
+    if let Some(app_user_model_id) = config
+        .codex_app
+        .app_user_model_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        rendered.push_str(&format!(
+            "app_user_model_id = {}\n",
+            toml_basic_string(app_user_model_id)
+        ));
+    } else {
+        rendered.push_str("# app_user_model_id = \"OpenAI.Codex_xxxxx!App\"\n");
+    }
+    rendered
 }
 
 fn codex_app_override_from_config(config: &SwitcherConfig) -> Option<CodexAppOverride> {
@@ -274,6 +332,68 @@ fn codex_app_override_from_config(config: &SwitcherConfig) -> Option<CodexAppOve
         executable_path,
         app_user_model_id,
     })
+}
+
+fn has_valid_codex_app_path(config: &SwitcherConfig) -> bool {
+    config
+        .codex_app
+        .path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(std::path::Path::new)
+        .is_some_and(|path| path.is_file())
+}
+
+fn persist_detected_codex_app(
+    paths: &Paths,
+    config: &mut SwitcherConfig,
+    discovery: &crate::CodexAppDiscovery,
+) -> Result<bool, String> {
+    let detected_path = discovery.executable_path.to_string_lossy().into_owned();
+    let current_path = config
+        .codex_app
+        .path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let current_aumid = config
+        .codex_app
+        .app_user_model_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let detected_aumid = discovery
+        .app_user_model_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let changed = current_path != Some(detected_path.as_str()) || current_aumid != detected_aumid;
+    if !changed {
+        return Ok(false);
+    }
+    config.codex_app.path = Some(detected_path);
+    config.codex_app.app_user_model_id = detected_aumid.map(str::to_string);
+    save_switcher_config(paths, config)?;
+    Ok(true)
+}
+
+fn save_switcher_config(paths: &Paths, config: &SwitcherConfig) -> Result<(), String> {
+    let rendered = render_switcher_config(config);
+    write_atomic(&paths.switcher_config, rendered.as_bytes())
+        .map_err(|err| format!("Error: failed to write config file: {err}"))
+}
+
+fn reload_target_name(target: ReloadAppTarget) -> &'static str {
+    match target {
+        ReloadAppTarget::All => "all",
+        ReloadAppTarget::Codex => "codex",
+        ReloadAppTarget::Cursor => "cursor",
+    }
+}
+
+fn toml_basic_string(value: &str) -> String {
+    format!("{value:?}")
 }
 
 fn resolve_editor_command(config: &SwitcherConfig) -> Result<Vec<String>, String> {
@@ -419,6 +539,31 @@ mod tests {
         let target =
             effective_reload_target(&paths, Some(ReloadAppTarget::Cursor)).expect("target");
         assert_eq!(target, ReloadAppTarget::Cursor);
+    }
+
+    #[test]
+    fn ensure_codex_app_override_uses_existing_valid_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+        fs::create_dir_all(&paths.profiles).expect("profiles dir");
+        let exe = dir.path().join("Codex.exe");
+        fs::write(&exe, "").expect("exe");
+        let config = SwitcherConfig {
+            codex_app: CodexAppConfig {
+                path: Some(exe.to_string_lossy().into_owned()),
+                app_user_model_id: Some("OpenAI.Codex_test!App".to_string()),
+            },
+            ..SwitcherConfig::default()
+        };
+        save_switcher_config(&paths, &config).expect("config write");
+        let override_ = ensure_codex_app_override(&paths)
+            .expect("override result")
+            .expect("override");
+        assert_eq!(override_.executable_path.as_deref(), Some(exe.as_path()));
+        assert_eq!(
+            override_.app_user_model_id.as_deref(),
+            Some("OpenAI.Codex_test!App")
+        );
     }
 
     #[test]
