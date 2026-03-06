@@ -8,7 +8,7 @@ use crate::{
     format_hint, print_output_block, use_color_stdout, write_atomic,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct SwitcherConfig {
     pub reload: ReloadConfig,
@@ -23,34 +23,23 @@ pub struct ReloadConfig {
     pub primary_target: ReloadAppTarget,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct SwitchConfig {
     pub reload_after_switch: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct EditorConfig {
     pub command: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct CodexAppConfig {
     pub path: Option<String>,
     pub app_user_model_id: Option<String>,
-}
-
-impl Default for SwitcherConfig {
-    fn default() -> Self {
-        Self {
-            reload: ReloadConfig::default(),
-            switch: SwitchConfig::default(),
-            editor: EditorConfig::default(),
-            codex_app: CodexAppConfig::default(),
-        }
-    }
 }
 
 impl Default for ReloadConfig {
@@ -61,28 +50,6 @@ impl Default for ReloadConfig {
     }
 }
 
-impl Default for SwitchConfig {
-    fn default() -> Self {
-        Self {
-            reload_after_switch: false,
-        }
-    }
-}
-
-impl Default for EditorConfig {
-    fn default() -> Self {
-        Self { command: None }
-    }
-}
-
-impl Default for CodexAppConfig {
-    fn default() -> Self {
-        Self {
-            path: None,
-            app_user_model_id: None,
-        }
-    }
-}
 
 pub fn load_switcher_config(paths: &Paths) -> Result<SwitcherConfig, String> {
     if !paths.switcher_config.exists() {

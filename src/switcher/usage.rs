@@ -101,8 +101,10 @@ pub fn read_base_url(paths: &Paths) -> String {
     let config_path = paths.auth_codex.join("config.toml");
     if let Ok(contents) = fs::read_to_string(config_path) {
         for line in contents.lines() {
-            if let Some(value) = parse_config_value(line, "chatgpt_base_url") {
-                return normalize_base_url(&value);
+            if let Some(value) = parse_config_value(line, "chatgpt_base_url")
+                && let Some(base_url) = validated_usage_base_url(&value)
+            {
+                return base_url;
             }
         }
     }
@@ -157,6 +159,38 @@ fn normalize_base_url(value: &str) -> String {
         base = format!("{base}/backend-api");
     }
     base
+}
+
+fn validated_usage_base_url(value: &str) -> Option<String> {
+    let normalized = normalize_base_url(value);
+    if has_allowed_usage_host(&normalized) {
+        Some(normalized)
+    } else {
+        None
+    }
+}
+
+fn has_allowed_usage_host(value: &str) -> bool {
+    matches!(url_host(value), Some("chatgpt.com" | "chat.openai.com"))
+        || (cfg!(debug_assertions) && is_loopback_http_url(value))
+}
+
+fn is_loopback_http_url(value: &str) -> bool {
+    matches!(url_host(value), Some("127.0.0.1" | "localhost" | "[::1]"))
+        && value.starts_with("http://")
+}
+
+fn url_host(value: &str) -> Option<&str> {
+    let (_, rest) = value.split_once("://")?;
+    let authority = rest.split(['/', '?', '#']).next()?;
+    if authority.is_empty() {
+        return None;
+    }
+    if authority.starts_with('[') {
+        let end = authority.find(']')?;
+        return Some(&authority[..=end]);
+    }
+    Some(authority.split(':').next().unwrap_or(authority))
 }
 
 fn usage_endpoint(base_url: &str) -> String {
@@ -712,6 +746,19 @@ mod tests {
         assert!(url.ends_with("/backend-api"));
         assert!(usage_endpoint(&url).contains("wham/usage"));
         assert!(usage_endpoint("http://example.com").contains("api/codex/usage"));
+    }
+
+    #[test]
+    fn validated_usage_base_url_rejects_untrusted_hosts() {
+        assert_eq!(
+            validated_usage_base_url("https://chatgpt.com"),
+            Some(DEFAULT_BASE_URL.to_string())
+        );
+        assert!(validated_usage_base_url("https://evil.example.com").is_none());
+        assert_eq!(
+            validated_usage_base_url("http://127.0.0.1:1455/backend-api"),
+            Some("http://127.0.0.1:1455/backend-api".to_string())
+        );
     }
 
     #[test]

@@ -543,19 +543,20 @@ fn priority_rows(
     } else {
         ids.par_iter().map(build).collect::<Vec<_>>()
     };
-    if include_unsaved_current && current_saved_id.is_none() {
-        if let Ok(tokens) = read_tokens(&paths.auth) {
-            let (email, _) = extract_email_and_plan(&tokens);
-            let profile_name = email.unwrap_or_else(|| "Current profile".to_string());
-            rows.push(PriorityRow {
-                id: "__current__".to_string(),
-                profile_name,
-                label: None,
-                is_current: true,
-                candidate: false,
-                state: priority_state_for_tokens(&tokens, &base_url, now),
-            });
-        }
+    if include_unsaved_current
+        && current_saved_id.is_none()
+        && let Ok(tokens) = read_tokens(&paths.auth)
+    {
+        let (email, _) = extract_email_and_plan(&tokens);
+        let profile_name = email.unwrap_or_else(|| "Current profile".to_string());
+        rows.push(PriorityRow {
+            id: "__current__".to_string(),
+            profile_name,
+            label: None,
+            is_current: true,
+            candidate: false,
+            state: priority_state_for_tokens(&tokens, &base_url, now),
+        });
     }
     dedupe_priority_rows(rows, snapshot)
 }
@@ -1068,9 +1069,7 @@ pub fn migrate_profiles(
             }
             let source_last_used = entry.last_used.unwrap_or(0);
             let dest_last_used = store.usage_map.get(id).copied().unwrap_or(0);
-            if source_last_used > dest_last_used {
-                store.usage_map.insert(id.clone(), source_last_used);
-            } else if !store.usage_map.contains_key(id) {
+            if source_last_used > dest_last_used || !store.usage_map.contains_key(id) {
                 store.usage_map.insert(id.clone(), source_last_used);
             }
             store.profiles_index.profiles.insert(id.clone(), entry);
@@ -1653,7 +1652,7 @@ pub fn read_labels(paths: &Paths) -> Result<Labels, String> {
     Ok(labels_from_index(&index))
 }
 
-pub fn write_labels(paths: &Paths, labels: &Labels) -> Result<(), String> {
+fn write_labels_locked(paths: &Paths, labels: &Labels) -> Result<(), String> {
     let normalized = normalize_labels(labels);
     let mut index = read_profiles_index_relaxed(paths);
     for (id, entry) in index.profiles.iter_mut() {
@@ -1663,6 +1662,11 @@ pub fn write_labels(paths: &Paths, labels: &Labels) -> Result<(), String> {
         index.profiles.entry(id.clone()).or_default().label = Some(label.clone());
     }
     write_profiles_index(paths, &index)
+}
+
+pub fn write_labels(paths: &Paths, labels: &Labels) -> Result<(), String> {
+    let _lock = lock_usage(paths)?;
+    write_labels_locked(paths, labels)
 }
 
 pub fn prune_labels(labels: &mut Labels, profiles_dir: &Path) {
@@ -1747,7 +1751,7 @@ pub fn collect_profile_ids(profiles_dir: &Path) -> Result<HashSet<String>, Strin
     Ok(ids)
 }
 
-pub fn load_profile_tokens_map(
+fn load_profile_tokens_map_locked(
     paths: &Paths,
 ) -> Result<BTreeMap<String, Result<Tokens, String>>, String> {
     let mut map = BTreeMap::new();
@@ -1797,6 +1801,13 @@ pub fn load_profile_tokens_map(
         let _ = write_profiles_index(paths, &index);
     }
     Ok(map)
+}
+
+pub fn load_profile_tokens_map(
+    paths: &Paths,
+) -> Result<BTreeMap<String, Result<Tokens, String>>, String> {
+    let _lock = lock_usage(paths)?;
+    load_profile_tokens_map_locked(paths)
 }
 
 pub(crate) fn resolve_save_id(
@@ -2098,7 +2109,7 @@ fn sync_profile(paths: &Paths, target: &Path) -> Result<(), String> {
 
 pub(crate) fn load_snapshot(paths: &Paths, strict_labels: bool) -> Result<Snapshot, String> {
     let _lock = lock_usage(paths)?;
-    let tokens = load_profile_tokens_map(paths)?;
+    let tokens = load_profile_tokens_map_locked(paths)?;
     let ids: HashSet<String> = tokens.keys().cloned().collect();
     let mut index = if strict_labels {
         read_profiles_index(paths)?
@@ -3186,7 +3197,7 @@ mod tests {
 
     #[test]
     fn priority_order_prefers_tier_score_and_label() {
-        let mut rows = vec![
+        let mut rows = [
             PriorityRow {
                 id: "b".to_string(),
                 profile_name: "b@example.com [b]".to_string(),

@@ -3,7 +3,7 @@ mod common;
 use common::build_id_token;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -37,7 +37,7 @@ fn make_home() -> PathBuf {
     home
 }
 
-fn run_switcher(args: &[&str], home: &PathBuf) -> std::process::Output {
+fn run_switcher(args: &[&str], home: &Path) -> std::process::Output {
     let bin = resolve_switcher_bin_path();
     let mut cmd = Command::new(bin);
     cmd.args(args)
@@ -53,7 +53,7 @@ fn run_switcher(args: &[&str], home: &PathBuf) -> std::process::Output {
     cmd.output().expect("run switcher")
 }
 
-fn write_auth(home: &PathBuf, account_id: &str, email: &str, plan: &str, access_token: &str) {
+fn write_auth(home: &Path, account_id: &str, email: &str, plan: &str, access_token: &str) {
     let auth_path = home.join(".codex").join("auth.json");
     let id_token = build_id_token(email, plan);
     let payload = serde_json::json!({
@@ -71,7 +71,7 @@ fn write_auth(home: &PathBuf, account_id: &str, email: &str, plan: &str, access_
 }
 
 fn write_saved_profile(
-    home: &PathBuf,
+    home: &Path,
     id: &str,
     account_id: &str,
     email: &str,
@@ -96,7 +96,7 @@ fn write_saved_profile(
 }
 
 fn write_profiles_index(
-    home: &PathBuf,
+    home: &Path,
     entries: &[(&str, u64)],
     labels: &[(&str, &str)],
     active_id: Option<&str>,
@@ -126,7 +126,7 @@ fn write_profiles_index(
     .expect("write profiles index");
 }
 
-fn write_config(home: &PathBuf, base_url: &str) {
+fn write_config(home: &Path, base_url: &str) {
     fs::write(
         home.join(".codex").join("config.toml"),
         format!("chatgpt_base_url = \"{base_url}\"\n"),
@@ -134,7 +134,7 @@ fn write_config(home: &PathBuf, base_url: &str) {
     .expect("write config");
 }
 
-fn read_profiles_index(home: &PathBuf) -> serde_json::Value {
+fn read_profiles_index(home: &Path) -> serde_json::Value {
     let path = home.join(".codex").join("profiles").join("profiles.json");
     serde_json::from_str(&fs::read_to_string(path).expect("read profiles index"))
         .expect("parse profiles index")

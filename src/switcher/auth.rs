@@ -318,8 +318,7 @@ fn refresh_access_token(refresh_token: &str) -> Result<RefreshResponse, String> 
         refresh_token: refresh_token.to_string(),
         scope: "openid profile email",
     };
-    let endpoint = std::env::var(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR)
-        .unwrap_or_else(|_| REFRESH_TOKEN_URL.to_string());
+    let endpoint = refresh_token_endpoint()?;
     let config = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(5)))
         .build();
@@ -338,6 +337,49 @@ fn refresh_access_token(refresh_token: &str) -> Result<RefreshResponse, String> 
         .into_body()
         .read_json::<RefreshResponse>()
         .map_err(|err| format!("Error: failed to parse refresh response: {err}"))
+}
+
+fn refresh_token_endpoint() -> Result<String, String> {
+    match std::env::var(REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR) {
+        Ok(endpoint) => {
+            if has_allowed_refresh_host(&endpoint) {
+                Ok(endpoint)
+            } else {
+                Err(format!(
+                    "Error: {REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR} must target auth.openai.com{}.",
+                    if cfg!(debug_assertions) {
+                        " or loopback in debug/test builds"
+                    } else {
+                        ""
+                    }
+                ))
+            }
+        }
+        Err(_) => Ok(REFRESH_TOKEN_URL.to_string()),
+    }
+}
+
+fn has_allowed_refresh_host(value: &str) -> bool {
+    matches!(url_host(value), Some("auth.openai.com"))
+        || (cfg!(debug_assertions) && is_loopback_http_url(value))
+}
+
+fn is_loopback_http_url(value: &str) -> bool {
+    matches!(url_host(value), Some("127.0.0.1" | "localhost" | "[::1]"))
+        && value.starts_with("http://")
+}
+
+fn url_host(value: &str) -> Option<&str> {
+    let (_, rest) = value.split_once("://")?;
+    let authority = rest.split(['/', '?', '#']).next()?;
+    if authority.is_empty() {
+        return None;
+    }
+    if authority.starts_with('[') {
+        let end = authority.find(']')?;
+        return Some(&authority[..=end]);
+    }
+    Some(authority.split(':').next().unwrap_or(authority))
 }
 
 fn apply_refresh(tokens: &mut Tokens, refreshed: &RefreshResponse) -> Result<(), String> {
@@ -762,5 +804,16 @@ mod tests {
         refresh_profile_tokens(&path, &mut tokens).unwrap();
         let updated = fs::read_to_string(&path).unwrap();
         assert!(updated.contains("acc"));
+    }
+
+    #[test]
+    fn refresh_access_token_rejects_untrusted_override() {
+        let _guard = ENV_MUTEX.lock().unwrap();
+        let _env = set_env_guard(
+            REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR,
+            Some("https://evil.example.com/token"),
+        );
+        let err = refresh_access_token("token").unwrap_err();
+        assert!(err.contains("must target auth.openai.com"));
     }
 }
