@@ -312,11 +312,14 @@ fn start_spinner(message: &str) -> SpinnerHandle {
 
 fn stop_spinner(mut spinner: SpinnerHandle) {
     spinner.stop.store(true, Ordering::Relaxed);
+    let had_live_spinner = spinner.handle.is_some();
     if let Some(handle) = spinner.handle.take() {
         let _ = handle.join();
     }
-    eprint!("\r\x1b[2K");
-    let _ = std::io::stderr().flush();
+    if had_live_spinner {
+        eprint!("\r\x1b[2K");
+        let _ = std::io::stderr().flush();
+    }
 }
 
 pub(crate) struct UsageLine {

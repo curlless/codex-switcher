@@ -559,20 +559,29 @@ fn codex_launch_target_from_override(
     override_: Option<&CodexAppOverride>,
 ) -> Option<CodexAppLaunchTarget> {
     let override_ = override_?;
-    let executable_path = override_
+    let valid_path = override_
         .executable_path
         .as_ref()
         .filter(|path| path.is_file())
-        .cloned()
-        .or_else(|| {
-            override_
-                .app_user_model_id
-                .as_ref()
-                .and_then(|_| local_codex_exe_path())
-        })?;
+        .cloned();
+    let (executable_path, app_user_model_id) = if let Some(executable_path) = valid_path {
+        let app_user_model_id = override_
+            .app_user_model_id
+            .clone()
+            .or_else(|| build_codex_app_user_model_id(&executable_path));
+        (executable_path, app_user_model_id)
+    } else if override_.app_user_model_id.is_some() {
+        let local_target = local_codex_launch_target()?;
+        let app_user_model_id = local_target
+            .app_user_model_id
+            .or_else(|| override_.app_user_model_id.clone());
+        (local_target.executable_path, app_user_model_id)
+    } else {
+        return None;
+    };
     Some(CodexAppLaunchTarget {
         executable_path,
-        app_user_model_id: override_.app_user_model_id.clone(),
+        app_user_model_id,
         source: "override".to_string(),
     })
 }
@@ -648,13 +657,11 @@ fn build_codex_app_user_model_id(executable_path: &Path) -> Option<String> {
 }
 
 #[cfg(windows)]
-fn local_codex_exe_path() -> Option<PathBuf> {
+fn local_codex_launch_target() -> Option<CodexAppLaunchTarget> {
     query_codex_app_packages()
         .into_iter()
         .flatten()
-        .find_map(|package| {
-            codex_launch_target_from_package(&package).map(|target| target.executable_path)
-        })
+        .find_map(|package| codex_launch_target_from_package(&package))
 }
 
 #[cfg(windows)]
