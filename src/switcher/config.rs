@@ -50,7 +50,6 @@ impl Default for ReloadConfig {
     }
 }
 
-
 pub fn load_switcher_config(paths: &Paths) -> Result<SwitcherConfig, String> {
     if !paths.switcher_config.exists() {
         return Ok(SwitcherConfig::default());

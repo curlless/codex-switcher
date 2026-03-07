@@ -210,9 +210,7 @@ fn reload_windows(
                 issues.push("codex relaunch failed (could not resolve launch target)".to_string());
             }
         }
-        if should_dispatch_cursor_reload
-            && let Some(automation) = cursor_automation.as_ref()
-        {
+        if should_dispatch_cursor_reload && let Some(automation) = cursor_automation.as_ref() {
             match dispatch_cursor_protocol_reload(automation) {
                 Ok(()) => cursor_reload_dispatched = true,
                 Err(err) => issues.push(format!("cursor protocol reload failed ({err})")),
