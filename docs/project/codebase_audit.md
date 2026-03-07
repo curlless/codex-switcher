@@ -15,23 +15,24 @@ Resolved in this pass:
 
 Remaining top risk:
 
-- distribution reproducibility and Node wrapper auditability now outweigh the previously dominant profile-module monolith
+- real registry publication and full tagged release proof now outweigh the
+  previously dominant profile-module monolith
 
 ## Compliance Score
 
 | Category | Score | Status |
 |---|---:|---|
 | Security | 9.0 | improved |
-| Build Health | 9.0 | improved |
+| Build Health | 9.2 | improved |
 | Architecture & Design | 7.3 | concern |
 | Code Quality | 6.8 | concern |
-| Dependencies & Reuse | 6.5 | concern |
+| Dependencies & Reuse | 7.0 | concern |
 | Dead Code | 8.8 | concern |
 | Concurrency | 9.3 | minor concern |
 | Observability | N/A | CLI project |
 | Lifecycle | N/A | CLI project |
 
-Overall score: `8.1 / 10`
+Overall score: `8.4 / 10`
 
 ## What Changed After Audit
 
@@ -47,7 +48,9 @@ Overall score: `8.1 / 10`
 - the canonical runtime now compiles from one implementation tree
 - the switcher profile subsystem has been decomposed, but docs and packaging policy need to keep pace with the new structure
 - the direct Rust dependency set has been refreshed to the latest Rust-1.93-compatible lockfile state
-- Node wrapper packaging still needs a reproducible registry/lockfile story
+- manual `workflow_dispatch` release dry runs now pass on `develop` for the
+  `core` matrix, but full tagged-release proof still depends on macOS runners
+  and real registry publication
 
 ## Key Findings
 
@@ -90,11 +93,16 @@ What changed:
 - `Cargo.lock` was refreshed against the current Rust 1.93 toolchain boundary
 - direct Rust dependencies and their transitive graph now resolve to newer compatible patch/minor releases
 - full regression gates remained green after the refresh
+- the release workflow now supports a `core` manual build profile that proves
+  Linux, Linux ARM, Windows, packaging, and artifact assembly without requiring
+  paid macOS runner availability
+- `workflow_dispatch` dry runs were verified successfully on `develop`
 
 Open issues:
 
-- npm wrapper auditability depends on unresolved packaging/registry details
-- registry availability of the published platform packages still has to be proven in real release runs
+- a full tagged release still needs macOS runners to prove the Darwin assets
+- registry availability of the published platform packages still has to be
+  proven in a real publish run
 
 ### 4. Reference documentation is now present but must remain part of the refactor workflow
 
@@ -114,7 +122,7 @@ Follow-up expectation:
 
 ## Current Remediation Order
 
-1. harden npm/native distribution and prove platform package publication on the real registry
+1. prove a full tagged release, including macOS artifacts and real registry publication
 2. keep architecture/docs aligned with the decomposed switcher module tree
 3. refresh direct packaging/release reproducibility checks as the distribution workflow evolves
 4. re-run dependency refresh opportunistically as toolchain-compatible updates accumulate
@@ -127,11 +135,14 @@ Commands run after this remediation slice:
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test
 cargo test --features switcher-unit-tests
+gh workflow run release.yml -R 1Voin1/codex-switcher --ref develop
 ```
 
 Result:
 
-- all commands passed
+- local verification commands passed
+- manual `workflow_dispatch` release dry run passed on `develop` for the
+  default `core` matrix
 
 ## Source Artifacts
 

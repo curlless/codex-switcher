@@ -98,6 +98,16 @@ unless you are explicitly proving the full tagged matrix. `core` covers Linux,
 Linux ARM, and Windows and avoids turning routine dry runs into false failures
 when macOS hosted runners are unavailable for billing reasons.
 
+That `core` path has now been verified on `develop` end-to-end through:
+
+- `tag-check`
+- `verify`
+- Linux, Linux ARM, and Windows build jobs
+- `package`
+
+The remaining release proof gap is no longer the dry-run path itself. It is the
+full tagged-release path with macOS artifacts and live registry publication.
+
 Detailed release process lives in:
 
 - [../process/release-checklist.md](../process/release-checklist.md)
