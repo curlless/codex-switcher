@@ -181,6 +181,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - name: Ensure target installed
+        shell: bash
+        run: rustup target add ${{ matrix.target }}
       - name: Cache cargo bin
         uses: actions/cache@v5
         continue-on-error: true
