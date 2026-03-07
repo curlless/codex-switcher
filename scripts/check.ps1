@@ -35,8 +35,13 @@ function Invoke-Step {
         throw "Step failed: $Label"
     }
 
-    if ($global:LASTEXITCODE -ne 0) {
-        throw "Step failed with exit code $global:LASTEXITCODE: $Label"
+    $exitCode = 0
+    if (Test-Path variable:global:LASTEXITCODE) {
+        $exitCode = $global:LASTEXITCODE
+    }
+
+    if ($exitCode -ne 0) {
+        throw ("Step failed with exit code {0}: {1}" -f $exitCode, $Label)
     }
 }
 
