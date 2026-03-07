@@ -114,3 +114,42 @@ The intended end state is:
 2. Crate-root exports stay thin and explicit, without rebuilding a second runtime tree or re-exporting the entire switcher surface.
 3. Shared constants and compatibility rules are centralized instead of duplicated across modules.
 4. Command orchestration, storage, rendering, and runtime helpers stay separated instead of drifting back into catch-all modules.
+
+## Target Desktop Architecture
+
+The GUI initiative keeps the same source-of-truth policy and adds a second presentation surface.
+
+### Layer Plan
+
+1. `src/switcher/*`
+   Owns the canonical domain, storage, ranking, auth, and OS integration behavior.
+2. Shared application/service seam
+   Exposes structured operations and DTO-style results suitable for both CLI and desktop consumers.
+3. CLI presentation
+   Keeps command parsing, terminal rendering, prompt flows, and current automation-oriented UX.
+4. Desktop presentation
+   Runs as a Tauri application with a React/Vite frontend and a thin native command bridge.
+
+### Boundary Rules
+
+- The GUI must not call terminal-rendering helpers directly.
+- The GUI must not reimplement profile ranking, switching, or reload decisions in JavaScript.
+- Tauri commands should return structured data and typed failures, not colored strings intended for CLI output.
+- Windows process and reload orchestration stays in Rust.
+
+### Desktop Runtime Shape
+
+- `apps/desktop/`
+  - React/Vite frontend
+  - design tokens and layout shell
+- `apps/desktop/src-tauri/`
+  - Tauri crate
+  - native command handlers
+- Existing CLI runtime remains the shipped default until the GUI MVP is complete.
+
+### Migration Strategy
+
+1. Extract service-oriented operations from command-shaped modules.
+2. Add the desktop shell on top of that seam.
+3. Keep CLI and GUI shipping side-by-side.
+4. Only expand GUI scope after the Windows-first MVP is stable.
