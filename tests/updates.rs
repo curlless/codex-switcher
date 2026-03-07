@@ -1,4 +1,4 @@
-use codex_switcher::{
+use codex_switcher::switcher::{
     InstallSource, detect_install_source_inner, extract_version_from_cask,
     extract_version_from_latest_tag, is_newer,
 };

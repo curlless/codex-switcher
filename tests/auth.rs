@@ -1,6 +1,6 @@
 mod common;
 
-use codex_switcher::{AuthFile, Tokens, extract_email_and_plan};
+use codex_switcher::switcher::{AuthFile, Tokens, extract_email_and_plan};
 use common::build_id_token;
 
 #[test]

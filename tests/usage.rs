@@ -1,4 +1,4 @@
-use codex_switcher::{format_last_used, parse_config_value};
+use codex_switcher::switcher::{format_last_used, parse_config_value};
 
 #[test]
 fn parses_config_value_with_inline_comment() {

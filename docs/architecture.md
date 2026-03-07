@@ -28,7 +28,7 @@ The broader implementation lives under:
 
 ### Compatibility surface
 
-The crate root now re-exports the canonical switcher runtime from `src/lib.rs`.
+The crate root now exposes the switcher runtime through the `switcher` module namespace from `src/lib.rs`, instead of re-exporting the entire switcher surface at the crate root.
 
 The earlier duplicated root module tree from the `codex-profiles -> codex-switcher` migration has been removed, so there is now one compiled Rust implementation path.
 
@@ -106,6 +106,6 @@ The canonical runtime is concentrated under `src/switcher/*`, and the profile su
 The intended end state is:
 
 1. `src/switcher/*` remains the canonical implementation.
-2. Crate-root exports stay thin and avoid rebuilding a second runtime tree.
+2. Crate-root exports stay thin and explicit, without rebuilding a second runtime tree or re-exporting the entire switcher surface.
 3. Shared constants and compatibility rules are centralized instead of duplicated across modules.
 4. Command orchestration, storage, rendering, and runtime helpers stay separated instead of drifting back into catch-all modules.
