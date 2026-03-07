@@ -37,14 +37,14 @@ pub(super) fn pick_many(
     }
 }
 
-pub(crate) struct ProfileInfo {
-    pub(crate) display: String,
-    pub(crate) email: Option<String>,
-    pub(crate) plan: Option<String>,
-    pub(crate) is_free: bool,
+pub(super) struct ProfileInfo {
+    pub(super) display: String,
+    pub(super) email: Option<String>,
+    pub(super) plan: Option<String>,
+    pub(super) is_free: bool,
 }
 
-pub(crate) fn profile_info(
+pub(super) fn profile_info(
     tokens: Option<&Tokens>,
     label: Option<String>,
     is_current: bool,
@@ -91,7 +91,7 @@ pub(super) enum LoadChoice {
     Cancel,
 }
 
-pub(crate) fn prompt_unsaved_load(paths: &Paths, reason: &str) -> Result<LoadChoice, String> {
+pub(super) fn prompt_unsaved_load(paths: &Paths, reason: &str) -> Result<LoadChoice, String> {
     let is_tty = io::stdin().is_terminal();
     if !is_tty {
         let hint = format_save_before_load(paths, use_color_stderr());
@@ -134,7 +134,7 @@ pub(super) fn prompt_unsaved_load_with(
     }
 }
 
-pub(crate) fn build_candidates(
+fn build_candidates(
     ordered: &[(String, u64)],
     snapshot: &Snapshot,
     current_saved_id: Option<&str>,
@@ -165,7 +165,7 @@ pub(crate) fn build_candidates(
     candidates
 }
 
-pub(crate) fn require_tty(action: &str) -> Result<(), String> {
+fn require_tty(action: &str) -> Result<(), String> {
     require_tty_with(io::stdin().is_terminal(), action)
 }
 
@@ -180,10 +180,7 @@ pub(super) fn require_tty_with(is_tty: bool, action: &str) -> Result<(), String>
     }
 }
 
-pub(crate) fn select_single_profile(
-    title: &str,
-    candidates: &[Candidate],
-) -> Result<Candidate, String> {
+fn select_single_profile(title: &str, candidates: &[Candidate]) -> Result<Candidate, String> {
     let options = candidates.to_vec();
     let render_config = inquire_select_render_config();
     let prompt = Select::new(title, options)
@@ -193,7 +190,7 @@ pub(crate) fn select_single_profile(
     handle_inquire_result(prompt, "selection")
 }
 
-pub(crate) fn select_multiple_profiles(
+fn select_multiple_profiles(
     title: &str,
     candidates: &[Candidate],
 ) -> Result<Vec<Candidate>, String> {
@@ -210,7 +207,7 @@ pub(crate) fn select_multiple_profiles(
     Ok(selections)
 }
 
-pub(crate) fn select_by_label(
+pub(super) fn select_by_label(
     label: &str,
     labels: &Labels,
     candidates: &[Candidate],
@@ -225,7 +222,7 @@ pub(crate) fn select_by_label(
     Ok(candidate.clone())
 }
 
-pub(crate) fn confirm_delete_profiles(displays: &[String]) -> Result<bool, String> {
+pub(super) fn confirm_delete_profiles(displays: &[String]) -> Result<bool, String> {
     let is_tty = io::stdin().is_terminal();
     if !is_tty {
         return Err(
@@ -268,11 +265,11 @@ pub(super) fn confirm_delete_profiles_with(
 }
 
 #[derive(Clone)]
-pub(crate) struct Candidate {
-    pub(crate) id: String,
-    pub(crate) display: String,
-    pub(crate) last_used: String,
-    pub(crate) is_current: bool,
+pub(super) struct Candidate {
+    pub(super) id: String,
+    pub(super) display: String,
+    pub(super) last_used: String,
+    pub(super) is_current: bool,
 }
 
 impl fmt::Display for Candidate {
@@ -751,4 +748,3 @@ pub(super) fn handle_inquire_result<T>(
         Err(err) => Err(format!("Error: failed to prompt for {context}: {err}")),
     }
 }
-
