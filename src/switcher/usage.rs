@@ -20,14 +20,16 @@ const LOCK_TIMEOUT: Duration = Duration::from_secs(10);
 const LOCK_RETRY_DELAY: Duration = Duration::from_secs(1);
 
 #[cfg(test)]
-use std::sync::atomic::AtomicUsize;
+use std::cell::Cell;
 
 #[cfg(test)]
 const LOCK_FAIL_ERR: usize = 1;
 #[cfg(test)]
 const LOCK_FAIL_BUSY: usize = 2;
 #[cfg(test)]
-static LOCK_FAILPOINT: AtomicUsize = AtomicUsize::new(0);
+thread_local! {
+    static LOCK_FAILPOINT: Cell<usize> = const { Cell::new(0) };
+}
 
 #[derive(Clone, Default)]
 pub(crate) struct UsageLimits {
@@ -676,7 +678,7 @@ fn lock_timeout() -> Duration {
 
 #[cfg(test)]
 fn try_lock(lock: &mut LockFile) -> Result<bool, fslock::Error> {
-    match LOCK_FAILPOINT.load(Ordering::Relaxed) {
+    match LOCK_FAILPOINT.with(|failpoint| failpoint.get()) {
         LOCK_FAIL_ERR => Err(std::io::Error::other("fail")),
         LOCK_FAIL_BUSY => Ok(false),
         _ => lock.try_lock(),
@@ -903,13 +905,13 @@ mod tests {
         fs::create_dir_all(&paths.profiles).unwrap();
         fs::write(&paths.profiles_lock, "").unwrap();
 
-        LOCK_FAILPOINT.store(LOCK_FAIL_BUSY, Ordering::Relaxed);
+        LOCK_FAILPOINT.with(|failpoint| failpoint.set(LOCK_FAIL_BUSY));
         let err = lock_usage(&paths).unwrap_err();
         assert!(err.contains("could not acquire profiles lock"));
-        LOCK_FAILPOINT.store(LOCK_FAIL_ERR, Ordering::Relaxed);
+        LOCK_FAILPOINT.with(|failpoint| failpoint.set(LOCK_FAIL_ERR));
         let err = lock_usage(&paths).unwrap_err();
         assert!(err.contains("failed to lock profiles file"));
-        LOCK_FAILPOINT.store(0, Ordering::Relaxed);
+        LOCK_FAILPOINT.with(|failpoint| failpoint.set(0));
     }
 
     #[cfg(unix)]

@@ -48,7 +48,6 @@ Overall score: `8.1 / 10`
 - the switcher profile subsystem has been decomposed, but docs and packaging policy need to keep pace with the new structure
 - dependency drift remains in the Rust dependency set
 - Node wrapper packaging still needs a reproducible registry/lockfile story
-- the serial-only `switcher-unit-tests` gate still signals shared-state pressure in the test harness
 
 ## Key Findings
 
@@ -112,8 +111,8 @@ Follow-up expectation:
 
 1. refresh direct Rust dependencies with regression coverage
 2. harden npm/native distribution and lockfile strategy
-3. remove or isolate shared-state sources that prevent reliable parallel test execution
-4. keep architecture/docs aligned with the decomposed switcher module tree
+3. keep architecture/docs aligned with the decomposed switcher module tree
+4. refresh direct packaging/release reproducibility checks as the distribution workflow evolves
 
 ## Validation
 
@@ -122,7 +121,7 @@ Commands run after this remediation slice:
 ```powershell
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test
-cargo test --features switcher-unit-tests -- --test-threads=1
+cargo test --features switcher-unit-tests
 ```
 
 Result:

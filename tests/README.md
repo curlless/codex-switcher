@@ -18,10 +18,10 @@
 ```powershell
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test
-cargo test --features switcher-unit-tests -- --test-threads=1
+cargo test --features switcher-unit-tests
 ```
 
 ## Notes
 
-- The feature-gated `switcher-unit-tests` suite is currently treated as serial-only for deterministic verification.
+- The feature-gated `switcher-unit-tests` suite now passes in the default parallel test runner again.
 - CLI integration tests use temporary homes and loopback/dev overrides where needed.

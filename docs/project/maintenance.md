@@ -11,14 +11,11 @@ Run these before and after non-trivial changes:
 cargo check
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
-cargo test --features switcher-unit-tests -- --test-threads=1
+cargo test --features switcher-unit-tests
 ```
 
-Why serial unit tests:
-
-- the `switcher-unit-tests` feature still relies on process-global state in a
-  few places
-- serial execution is the current deterministic gate
+The parallel `switcher-unit-tests` gate is expected to stay green. If it starts
+flaking again, treat that as a regression in test isolation.
 
 ## High-Risk Change Areas
 
