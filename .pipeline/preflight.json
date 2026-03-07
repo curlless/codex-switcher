@@ -1,8 +1,8 @@
 {
   "prepared_at": "2026-03-07T06:41:16.9614405+05:00",
   "mode": "standard",
-  "provider": "linear",
-  "provider_rationale": "Linear MCP is reachable in the current Codex session, but the current DSG workflow is not yet compatible with ln-1000 stage expectations.",
+  "provider": "file",
+  "provider_rationale": "Linear MCP is reachable, but the current DSG workflow is not compatible with ln-1000 stage expectations, so the local kanban board is selected as the active backend.",
   "checks": [
     {
       "name": "git_repository_available",
@@ -12,12 +12,12 @@
     {
       "name": "provider_resolved",
       "status": "PASS",
-      "details": "Selected provider is linear."
+      "details": "Selected provider is file."
     },
     {
       "name": "kanban_source_ready",
       "status": "PASS",
-      "details": "Created docs/tasks/kanban_board.md starter board."
+      "details": "docs/tasks/kanban_board.md is present and now contains a runnable local story."
     },
     {
       "name": "pipeline_state_scaffold_present",
@@ -36,12 +36,10 @@
     },
     {
       "name": "linear_workflow_compatibility",
-      "status": "FAIL",
-      "details": "Team DSG currently has 'In Review' but is missing the statuses 'To Review' and 'To Rework' required by ln-1000 pipeline assumptions."
+      "status": "WARN",
+      "details": "Team DSG still has 'In Review' and is missing 'To Review'/'To Rework', but this no longer blocks session-native execution because the active provider is file."
     }
   ],
-  "unresolved_blockers": [
-    "Linear team DSG must add workflow statuses 'To Review' and 'To Rework' or adapt ln-1000 to the existing 'In Review' workflow before session-native orchestration is actually ready."
-  ],
+  "unresolved_blockers": [],
   "next_command": "run skill ln-1000-pipeline-orchestrator"
 }

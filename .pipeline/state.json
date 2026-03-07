@@ -1,8 +1,8 @@
 {
-  "pipeline_run_id": null,
-  "story_id": null,
-  "stage": "preflight",
-  "status": "idle",
+  "pipeline_run_id": "file-us001-20260307-0641",
+  "story_id": "US001",
+  "stage": "stage_2_execution",
+  "status": "running",
   "retry_counters": {
     "current_stage": 0,
     "total": 0
@@ -14,7 +14,7 @@
   },
   "timestamps": {
     "created_at": "2026-03-07T03:38:38.4648208+05:00",
-    "updated_at": "2026-03-07T03:38:38.4648208+05:00"
+    "updated_at": "2026-03-07T06:54:52.1682792+05:00"
   },
   "checkpoint_ref": null,
   "last_error": null
