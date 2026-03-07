@@ -167,7 +167,7 @@ jobs:
         run: scripts/check.sh
 
   build:
-    needs: verify
+    needs: [tag-check, verify]
     name: build-${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
