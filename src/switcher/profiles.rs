@@ -25,13 +25,8 @@ use crate::switcher::{
     resolve_label_id, resolve_save_id, resolve_sync_id, sync_profiles_index,
     update_profiles_index_entry, usage_map_from_index, write_profiles_index,
 };
-use crate::switcher::{
-    Paths, codex_app_override, command_name, copy_atomic, ensure_codex_app_override,
-};
-use crate::switcher::{
-    ReloadAppTarget, inspect_ide_reload_target_with_codex_override,
-    reload_ide_target_best_effort_with_codex_override,
-};
+use crate::switcher::{Paths, command_name, copy_atomic};
+use crate::switcher::ReloadAppTarget;
 use crate::switcher::{
     Tokens, extract_email_and_plan, is_api_key_profile, is_free_plan, is_profile_ready,
     profile_error, read_tokens, read_tokens_opt, refresh_profile_tokens, token_account_id,
@@ -46,8 +41,6 @@ const MAX_USAGE_CONCURRENCY: usize = 4;
 const SCORE_7D_WEIGHT: i64 = 70;
 const SCORE_5H_WEIGHT: i64 = 30;
 const RESERVED_DISPLAY_MARKER: &str = " [reserved]";
-const CURSOR_PROTOCOL_HELPER_HINT: &str = "Cursor automation: install the Commands Executor extension (ionutvmi.vscode-commands-executor) to enable protocol-based Reload Window.";
-
 #[path = "profiles_priority.rs"]
 mod profile_priority;
 #[cfg(all(test, feature = "switcher-unit-tests"))]
@@ -69,114 +62,11 @@ pub fn switch_best_profile(
     dry_run: bool,
     reload_target: Option<ReloadAppTarget>,
 ) -> Result<(), String> {
-    let use_color = use_color_stdout();
-    let no_profiles = format_no_profiles(paths, use_color);
-    let snapshot = load_snapshot(paths, false)?;
-    if snapshot.usage_map.is_empty() {
-        print_output_block(&no_profiles);
-        return Ok(());
-    }
-    let current_saved = current_saved_id(paths, &snapshot.usage_map, &snapshot.tokens);
-    let rows = priority_rows(paths, &snapshot, current_saved.as_deref(), false);
-    if rows.is_empty() {
-        print_output_block(&no_profiles);
-        return Ok(());
-    }
-    let table = render_priority_table(&rows, use_color);
-    print_output_block(&table);
-
-    let Some(best) = best_ready_row(&rows) else {
-        let hint = format_hint(
-            "No switch performed because usage data is unavailable for all profiles.",
-            use_color,
-        );
-        return Err(format!(
-            "Error: no eligible profile found for auto-switch.{hint}"
-        ));
-    };
-
-    if dry_run {
-        let message = format_action(
-            &format!("Dry run: best profile is {}", best.profile_name),
-            use_color,
-        );
-        print_output_block(&message);
-        return Ok(());
-    }
-
-    profile_load::load_profile_by_id(paths, &best.id, &best.profile_name)?;
-
-    if let Some(reload_target) = reload_target {
-        let codex_override = codex_override_for_reload_target(paths, reload_target)?;
-        let outcome = reload_ide_target_best_effort_with_codex_override(
-            reload_target,
-            codex_override.as_ref(),
-        );
-        let mut lines = Vec::new();
-        let mut manual_hints = outcome.manual_hints;
-        if matches!(
-            reload_target,
-            ReloadAppTarget::All | ReloadAppTarget::Cursor
-        ) && !outcome.message.contains("protocol reload is available")
-            && !manual_hints
-                .iter()
-                .any(|hint| hint.contains("ionutvmi.vscode-commands-executor"))
-        {
-            manual_hints.push(CURSOR_PROTOCOL_HELPER_HINT.to_string());
-        }
-        if outcome.restarted {
-            lines.push(format_action(&outcome.message, use_color));
-        } else {
-            lines.push(format_warning(&outcome.message, use_color));
-        }
-        for hint in manual_hints {
-            lines.push(format_hint(&hint, use_color));
-        }
-        print_output_block(&lines.join("\n"));
-    }
-
-    Ok(())
+    profile_switch::switch_best_profile(paths, dry_run, reload_target)
 }
 
 pub fn reload_app(paths: &Paths, dry_run: bool, target: ReloadAppTarget) -> Result<(), String> {
-    let use_color = use_color_stdout();
-    let codex_override = codex_override_for_reload_target(paths, target)?;
-    let outcome = if dry_run {
-        inspect_ide_reload_target_with_codex_override(target, codex_override.as_ref())
-    } else {
-        reload_ide_target_best_effort_with_codex_override(target, codex_override.as_ref())
-    };
-    let mut lines = Vec::new();
-    let mut manual_hints = outcome.manual_hints;
-    if matches!(target, ReloadAppTarget::All | ReloadAppTarget::Cursor)
-        && !outcome.message.contains("protocol reload is available")
-        && !manual_hints
-            .iter()
-            .any(|hint| hint.contains("ionutvmi.vscode-commands-executor"))
-    {
-        manual_hints.push(CURSOR_PROTOCOL_HELPER_HINT.to_string());
-    }
-    if outcome.restarted {
-        lines.push(format_action(&outcome.message, use_color));
-    } else {
-        lines.push(format_warning(&outcome.message, use_color));
-    }
-    for hint in manual_hints {
-        lines.push(format_hint(&hint, use_color));
-    }
-    print_output_block(&lines.join("\n"));
-    Ok(())
-}
-
-fn codex_override_for_reload_target(
-    paths: &Paths,
-    target: ReloadAppTarget,
-) -> Result<Option<crate::switcher::CodexAppOverride>, String> {
-    if matches!(target, ReloadAppTarget::All | ReloadAppTarget::Codex) {
-        ensure_codex_app_override(paths)
-    } else {
-        codex_app_override(paths)
-    }
+    profile_switch::reload_app(paths, dry_run, target)
 }
 
 pub fn reserve_profile(paths: &Paths, label: Option<String>) -> Result<(), String> {
@@ -425,6 +315,9 @@ mod profile_load;
 
 #[path = "profiles_delete.rs"]
 mod profile_delete;
+
+#[path = "profiles_switch.rs"]
+mod profile_switch;
 
 #[cfg(all(test, feature = "switcher-unit-tests"))]
 #[path = "profiles_tests.rs"]
