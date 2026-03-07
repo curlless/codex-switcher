@@ -2,8 +2,9 @@ use super::*;
 use crate::switcher::test_utils::{build_id_token, make_paths};
 use crate::switcher::{
     Labels, ProfileIndexEntry, ProfilesIndex, assign_label, label_for_id, load_profile_tokens_map,
-    profile_path_for_id, read_labels, read_profiles_index, remove_labels_for_id, resolve_label_id,
-    trim_label, write_profiles_index,
+    profile_base, profile_path_for_id, read_labels, read_profiles_index, remove_labels_for_id,
+    rename_profile_id, resolve_label_id, resolve_save_id, resolve_sync_id, sanitize_part,
+    short_account_suffix, trim_label, unique_id, write_profiles_index,
 };
 use std::collections::BTreeMap;
 use std::fs;
