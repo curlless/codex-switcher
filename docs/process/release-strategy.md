@@ -66,6 +66,8 @@ Important distinction:
   registry publish step
 - treat the workflow summary and direct registry checks as the source of truth
   for whether crates.io and npm were actually updated
+- npm publication is expected to use the scoped package family
+  `@1voin1/codex-switcher` and `@1voin1/codex-switcher-*`
 
 ## Manual dry run
 

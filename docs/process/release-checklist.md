@@ -15,6 +15,7 @@ Use this checklist before creating a release tag.
 - update `CHANGELOG.md`
 - confirm repository URLs, installer URLs, and release note links still point to `1Voin1/codex-switcher`
 - confirm canonical packaging names still prefer `codex-switcher`
+- confirm npm docs and workflow still use the scoped package name `@1voin1/codex-switcher`
 - confirm any remaining `CODEX_PROFILES_*` aliases are documented, not newly introduced by accident
 
 ## 3. Verification
@@ -70,4 +71,8 @@ Optional pre-tag step:
   - whether `crates.io publish` actually executed
   - whether `npm publish` actually executed
 - confirm registry versions directly if publication was expected
+- run `node scripts/verify-release-publication.mjs vX.Y.Z` for GitHub Release +
+  checksum verification
+- add `--require-registries` when the release is supposed to be live on npm and
+  crates.io already
 - close the release checklist issue

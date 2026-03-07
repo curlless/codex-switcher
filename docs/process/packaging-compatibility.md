@@ -11,7 +11,7 @@ aliases where removing them would break existing local installs or scripts.
 | --- | --- |
 | Rust crate | `codex-switcher` |
 | Cargo binary | `codex-switcher` |
-| npm package | `codex-switcher` |
+| npm package | `@1voin1/codex-switcher` |
 | GitHub release repo | `1Voin1/codex-switcher` |
 | Homebrew cask | `codex-switcher` |
 | Installer env namespace | `CODEX_SWITCHER_*` |
@@ -56,6 +56,10 @@ The repository publishes or prepares these artifacts:
 | Cargo | `.crate` package under `dist/cargo/` |
 | Homebrew | generated cask under `dist/homebrew/codex-switcher.rb` |
 | Checksums | `checksums/vX.Y.Z.txt` committed on `develop` |
+
+The npm wrapper is intentionally scoped because the unscoped `codex-switcher`
+name is already occupied in the public npm registry by an unrelated package.
+The Rust crate and CLI binary keep the unscoped `codex-switcher` name.
 
 ## Verification
 

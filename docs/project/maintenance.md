@@ -93,6 +93,15 @@ If `node` is available, `scripts/check.sh` now includes that packaging verifier
 automatically. This keeps the release gate usable even on Windows machines
 where Bash/WSL cannot reliably run extra shell-based packaging checks.
 
+For post-tag validation, use:
+
+```powershell
+node scripts/verify-release-publication.mjs v0.1.1
+```
+
+Add `--require-registries` only when the release is expected to be visible on
+npm and crates.io already.
+
 For GitHub release workflow dry runs, prefer the manual `core` build profile
 unless you are explicitly proving the full tagged matrix. `core` covers Linux,
 Linux ARM, and Windows and avoids turning routine dry runs into false failures
@@ -107,6 +116,15 @@ That `core` path has now been verified on `develop` end-to-end through:
 
 The remaining release proof gap is no longer the dry-run path itself. It is the
 full tagged-release path with macOS artifacts and live registry publication.
+
+For npm publication, the maintained namespace is the scoped package family:
+
+- `@1voin1/codex-switcher`
+- `@1voin1/codex-switcher-*`
+
+Do not switch this back to the unscoped `codex-switcher` npm name unless the
+registry ownership situation changes. That public unscoped package name is
+already occupied by an unrelated project.
 
 The full release matrix is also intentionally configured without `fail-fast`.
 If one hosted runner class is unavailable, the other platform jobs still run to

@@ -86,8 +86,8 @@ automation, you usually need more than "login once and overwrite auth.json".
 
 | Source | Command |
 | --- | --- |
-| npm | `npm install -g codex-switcher` |
-| Bun | `bun install -g codex-switcher` |
+| npm | `npm install -g @1voin1/codex-switcher` |
+| Bun | `bun install -g @1voin1/codex-switcher` |
 | Cargo | `cargo install codex-switcher` |
 
 ### Manual install

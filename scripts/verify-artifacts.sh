@@ -21,11 +21,11 @@ checksums_file="${out_dir}/checksums/SHA256SUMS"
 
 expected_npm_package_for_target() {
   case "$1" in
-    x86_64-unknown-linux-gnu) echo "codex-switcher-linux-x64" ;;
-    aarch64-unknown-linux-gnu) echo "codex-switcher-linux-arm64" ;;
-    x86_64-apple-darwin) echo "codex-switcher-darwin-x64" ;;
-    aarch64-apple-darwin) echo "codex-switcher-darwin-arm64" ;;
-    x86_64-pc-windows-msvc) echo "codex-switcher-win32-x64" ;;
+    x86_64-unknown-linux-gnu) echo "1voin1-codex-switcher-linux-x64" ;;
+    aarch64-unknown-linux-gnu) echo "1voin1-codex-switcher-linux-arm64" ;;
+    x86_64-apple-darwin) echo "1voin1-codex-switcher-darwin-x64" ;;
+    aarch64-apple-darwin) echo "1voin1-codex-switcher-darwin-arm64" ;;
+    x86_64-pc-windows-msvc) echo "1voin1-codex-switcher-win32-x64" ;;
     *) return 1 ;;
   esac
 }
@@ -88,7 +88,7 @@ if [[ "${has_platform_npm_packages}" -eq 0 ]]; then
   exit 1
 fi
 
-main_pkg="${npm_packages_dir}/codex-switcher-${version}.tgz"
+main_pkg="${npm_packages_dir}/1voin1-codex-switcher-${version}.tgz"
 if [[ ! -f "${main_pkg}" ]]; then
   echo "Missing npm main package: ${main_pkg}" >&2
   exit 1
