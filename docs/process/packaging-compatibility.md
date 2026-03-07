@@ -74,6 +74,18 @@ exist next to the wrapper tarball before publish. The release workflow
 publishes platform packages first and the `codex-switcher` wrapper last so the
 registry sees a complete optional-package set as early as possible.
 
+The wrapper package intentionally stays "thin":
+
+- no committed `package-lock.json`
+- no `dependencies`
+- no `devDependencies`
+- only platform-specific `optionalDependencies`
+- `.npmrc` sets `package-lock=false` so accidental local lockfile creation does
+  not create false reproducibility signals
+
+Reproducibility for this surface comes from metadata verification and artifact
+verification, not from installing a non-existent JavaScript dependency graph.
+
 ## Maintenance Rule
 
 When adjusting installer, release, or package metadata:

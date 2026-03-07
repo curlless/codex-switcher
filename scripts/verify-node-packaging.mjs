@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+const npmrc = readFileSync(".npmrc", "utf8");
 
 if (pkg.name !== "codex-switcher") {
   throw new Error("package name must be codex-switcher");
@@ -19,6 +20,18 @@ if (!Array.isArray(pkg.files) || !pkg.files.includes("bin")) {
 
 if (!existsSync("bin/codex-switcher.js")) {
   throw new Error("bin/codex-switcher.js is missing");
+}
+
+if (Object.keys(pkg.dependencies ?? {}).length !== 0) {
+  throw new Error("package dependencies must stay empty for the thin wrapper package");
+}
+
+if (Object.keys(pkg.devDependencies ?? {}).length !== 0) {
+  throw new Error("package devDependencies must stay empty for the thin wrapper package");
+}
+
+if (!npmrc.split(/\r?\n/).some((line) => line.trim() === "package-lock=false")) {
+  throw new Error(".npmrc must disable package-lock generation for the thin wrapper package");
 }
 
 const expectedOptionalPackages = [
