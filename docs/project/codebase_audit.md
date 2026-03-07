@@ -94,7 +94,7 @@ What changed:
 Open issues:
 
 - npm wrapper auditability depends on unresolved packaging/registry details
-- there is still no committed Node lockfile strategy because the published wrapper intentionally stays thin and optional-platform-package based
+- registry availability of the published platform packages still has to be proven in real release runs
 
 ### 4. Reference documentation is now present but must remain part of the refactor workflow
 
@@ -114,7 +114,7 @@ Follow-up expectation:
 
 ## Current Remediation Order
 
-1. harden npm/native distribution and lockfile strategy
+1. harden npm/native distribution and prove platform package publication on the real registry
 2. keep architecture/docs aligned with the decomposed switcher module tree
 3. refresh direct packaging/release reproducibility checks as the distribution workflow evolves
 4. re-run dependency refresh opportunistically as toolchain-compatible updates accumulate
