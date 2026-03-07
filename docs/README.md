@@ -13,6 +13,7 @@ This directory holds the engineering-facing documentation for `codex-switcher`.
 - [Maintenance Guide](project/maintenance.md)
 - [Patterns Catalog](project/patterns_catalog.md)
 - [Codebase Audit](project/codebase_audit.md)
+- [Documentation Audit](project/docs_audit.md)
 
 ## Process
 

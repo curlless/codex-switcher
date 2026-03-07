@@ -57,7 +57,7 @@ Overall score: `8.1 / 10`
 Evidence:
 
 - active path: `src/main.rs -> src/switcher/mod.rs`
-- crate root now re-exports the canonical implementation from `src/lib.rs`
+- crate root now exposes the canonical implementation only through the `switcher` module namespace in `src/lib.rs`
 - legacy duplicated root modules were removed
 
 Result:
@@ -74,14 +74,14 @@ What changed:
 
 Remaining hotspots:
 
-- `src/switcher/mod.rs`
+- feature-gated test helpers that still depend on process-global state
 - packaging/update compatibility surfaces
 - documentation drift risk while the switcher layout continues evolving
 
 Recommended action:
 
 - keep docs synchronized with the extracted module boundaries
-- continue trimming broad re-export surfaces where it improves maintainability
+- keep the explicit `switcher` facade curated as new helpers move between modules
 - address packaging reproducibility after code-structure stabilization
 
 ### 3. Dependency and packaging hygiene is still incomplete

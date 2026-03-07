@@ -102,7 +102,7 @@ The largest structural risk is no longer duplicated runtime code or a single mon
 The canonical runtime is concentrated under `src/switcher/*`, and the profile subsystem has already been decomposed into focused modules. The remaining debt is now mostly:
 
 - compatibility and packaging complexity
-- broad switcher re-export surface
+- keeping the explicit switcher facade curated as internal helpers continue to move
 - keeping architecture docs aligned with the continuing switcher split
 - parallel-test shared-state cleanup in the feature-gated unit suite
 
