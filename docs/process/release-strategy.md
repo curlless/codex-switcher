@@ -58,6 +58,15 @@ ASCII flow:
 
 `develop -> release checklist issue -> version/changelog update -> tag vX.Y.Z -> GitHub workflow -> smoke-test published artifact`
 
+Important distinction:
+
+- GitHub Release creation is not the same thing as registry publication
+- if `CARGO_REGISTRY_TOKEN` or `NPM_TOKEN` is missing, the tagged workflow still
+  creates GitHub Release assets and commits checksums, but skips the affected
+  registry publish step
+- treat the workflow summary and direct registry checks as the source of truth
+  for whether crates.io and npm were actually updated
+
 ## Manual dry run
 
 Use `workflow_dispatch` for a release dry run when you want to validate build,
