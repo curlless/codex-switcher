@@ -4,9 +4,9 @@
 
 set -euo pipefail
 
-VERSION="${CODEX_PROFILES_VERSION:-0.1.0}"
+VERSION="${CODEX_SWITCHER_VERSION:-${CODEX_PROFILES_VERSION:-0.1.0}}"
 REPO="1Voin1/codex-switcher"
-INSTALL_DIR="${CODEX_PROFILES_INSTALL_DIR:-$HOME/.local/bin}"
+INSTALL_DIR="${CODEX_SWITCHER_INSTALL_DIR:-${CODEX_PROFILES_INSTALL_DIR:-$HOME/.local/bin}}"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     BOLD='\033[1m'
@@ -92,16 +92,16 @@ download_file() {
 verify_checksum() {
     local file="$1"
     local checksum_file="$2"
-    
+
     local basename
     basename="$(basename "$file")"
     local expected actual
-    
+
     expected="$(grep "release/$basename" "$checksum_file" | awk '{print $1}')"
     if [ -z "$expected" ]; then
         error "checksum not found for $basename in checksum file"
     fi
-    
+
     if command -v sha256sum > /dev/null 2>&1; then
         actual="$(sha256sum "$file" | awk '{print $1}')"
     elif command -v shasum > /dev/null 2>&1; then
@@ -110,12 +110,12 @@ verify_checksum() {
         warn "sha256sum/shasum not found, skipping checksum verification"
         return 0
     fi
-    
+
     if [ "$expected" != "$actual" ]; then
         error "checksum mismatch!\n  expected: $expected\n  actual:   $actual"
     fi
-    
-    info "Checksum verified ✓"
+
+    info "Checksum verified"
 }
 
 cleanup() {
@@ -230,8 +230,10 @@ Options:
   -h, --help               Show this help message
 
 Environment variables:
-  CODEX_PROFILES_VERSION          Override default version
-  CODEX_PROFILES_INSTALL_DIR      Override default install directory
+  CODEX_SWITCHER_VERSION          Override default version
+  CODEX_SWITCHER_INSTALL_DIR      Override default install directory
+  CODEX_PROFILES_VERSION          Legacy alias for CODEX_SWITCHER_VERSION
+  CODEX_PROFILES_INSTALL_DIR      Legacy alias for CODEX_SWITCHER_INSTALL_DIR
   NO_COLOR                        Disable colored output
 
 Security:

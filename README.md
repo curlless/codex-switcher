@@ -96,6 +96,15 @@ automation, you usually need more than "login once and overwrite auth.json".
 curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/develop/install.sh | bash
 ```
 
+Installer overrides:
+
+```bash
+CODEX_SWITCHER_VERSION=0.1.0 CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
+  curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/develop/install.sh | bash
+```
+
+Legacy `CODEX_PROFILES_VERSION` and `CODEX_PROFILES_INSTALL_DIR` are still accepted as compatibility aliases.
+
 ## Quick Start
 
 ### 1. Save the current login
