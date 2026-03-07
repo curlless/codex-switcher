@@ -1,8 +1,8 @@
 {
-  "prepared_at": "2026-03-07T03:38:38.4648208+05:00",
+  "prepared_at": "2026-03-07T06:41:16.9614405+05:00",
   "mode": "standard",
   "provider": "linear",
-  "provider_rationale": "Linear MCP is reachable in the current Codex session.",
+  "provider_rationale": "Linear MCP is reachable in the current Codex session, but the current DSG workflow is not yet compatible with ln-1000 stage expectations.",
   "checks": [
     {
       "name": "git_repository_available",
@@ -27,14 +27,21 @@
     {
       "name": "required_ln_skills_discoverable",
       "status": "PASS",
-      "details": "ln-300, ln-310, ln-400, ln-500, ln-1000 are discoverable from local skills directories."
+      "details": "ln-300, ln-310, ln-400, ln-500, ln-1000 are discoverable from local skill sources, including marketplace cache paths."
     },
     {
       "name": "multi_agent_enabled",
       "status": "PASS",
       "details": "Codex session exposes subagent tooling."
+    },
+    {
+      "name": "linear_workflow_compatibility",
+      "status": "FAIL",
+      "details": "Team DSG currently has 'In Review' but is missing the statuses 'To Review' and 'To Rework' required by ln-1000 pipeline assumptions."
     }
   ],
-  "unresolved_blockers": [],
+  "unresolved_blockers": [
+    "Linear team DSG must add workflow statuses 'To Review' and 'To Rework' or adapt ln-1000 to the existing 'In Review' workflow before session-native orchestration is actually ready."
+  ],
   "next_command": "run skill ln-1000-pipeline-orchestrator"
 }

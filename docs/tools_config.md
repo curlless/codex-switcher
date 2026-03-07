@@ -18,3 +18,4 @@
 
 - This file is intentionally minimal and non-destructive.
 - Add provider-specific operational details here instead of rewriting task history files.
+- Current blocker for `ln-1000`: Linear team `DSG` still uses `In Review` and is missing `To Review` / `To Rework`.
