@@ -29,6 +29,8 @@ the canonical `CODEX_SWITCHER_*` names.
 | `CODEX_SWITCHER_SKIP_UPDATE` | `CODEX_PROFILES_SKIP_UPDATE` | suppress startup update check |
 | `CODEX_SWITCHER_CODEX_APP_PATH` | `CODEX_PROFILES_CODEX_APP_PATH` | standalone Codex app path override |
 | `CODEX_SWITCHER_CODEX_APP_AUMID` | `CODEX_PROFILES_CODEX_APP_AUMID` | standalone Codex app relaunch override |
+| `CODEX_SWITCHER_MANAGED_BY_NPM` | `CODEX_PROFILES_MANAGED_BY_NPM` | npm-managed install marker for update/install hints |
+| `CODEX_SWITCHER_MANAGED_BY_BUN` | `CODEX_PROFILES_MANAGED_BY_BUN` | Bun-managed install marker for update/install hints |
 
 ## Intentional Non-Aliases
 
@@ -54,6 +56,18 @@ The repository publishes or prepares these artifacts:
 | Cargo | `.crate` package under `dist/cargo/` |
 | Homebrew | generated cask under `dist/homebrew/codex-switcher.rb` |
 | Checksums | `checksums/vX.Y.Z.txt` committed on `develop` |
+
+## Verification
+
+Packaging verification is part of the normal repository check flow:
+
+1. `scripts/check.sh` runs `node scripts/verify-node-packaging.mjs` when Node is available
+2. the verifier confirms canonical npm metadata (`name`, `bin`, `files`)
+3. it confirms platform optional package names and version alignment
+4. it validates `npm pack --dry-run --json` output on the current machine
+
+The verifier is intentionally Node-based so the packaging gate stays usable on
+Windows machines where Bash/WSL may be unavailable or unreliable.
 
 ## Maintenance Rule
 
