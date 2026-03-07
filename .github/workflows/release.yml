@@ -133,7 +133,11 @@ jobs:
           echo "release_version=${release_version}" >> "${GITHUB_OUTPUT}"
           echo "publish_enabled=${publish_enabled}" >> "${GITHUB_OUTPUT}"
           echo "build_profile=${build_profile}" >> "${GITHUB_OUTPUT}"
-          echo "build_matrix=${build_matrix}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "build_matrix<<EOF"
+            echo "${build_matrix}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
 
   verify:
     needs: tag-check
