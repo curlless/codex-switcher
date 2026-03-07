@@ -1,6 +1,6 @@
 # T001: Stabilize switcher module boundaries
 
-**Status:** In Progress
+**Status:** Done
 **Story:** US001
 **Labels:** implementation
 **Created:** 2026-03-07

@@ -1,6 +1,6 @@
 # US001: Complete switcher refactor and documentation closure
 
-**Status:** In Progress
+**Status:** In Review
 **Epic:** Epic 1
 **Labels:** user-story
 **Created:** 2026-03-07
