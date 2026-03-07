@@ -66,6 +66,7 @@ Optional pre-tag step:
 ## 7. Post-release
 
 - smoke-test one install path from the published release
+- confirm the `release-smoke` workflow passes for the tagged release asset set
 - verify the latest release page and notes
 - verify the release workflow summary:
   - whether `crates.io publish` actually executed

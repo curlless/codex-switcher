@@ -1,0 +1,99 @@
+name: release-smoke
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to smoke-test (for example v0.1.2)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: smoke-${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x64
+            runner: ubuntu-24.04
+            asset: codex-switcher-x86_64-unknown-linux-gnu.tar.gz
+            binary: codex-switcher
+            extract: tar
+          - label: macos-arm64
+            runner: macos-15
+            asset: codex-switcher-aarch64-apple-darwin.tar.gz
+            binary: codex-switcher
+            extract: tar
+          - label: windows-x64
+            runner: windows-2025
+            asset: codex-switcher-x86_64-pc-windows-msvc.exe.zip
+            binary: codex-switcher.exe
+            extract: zip
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve tag
+        id: meta
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            tag="${RELEASE_TAG:-${GITHUB_REF_NAME}}"
+          else
+            tag="${INPUT_TAG}"
+          fi
+
+          [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
+            || { echo "Invalid release tag '${tag}'"; exit 1; }
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${tag#v}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download "${{ steps.meta.outputs.tag }}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "${{ matrix.asset }}" \
+            --dir dist
+          ls -la dist
+
+      - name: Extract tar asset
+        if: ${{ matrix.extract == 'tar' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p smoke
+          tar -xzf "dist/${{ matrix.asset }}" -C smoke
+          chmod +x "smoke/${{ matrix.binary }}"
+
+      - name: Extract zip asset
+        if: ${{ matrix.extract == 'zip' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path smoke | Out-Null
+          Expand-Archive -Path "dist/${{ matrix.asset }}" -DestinationPath smoke -Force
+
+      - name: Verify release binary version
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(./smoke/${{ matrix.binary }} --version)"
+          echo "${output}"
+          grep -F "codex-switcher ${{ steps.meta.outputs.version }}" <<< "${output}" >/dev/null

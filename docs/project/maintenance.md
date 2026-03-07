@@ -102,6 +102,10 @@ node scripts/verify-release-publication.mjs v0.1.2
 Add `--require-registries` only when the release is expected to be visible on
 npm and crates.io already.
 
+The repository also has a `release-smoke` GitHub Actions workflow. It downloads
+the published GitHub release assets on Linux, macOS, and Windows runners and
+checks that the shipped binary starts and reports the tagged version.
+
 For GitHub release workflow dry runs, prefer the manual `core` build profile
 unless you are explicitly proving the full tagged matrix. `core` covers Linux,
 Linux ARM, and Windows and avoids turning routine dry runs into false failures
