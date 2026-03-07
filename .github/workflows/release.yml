@@ -233,13 +233,14 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
           
-          # Publish main package
-          npm publish dist/npm-packages/codex-switcher-${version}.tgz --access public
-          
           # Publish platform packages
           for pkg in dist/npm-packages/codex-switcher-*-*.tgz; do
             npm publish "$pkg" --access public
           done
+
+          # Publish main wrapper package last so optional platform packages
+          # already exist in the registry by the time consumers install it.
+          npm publish dist/npm-packages/codex-switcher-${version}.tgz --access public
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

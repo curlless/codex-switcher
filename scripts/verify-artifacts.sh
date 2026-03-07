@@ -19,6 +19,17 @@ homebrew_dir="${out_dir}/homebrew"
 cargo_dir="${out_dir}/cargo"
 checksums_file="${out_dir}/checksums/SHA256SUMS"
 
+expected_npm_package_for_target() {
+  case "$1" in
+    x86_64-unknown-linux-gnu) echo "codex-switcher-linux-x64" ;;
+    aarch64-unknown-linux-gnu) echo "codex-switcher-linux-arm64" ;;
+    x86_64-apple-darwin) echo "codex-switcher-darwin-x64" ;;
+    aarch64-apple-darwin) echo "codex-switcher-darwin-arm64" ;;
+    x86_64-pc-windows-msvc) echo "codex-switcher-win32-x64" ;;
+    *) return 1 ;;
+  esac
+}
+
 if [[ ! -d "${release_dir}" ]]; then
   echo "Missing release dir: ${release_dir}" >&2
   exit 1
@@ -40,6 +51,7 @@ if [[ ! -f "${checksums_file}" ]]; then
 fi
 
 has_release_assets=0
+has_platform_npm_packages=0
 shopt -s nullglob
 for artifact_dir in "${out_dir}/artifacts"/codex-switcher-*; do
   target="${artifact_dir##*/codex-switcher-}"
@@ -52,12 +64,27 @@ for artifact_dir in "${out_dir}/artifacts"/codex-switcher-*; do
     echo "Missing release asset: ${expected}" >&2
     exit 1
   fi
+
+  if pkg_name="$(expected_npm_package_for_target "${target}")"; then
+    pkg_tgz="${npm_packages_dir}/${pkg_name}-${version}.tgz"
+    if [[ ! -f "${pkg_tgz}" ]]; then
+      echo "Missing platform npm package: ${pkg_tgz}" >&2
+      exit 1
+    fi
+    has_platform_npm_packages=1
+  fi
+
   has_release_assets=1
 done
 shopt -u nullglob
 
 if [[ "${has_release_assets}" -eq 0 ]]; then
   echo "No build artifacts found under ${out_dir}/artifacts" >&2
+  exit 1
+fi
+
+if [[ "${has_platform_npm_packages}" -eq 0 ]]; then
+  echo "No platform npm packages found under ${npm_packages_dir}" >&2
   exit 1
 fi
 
