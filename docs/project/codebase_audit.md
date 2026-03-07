@@ -15,7 +15,7 @@ Resolved in this pass:
 
 Remaining top risk:
 
-- packaging and compatibility debt now outweigh the previously dominant profile-module monolith
+- distribution reproducibility and Node wrapper auditability now outweigh the previously dominant profile-module monolith
 
 ## Compliance Score
 
@@ -46,7 +46,7 @@ Overall score: `8.1 / 10`
 
 - the canonical runtime now compiles from one implementation tree
 - the switcher profile subsystem has been decomposed, but docs and packaging policy need to keep pace with the new structure
-- dependency drift remains in the Rust dependency set
+- the direct Rust dependency set has been refreshed to the latest Rust-1.93-compatible lockfile state
 - Node wrapper packaging still needs a reproducible registry/lockfile story
 
 ## Key Findings
@@ -83,13 +83,18 @@ Recommended action:
 - keep the explicit `switcher` facade curated as new helpers move between modules
 - address packaging reproducibility after code-structure stabilization
 
-### 3. Dependency and packaging hygiene is still incomplete
+### 3. Dependency and packaging hygiene is improved, but not complete
+
+What changed:
+
+- `Cargo.lock` was refreshed against the current Rust 1.93 toolchain boundary
+- direct Rust dependencies and their transitive graph now resolve to newer compatible patch/minor releases
+- full regression gates remained green after the refresh
 
 Open issues:
 
-- `toml` major-version lag
-- minor drift in direct Rust dependencies
 - npm wrapper auditability depends on unresolved packaging/registry details
+- there is still no committed Node lockfile strategy because the published wrapper intentionally stays thin and optional-platform-package based
 
 ### 4. Reference documentation is now present but must remain part of the refactor workflow
 
@@ -109,10 +114,10 @@ Follow-up expectation:
 
 ## Current Remediation Order
 
-1. refresh direct Rust dependencies with regression coverage
-2. harden npm/native distribution and lockfile strategy
-3. keep architecture/docs aligned with the decomposed switcher module tree
-4. refresh direct packaging/release reproducibility checks as the distribution workflow evolves
+1. harden npm/native distribution and lockfile strategy
+2. keep architecture/docs aligned with the decomposed switcher module tree
+3. refresh direct packaging/release reproducibility checks as the distribution workflow evolves
+4. re-run dependency refresh opportunistically as toolchain-compatible updates accumulate
 
 ## Validation
 

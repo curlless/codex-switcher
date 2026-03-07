@@ -17,6 +17,19 @@ cargo test --features switcher-unit-tests
 The parallel `switcher-unit-tests` gate is expected to stay green. If it starts
 flaking again, treat that as a regression in test isolation.
 
+For dependency refresh work, prefer a lockfile-first pass:
+
+```powershell
+cargo update
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test
+cargo test --features switcher-unit-tests
+```
+
+If the refresh is intended to stay compatibility-only, avoid broad manifest
+rewrites in `Cargo.toml` unless a direct dependency actually needs a new
+version requirement.
+
 ## High-Risk Change Areas
 
 | Area | Why it is risky |
