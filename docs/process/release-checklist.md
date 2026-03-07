@@ -33,6 +33,8 @@ Use this checklist before creating a release tag.
 - confirm `install.sh` still downloads from this repository
 - confirm release workflow targets `develop`
 - confirm release artifacts and checksums paths match the tagged version
+- confirm `scripts/verify-artifacts.sh` sees all expected platform npm tarballs
+- confirm release workflow publishes platform npm packages before the main wrapper package
 
 ## 5. Notes and communication
 

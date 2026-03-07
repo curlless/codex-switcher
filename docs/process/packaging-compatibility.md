@@ -69,6 +69,11 @@ Packaging verification is part of the normal repository check flow:
 The verifier is intentionally Node-based so the packaging gate stays usable on
 Windows machines where Bash/WSL may be unavailable or unreliable.
 
+Release artifact verification also expects the full platform npm package set to
+exist next to the wrapper tarball before publish. The release workflow
+publishes platform packages first and the `codex-switcher` wrapper last so the
+registry sees a complete optional-package set as early as possible.
+
 ## Maintenance Rule
 
 When adjusting installer, release, or package metadata:
