@@ -14,7 +14,7 @@ the work is merged or abandoned.
 
 Use semantic version tags:
 
-- `v0.1.1`
+- `v0.1.2`
 - `v0.2.0`
 - `v1.0.0`
 
@@ -32,25 +32,24 @@ Rules:
 | backward-compatible feature such as new CLI flags or better ranking behavior | minor while still pre-1.0, otherwise minor |
 | behavior break, storage break, or incompatible CLI contract | minor before 1.0, major at or after 1.0 |
 
-## First normal tagged release
+## Current patch release target
 
-The first clean release from this repository should be:
+The next patch release from this repository should be:
 
-- `v0.1.1`
+- `v0.1.2`
 
 Reason:
 
-- it preserves the existing package line
-- it includes backward-compatible improvements already made here
-- it avoids pretending this fork is a fresh `v0.1.0`
+- it continues the existing package line after `v0.1.1`
+- it is the first release prepared around the scoped npm package family
+- it adds post-release verification for GitHub assets and registry visibility
 
-Recommended release contents for `v0.1.1`:
+Recommended release contents for `v0.1.2`:
 
-- reserved profile support
-- improved legacy profile deduplication
-- repository cleanup and corrected release metadata
-- cleaned README and community files
-- explicit packaging compatibility documentation for legacy aliases
+- scoped npm package family `@1voin1/codex-switcher` and platform packages
+- release artifact packaging that correctly handles scoped npm directory layout
+- release publication verification via `scripts/verify-release-publication.mjs`
+- workflow and maintainer documentation aligned with scoped npm publication
 
 ## Release flow
 

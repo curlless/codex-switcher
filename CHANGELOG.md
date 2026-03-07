@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-03-07
+
+### Added
+
+- scoped npm package family for release publication:
+  `@1voin1/codex-switcher` and `@1voin1/codex-switcher-*`
+- `scripts/verify-release-publication.mjs` to verify GitHub release creation,
+  checksum commits, release assets, and registry visibility after a tag
+
+### Changed
+
+- release artifact packaging now correctly handles scoped npm package
+  directories during `npm pack`
+- release workflow and maintainer docs now treat scoped npm publication as the
+  canonical path
+- release process documentation now points at the next patch release target
+  instead of the already-finished `v0.1.1` rollout
+
 ## [0.1.1] - 2026-03-07
 
 ### Added
@@ -69,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pre-commit hooks for code quality
 - Binary releases for 5 platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64)
 
-[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.2
 [0.1.1]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.1
 [0.1.0]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.0
