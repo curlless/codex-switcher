@@ -10,6 +10,14 @@ on:
         description: "Release version to package during manual dry run (defaults to manifest version)"
         required: false
         type: string
+      build_profile:
+        description: "Build matrix to use for manual dispatch"
+        required: false
+        default: core
+        type: choice
+        options:
+          - core
+          - full
       publish:
         description: "Allow publish/release side effects during manual dispatch"
         required: false
@@ -30,6 +38,8 @@ jobs:
     outputs:
       release_version: ${{ steps.meta.outputs.release_version }}
       publish_enabled: ${{ steps.meta.outputs.publish_enabled }}
+      build_matrix: ${{ steps.meta.outputs.build_matrix }}
+      build_profile: ${{ steps.meta.outputs.build_profile }}
     steps:
       - uses: actions/checkout@v6
       - name: Resolve release version and publish mode
@@ -37,6 +47,7 @@ jobs:
         shell: bash
         env:
           INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
+          INPUT_BUILD_PROFILE: ${{ inputs.build_profile }}
           INPUT_PUBLISH: ${{ inputs.publish }}
         run: |
           set -euo pipefail
@@ -55,6 +66,12 @@ jobs:
 
           publish_enabled="false"
           release_version="${cargo_ver}"
+          build_profile="core"
+          build_matrix='[
+            {"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","binary":"codex-switcher"},
+            {"runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","binary":"codex-switcher"},
+            {"runner":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"codex-switcher.exe"}
+          ]'
 
           if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "tag" ]]; then
             [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
@@ -68,6 +85,14 @@ jobs:
 
             release_version="${tag_ver}"
             publish_enabled="true"
+            build_profile="full"
+            build_matrix='[
+              {"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","binary":"codex-switcher"},
+              {"runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","binary":"codex-switcher"},
+              {"runner":"macos-15-large","target":"x86_64-apple-darwin","binary":"codex-switcher"},
+              {"runner":"macos-15","target":"aarch64-apple-darwin","binary":"codex-switcher"},
+              {"runner":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"codex-switcher.exe"}
+            ]'
           else
             if [[ -n "${INPUT_RELEASE_VERSION:-}" ]]; then
               [[ "${INPUT_RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
@@ -77,16 +102,42 @@ jobs:
               release_version="${INPUT_RELEASE_VERSION}"
             fi
 
+            if [[ "${INPUT_BUILD_PROFILE:-core}" == "full" ]]; then
+              build_profile="full"
+              build_matrix='[
+                {"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","binary":"codex-switcher"},
+                {"runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","binary":"codex-switcher"},
+                {"runner":"macos-15-large","target":"x86_64-apple-darwin","binary":"codex-switcher"},
+                {"runner":"macos-15","target":"aarch64-apple-darwin","binary":"codex-switcher"},
+                {"runner":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"codex-switcher.exe"}
+              ]'
+            fi
+
             if [[ "${INPUT_PUBLISH:-false}" == "true" ]]; then
               publish_enabled="true"
+              build_profile="full"
+              build_matrix='[
+                {"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","binary":"codex-switcher"},
+                {"runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","binary":"codex-switcher"},
+                {"runner":"macos-15-large","target":"x86_64-apple-darwin","binary":"codex-switcher"},
+                {"runner":"macos-15","target":"aarch64-apple-darwin","binary":"codex-switcher"},
+                {"runner":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"codex-switcher.exe"}
+              ]'
             fi
 
             echo "Manual dispatch release version: ${release_version}"
             echo "Manual dispatch publish enabled: ${publish_enabled}"
+            echo "Manual dispatch build profile: ${build_profile}"
           fi
 
           echo "release_version=${release_version}" >> "${GITHUB_OUTPUT}"
           echo "publish_enabled=${publish_enabled}" >> "${GITHUB_OUTPUT}"
+          echo "build_profile=${build_profile}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "build_matrix<<EOF"
+            echo "${build_matrix}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
 
   verify:
     needs: tag-check
@@ -116,29 +167,14 @@ jobs:
         run: scripts/check.sh
 
   build:
-    needs: verify
+    needs: [tag-check, verify]
     name: build-${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
       fail-fast: true
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            binary: codex-switcher
-          - runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            binary: codex-switcher
-          - runner: macos-15-large
-            target: x86_64-apple-darwin
-            binary: codex-switcher
-          - runner: macos-15
-            target: aarch64-apple-darwin
-            binary: codex-switcher
-          - runner: windows-2025
-            target: x86_64-pc-windows-msvc
-            binary: codex-switcher.exe
+        include: ${{ fromJson(needs.tag-check.outputs.build_matrix) }}
 
     steps:
       - uses: actions/checkout@v6
@@ -173,7 +209,7 @@ jobs:
           if-no-files-found: error
 
   package:
-    needs: [build, verify]
+    needs: [tag-check, build, verify]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6

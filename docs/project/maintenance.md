@@ -93,6 +93,11 @@ If `node` is available, `scripts/check.sh` now includes that packaging verifier
 automatically. This keeps the release gate usable even on Windows machines
 where Bash/WSL cannot reliably run extra shell-based packaging checks.
 
+For GitHub release workflow dry runs, prefer the manual `core` build profile
+unless you are explicitly proving the full tagged matrix. `core` covers Linux,
+Linux ARM, and Windows and avoids turning routine dry runs into false failures
+when macOS hosted runners are unavailable for billing reasons.
+
 Detailed release process lives in:
 
 - [../process/release-checklist.md](../process/release-checklist.md)

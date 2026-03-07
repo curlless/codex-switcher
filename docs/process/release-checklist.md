@@ -54,6 +54,8 @@ Optional pre-tag step:
 
 - run the release workflow through `workflow_dispatch` with `publish=false` to
   validate build/package/release-artifact stages without side effects
+- for routine maintainer validation, prefer `build_profile=core`
+- use `build_profile=full` only when you specifically need macOS artifacts
 
 ## 7. Post-release
 
