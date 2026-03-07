@@ -69,7 +69,14 @@ Rules:
 - leave `publish` disabled for normal dry runs
 - set `release_version` only when you want the workflow to package a specific
   manifest-aligned version explicitly
+- use `build_profile=core` for the normal maintainer dry run
+  - this validates Linux, Linux ARM, and Windows without depending on paid macOS
+    hosted runners
+- use `build_profile=full` when you want the manual dry run to mirror the tagged
+  release matrix, including macOS
 - real publishing remains tag-driven by default
+- any run with `publish=true` is forced onto the `full` matrix even if the
+  manual input requested `core`
 
 ## Rollback rule
 
