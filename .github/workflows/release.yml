@@ -172,7 +172,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include: ${{ fromJson(needs.tag-check.outputs.build_matrix) }}
 

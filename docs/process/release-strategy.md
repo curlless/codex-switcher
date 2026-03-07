@@ -77,6 +77,9 @@ Rules:
 - real publishing remains tag-driven by default
 - any run with `publish=true` is forced onto the `full` matrix even if the
   manual input requested `core`
+- the build matrix is intentionally non-`fail-fast`
+  - if macOS runners are unavailable, Linux and Windows still finish and leave
+    useful artifacts/logs behind before the run fails
 
 ## Rollback rule
 

@@ -108,6 +108,11 @@ That `core` path has now been verified on `develop` end-to-end through:
 The remaining release proof gap is no longer the dry-run path itself. It is the
 full tagged-release path with macOS artifacts and live registry publication.
 
+The full release matrix is also intentionally configured without `fail-fast`.
+If one hosted runner class is unavailable, the other platform jobs still run to
+completion so maintainers can separate code regressions from infrastructure or
+billing failures.
+
 Detailed release process lives in:
 
 - [../process/release-checklist.md](../process/release-checklist.md)
