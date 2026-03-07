@@ -9,6 +9,8 @@ This directory holds the engineering-facing documentation for `codex-switcher`.
 - [Documentation Standards](documentation_standards.md)
 - [Requirements](project/requirements.md)
 - [Tech Stack](project/tech_stack.md)
+- [Runtime Map](project/runtime_map.md)
+- [Maintenance Guide](project/maintenance.md)
 - [Patterns Catalog](project/patterns_catalog.md)
 - [Codebase Audit](project/codebase_audit.md)
 

@@ -48,6 +48,7 @@ Overall score: `8.1 / 10`
 - the switcher profile subsystem has been decomposed, but docs and packaging policy need to keep pace with the new structure
 - dependency drift remains in the Rust dependency set
 - Node wrapper packaging still needs a reproducible registry/lockfile story
+- the serial-only `switcher-unit-tests` gate still signals shared-state pressure in the test harness
 
 ## Key Findings
 
@@ -91,11 +92,28 @@ Open issues:
 - minor drift in direct Rust dependencies
 - npm wrapper auditability depends on unresolved packaging/registry details
 
+### 4. Reference documentation is now present but must remain part of the refactor workflow
+
+Maintainer-facing reference coverage now includes:
+
+- `docs/project/requirements.md`
+- `docs/project/tech_stack.md`
+- `docs/project/runtime_map.md`
+- `docs/project/maintenance.md`
+- `docs/project/patterns_catalog.md`
+- `docs/project/codebase_audit.md`
+
+Follow-up expectation:
+
+- keep these documents synchronized in the same commit when module boundaries,
+  packaging behavior, or release process changes
+
 ## Current Remediation Order
 
 1. refresh direct Rust dependencies with regression coverage
 2. harden npm/native distribution and lockfile strategy
-3. keep architecture/docs aligned with the decomposed switcher module tree
+3. remove or isolate shared-state sources that prevent reliable parallel test execution
+4. keep architecture/docs aligned with the decomposed switcher module tree
 
 ## Validation
 

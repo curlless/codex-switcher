@@ -26,6 +26,10 @@ The broader implementation lives under:
 
 - `src/switcher/*.rs`
 
+The detailed module ownership map is maintained in:
+
+- `docs/project/runtime_map.md`
+
 ### Compatibility surface
 
 The crate root now exposes the switcher runtime through the `switcher` module namespace from `src/lib.rs`, instead of re-exporting the entire switcher surface at the crate root.
@@ -100,6 +104,7 @@ The canonical runtime is concentrated under `src/switcher/*`, and the profile su
 - compatibility and packaging complexity
 - broad switcher re-export surface
 - keeping architecture docs aligned with the continuing switcher split
+- parallel-test shared-state cleanup in the feature-gated unit suite
 
 ## Target Direction
 
