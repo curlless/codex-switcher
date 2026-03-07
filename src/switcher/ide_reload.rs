@@ -51,6 +51,7 @@ impl ReloadAppTarget {
         matches!(self, Self::All | Self::Cursor)
     }
 
+    #[cfg(windows)]
     fn label(self) -> &'static str {
         match self {
             Self::All => "all",
@@ -373,6 +374,7 @@ fn cursor_helper_hint() -> &'static str {
     "Cursor automation: install the Commands Executor extension (ionutvmi.vscode-commands-executor) to enable protocol-based Reload Window."
 }
 
+#[cfg(windows)]
 fn should_dispatch_cursor_reload(target: ReloadAppTarget, has_standalone_codex: bool) -> bool {
     !matches!(target, ReloadAppTarget::All) || !has_standalone_codex
 }
@@ -869,13 +871,15 @@ fn normalized_path(process: &WindowsProcessInfo) -> Option<String> {
 #[cfg(test)]
 mod tests {
     #[cfg(windows)]
+    use super::ReloadAppTarget;
+    #[cfg(windows)]
     use super::{
         AppxPackageInfo, CodexAppOverride, WindowsProcessInfo, build_codex_app_user_model_id,
         build_cursor_reload_uri, codex_launch_target_from_package, extract_xml_attribute,
         has_extension_with_prefix, is_cursor_extension_process, is_standalone_codex_app_process,
         parse_appx_packages, parse_windows_command_exe, parse_windows_processes,
+        should_dispatch_cursor_reload,
     };
-    use super::{ReloadAppTarget, should_dispatch_cursor_reload};
     #[cfg(windows)]
     use std::fs;
     #[cfg(windows)]
@@ -1046,6 +1050,7 @@ mod tests {
         );
     }
 
+    #[cfg(windows)]
     #[test]
     fn all_target_prioritizes_codex_over_cursor_reload() {
         assert!(!should_dispatch_cursor_reload(ReloadAppTarget::All, true));

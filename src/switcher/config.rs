@@ -431,6 +431,7 @@ fn persist_user_env_text(name: &str, _value: &str) -> Result<(), String> {
     ))
 }
 
+#[cfg(windows)]
 fn powershell_single_quote(value: &str) -> String {
     value.replace('\'', "''")
 }
