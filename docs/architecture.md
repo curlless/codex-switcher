@@ -40,9 +40,24 @@ The earlier duplicated root module tree from the `codex-profiles -> codex-switch
 ### Profile persistence
 
 - `src/switcher/profiles.rs`
+- `src/switcher/profiles_*.rs`
 - Saves and loads profile snapshots from `~/.codex/profiles`
 - Maintains labels, metadata, reserved flags, and active profile state
 - Builds the ranking table used by `switch` and `status`
+
+`profiles.rs` is now a thin public facade over focused modules:
+
+- `profiles_load.rs`
+- `profiles_delete.rs`
+- `profiles_reserve.rs`
+- `profiles_status.rs`
+- `profiles_priority.rs`
+- `profiles_switch.rs`
+- `profiles_runtime.rs`
+- `profiles_migrate.rs`
+- `profiles_ui.rs`
+- `profile_store.rs`
+- `profile_identity.rs`
 
 ### Usage and ranking
 
@@ -74,9 +89,13 @@ The earlier duplicated root module tree from the `codex-profiles -> codex-switch
 
 ## Current Technical Debt
 
-The largest structural risk that remains is module size, not module duplication.
+The largest structural risk is no longer duplicated runtime code or a single monolithic profile module.
 
-The canonical runtime is now concentrated under `src/switcher/*`, but several files are still oversized and mix multiple responsibilities.
+The canonical runtime is concentrated under `src/switcher/*`, and the profile subsystem has already been decomposed into focused modules. The remaining debt is now mostly:
+
+- compatibility and packaging complexity
+- broad `mod.rs` re-export surface
+- keeping architecture docs aligned with the continuing switcher split
 
 ## Target Direction
 
@@ -85,4 +104,4 @@ The intended end state is:
 1. `src/switcher/*` remains the canonical implementation.
 2. Crate-root exports stay thin and avoid rebuilding a second runtime tree.
 3. Shared constants and compatibility rules are centralized instead of duplicated across modules.
-4. Oversized modules are split by responsibility, especially profile persistence, ranking, rendering, and migration logic.
+4. Command orchestration, storage, rendering, and runtime helpers stay separated instead of drifting back into catch-all modules.

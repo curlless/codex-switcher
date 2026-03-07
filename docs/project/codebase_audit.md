@@ -15,7 +15,7 @@ Resolved in this pass:
 
 Remaining top risk:
 
-- oversized switcher modules, especially in profile/ranking code
+- packaging and compatibility debt now outweigh the previously dominant profile-module monolith
 
 ## Compliance Score
 
@@ -45,7 +45,7 @@ Overall score: `8.1 / 10`
 ### Remaining findings
 
 - the canonical runtime now compiles from one implementation tree
-- profile and rendering modules remain oversized
+- the switcher profile subsystem has been decomposed, but docs and packaging policy need to keep pace with the new structure
 - dependency drift remains in the Rust dependency set
 - Node wrapper packaging still needs a reproducible registry/lockfile story
 
@@ -64,16 +64,24 @@ Result:
 - maintenance now targets one Rust implementation tree
 - clippy and test verification no longer pay duplication overhead for root modules
 
-### 2. Large profile/rendering modules still need decomposition
+### 2. Profile decomposition is largely complete, but the surrounding architecture still needs consolidation
 
-Hotspots:
+What changed:
 
-- `src/switcher/profiles.rs`
+- `src/switcher/profiles.rs` is now a thin facade
+- command, runtime, status, reservation, load/delete, ranking, and migration flows have been extracted into focused modules
+
+Remaining hotspots:
+
 - `src/switcher/mod.rs`
+- packaging/update compatibility surfaces
+- documentation drift risk while the switcher layout continues evolving
 
 Recommended action:
 
-- split profile persistence, ranking, migration, and table rendering into smaller focused modules
+- keep docs synchronized with the extracted module boundaries
+- continue trimming broad re-export surfaces where it improves maintainability
+- address packaging reproducibility after code-structure stabilization
 
 ### 3. Dependency and packaging hygiene is still incomplete
 
@@ -85,9 +93,9 @@ Open issues:
 
 ## Current Remediation Order
 
-1. split oversized profile and rendering modules
-2. refresh direct Rust dependencies with regression coverage
-3. harden npm/native distribution and lockfile strategy
+1. refresh direct Rust dependencies with regression coverage
+2. harden npm/native distribution and lockfile strategy
+3. keep architecture/docs aligned with the decomposed switcher module tree
 
 ## Validation
 
