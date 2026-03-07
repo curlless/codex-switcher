@@ -7,7 +7,8 @@ use serde_json::Value;
 #[cfg(windows)]
 use std::fs;
 #[cfg(windows)]
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 #[cfg(windows)]
 use std::process::Command;
 
@@ -77,6 +78,7 @@ pub fn reload_ide_target_best_effort_with_codex_override(
     }
     #[cfg(not(windows))]
     {
+        let _ = codex_override;
         IdeReloadOutcome {
             attempted: false,
             restarted: false,
@@ -104,6 +106,7 @@ pub fn inspect_ide_reload_target_with_codex_override(
     }
     #[cfg(not(windows))]
     {
+        let _ = codex_override;
         IdeReloadOutcome {
             attempted: false,
             restarted: false,
@@ -867,12 +870,12 @@ fn normalized_path(process: &WindowsProcessInfo) -> Option<String> {
 mod tests {
     #[cfg(windows)]
     use super::{
-        AppxPackageInfo, CodexAppOverride, ReloadAppTarget, WindowsProcessInfo,
-        build_codex_app_user_model_id, build_cursor_reload_uri, codex_launch_target_from_package,
-        extract_xml_attribute, has_extension_with_prefix, is_cursor_extension_process,
-        is_standalone_codex_app_process, parse_appx_packages, parse_windows_command_exe,
-        parse_windows_processes, should_dispatch_cursor_reload,
+        AppxPackageInfo, CodexAppOverride, WindowsProcessInfo, build_codex_app_user_model_id,
+        build_cursor_reload_uri, codex_launch_target_from_package, extract_xml_attribute,
+        has_extension_with_prefix, is_cursor_extension_process, is_standalone_codex_app_process,
+        parse_appx_packages, parse_windows_command_exe, parse_windows_processes,
     };
+    use super::{ReloadAppTarget, should_dispatch_cursor_reload};
     #[cfg(windows)]
     use std::fs;
     #[cfg(windows)]
