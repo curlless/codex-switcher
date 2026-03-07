@@ -14,6 +14,14 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --features switcher-unit-tests
 ```
 
+For scripted full-gate execution:
+
+- Unix/CI path: `scripts/check.sh`
+- Windows PowerShell path: `scripts/check.ps1`
+
+Use `-NoAudit` / `--no-audit` locally if `cargo-audit` is not installed in the
+current environment.
+
 The parallel `switcher-unit-tests` gate is expected to stay green. If it starts
 flaking again, treat that as a regression in test isolation.
 

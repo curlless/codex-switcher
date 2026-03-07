@@ -45,9 +45,10 @@ pub use profile_store::{
     remove_labels_for_id, resolve_label_id, write_labels,
 };
 pub(crate) use profile_store::{
-    ProfileIndexEntry, ProfilesIndex, UpdateCache, labels_from_index, load_profile_tokens_map_locked,
-    prune_profiles_index, read_profiles_index, read_profiles_index_relaxed, sync_profiles_index,
-    update_profiles_index_entry, usage_map_from_index, write_profiles_index,
+    ProfileIndexEntry, ProfilesIndex, UpdateCache, labels_from_index,
+    load_profile_tokens_map_locked, prune_profiles_index, read_profiles_index,
+    read_profiles_index_relaxed, sync_profiles_index, update_profiles_index_entry,
+    usage_map_from_index, write_profiles_index,
 };
 pub use profiles::{
     delete_profile, list_profiles, load_profile, migrate_profiles, reload_app, reserve_profile,
@@ -71,10 +72,8 @@ pub use updates::{
     run_update_prompt_if_needed,
 };
 pub use usage::{
-    UsageFetchError, UsageLock, fetch_usage_details, format_last_used,
-    format_usage_unavailable, lock_usage, normalize_usage, now_seconds, ordered_profiles,
-    parse_config_value, read_base_url, usage_unavailable,
+    UsageFetchError, UsageLock, fetch_usage_details, format_last_used, format_usage_unavailable,
+    lock_usage, normalize_usage, now_seconds, ordered_profiles, parse_config_value, read_base_url,
+    usage_unavailable,
 };
-pub(crate) use usage::{
-    UsageWindow, fetch_usage_limits, start_usage_spinner, stop_usage_spinner,
-};
+pub(crate) use usage::{UsageWindow, fetch_usage_limits, start_usage_spinner, stop_usage_spinner};
