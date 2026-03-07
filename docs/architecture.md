@@ -17,9 +17,13 @@ The shipped binary enters through:
 
 `src/main.rs -> codex_switcher::switcher::run_cli()`
 
-The active implementation lives under:
+The active CLI dispatch path is now split into:
 
+- `src/switcher/cli_runtime.rs`
 - `src/switcher/mod.rs`
+
+The broader implementation lives under:
+
 - `src/switcher/*.rs`
 
 ### Compatibility surface
@@ -94,7 +98,7 @@ The largest structural risk is no longer duplicated runtime code or a single mon
 The canonical runtime is concentrated under `src/switcher/*`, and the profile subsystem has already been decomposed into focused modules. The remaining debt is now mostly:
 
 - compatibility and packaging complexity
-- broad `mod.rs` re-export surface
+- broad switcher re-export surface
 - keeping architecture docs aligned with the continuing switcher split
 
 ## Target Direction
