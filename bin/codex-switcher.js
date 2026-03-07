@@ -81,11 +81,14 @@ function detectPackageManager() {
 }
 
 const env = { ...process.env };
-const packageManagerEnvVar =
-  detectPackageManager() === "bun"
-    ? "CODEX_PROFILES_MANAGED_BY_BUN"
-    : "CODEX_PROFILES_MANAGED_BY_NPM";
-env[packageManagerEnvVar] = "1";
+const detectedPackageManager = detectPackageManager();
+if (detectedPackageManager === "bun") {
+  env.CODEX_SWITCHER_MANAGED_BY_BUN = "1";
+  env.CODEX_PROFILES_MANAGED_BY_BUN = "1";
+} else {
+  env.CODEX_SWITCHER_MANAGED_BY_NPM = "1";
+  env.CODEX_PROFILES_MANAGED_BY_NPM = "1";
+}
 if (!env.CODEX_PROFILES_COMMAND && invokedName) {
   env.CODEX_PROFILES_COMMAND = invokedName;
 }

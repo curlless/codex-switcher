@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+
+import { readFileSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+
+if (pkg.name !== "codex-switcher") {
+  throw new Error("package name must be codex-switcher");
+}
+
+if (pkg?.bin?.["codex-switcher"] !== "bin/codex-switcher.js") {
+  throw new Error("bin entry must point to bin/codex-switcher.js");
+}
+
+if (!Array.isArray(pkg.files) || !pkg.files.includes("bin")) {
+  throw new Error("package files must include bin/");
+}
+
+if (!existsSync("bin/codex-switcher.js")) {
+  throw new Error("bin/codex-switcher.js is missing");
+}
+
+const expectedOptionalPackages = [
+  "codex-switcher-darwin-arm64",
+  "codex-switcher-darwin-x64",
+  "codex-switcher-linux-arm64",
+  "codex-switcher-linux-x64",
+  "codex-switcher-win32-x64",
+];
+const optionalDependencies = pkg.optionalDependencies ?? {};
+const actualOptionalPackages = Object.keys(optionalDependencies).sort();
+
+for (const name of expectedOptionalPackages) {
+  if (!actualOptionalPackages.includes(name)) {
+    throw new Error(`missing optional dependency ${name}`);
+  }
+}
+
+for (const name of actualOptionalPackages) {
+  if (!expectedOptionalPackages.includes(name)) {
+    throw new Error(`unexpected optional dependency ${name}`);
+  }
+  if (optionalDependencies[name] !== pkg.version) {
+    throw new Error(
+      `${name} version ${optionalDependencies[name]} does not match root version ${pkg.version}`
+    );
+  }
+}
+
+const npmPack =
+  process.platform === "win32"
+    ? spawnSync(
+        process.env.ComSpec ?? "cmd.exe",
+        ["/d", "/s", "/c", "npm pack --dry-run --json"],
+        {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        }
+      )
+    : spawnSync("npm", ["pack", "--dry-run", "--json"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+if (npmPack.error) {
+  throw new Error(`failed to execute npm pack --dry-run --json: ${npmPack.error.message}`);
+}
+
+if (npmPack.status !== 0) {
+  const output = npmPack.stderr ?? npmPack.stdout ?? "";
+  process.stderr.write(String(output));
+  process.exit(npmPack.status ?? 1);
+}
+
+try {
+  JSON.parse(npmPack.stdout);
+} catch (error) {
+  throw new Error(`npm pack --dry-run did not return valid JSON: ${error}`);
+}

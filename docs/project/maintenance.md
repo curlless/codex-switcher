@@ -58,6 +58,11 @@ Before tagging:
 2. confirm installer URLs and workflow metadata still point to `1Voin1/codex-switcher`
 3. confirm checksum generation still targets `checksums/vX.Y.Z.txt`
 4. confirm canonical names still prefer `codex-switcher`
+5. run `node scripts/verify-node-packaging.mjs` and confirm `npm pack --dry-run --json` stays green
+
+If `node` is available, `scripts/check.sh` now includes that packaging verifier
+automatically. This keeps the release gate usable even on Windows machines
+where Bash/WSL cannot reliably run extra shell-based packaging checks.
 
 Detailed release process lives in:
 

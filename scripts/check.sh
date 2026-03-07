@@ -35,6 +35,9 @@ done
 cargo fetch --locked
 cargo fmt --all -- --check
 cargo clippy --all-targets --locked -- -D warnings
+if command -v node >/dev/null 2>&1; then
+  node scripts/verify-node-packaging.mjs
+fi
 if [[ "${run_tests}" -eq 1 ]]; then
   if command -v cargo-nextest >/dev/null 2>&1; then
     cargo nextest run --tests --locked
