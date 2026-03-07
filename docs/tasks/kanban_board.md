@@ -3,7 +3,6 @@
 ### Backlog
 
 - **Epic 2: Desktop GUI Shell**
-  - [book] [US003: Extract GUI-safe switcher services from command-shaped flows](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/story.md)
   - [book] [US004: Build the Cursor-inspired profile workspace MVP](epics/epic-2-desktop-gui-shell/stories/us004-build-the-cursor-inspired-profile-workspace-mvp/story.md)
   - [book] [US005: Package and verify the Windows desktop executable](epics/epic-2-desktop-gui-shell/stories/us005-package-and-verify-the-windows-desktop-executable/story.md)
 
@@ -13,7 +12,12 @@
 
 ### In Progress
 
-- None
+- **Epic 2: Desktop GUI Shell**
+  - [book] [US003: Extract GUI-safe switcher services from command-shaped flows](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/story.md)
+    - [gear] [T001: Extract GUI-safe profile listing and active profile query services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T001-extract-gui-safe-profile-listing-and-active-profile-query-services.md)
+    - [gear] [T002: Extract switch preview and switch execution services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T002-extract-switch-preview-and-switch-execution-services.md)
+    - [gear] [T003: Extract structured reload outcome services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T003-extract-structured-reload-outcome-services.md)
+    - [gear] [T004: Adapt CLI and desktop commands to shared switcher services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T004-adapt-cli-and-desktop-commands-to-shared-switcher-services.md)
 
 ### In Review
 
