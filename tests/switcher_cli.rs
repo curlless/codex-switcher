@@ -159,7 +159,7 @@ fn switcher_version_uses_binary_name() {
     let output = run_switcher(&["--version"], &home);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("codex-switcher 0.1.0"));
+    assert!(stdout.contains("codex-switcher 0.1.1"));
     assert!(!stdout.contains("codex-switcher.exe"));
     let _ = fs::remove_dir_all(home);
 }
