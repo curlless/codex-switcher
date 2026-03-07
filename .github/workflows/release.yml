@@ -239,6 +239,54 @@ jobs:
           version="${{ needs.tag-check.outputs.release_version }}"
           scripts/release-artifacts.sh "${version}" dist/artifacts dist
           scripts/verify-artifacts.sh "${version}" dist
+      - name: Resolve publish readiness
+        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' }}
+        id: publish-readiness
+        shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ needs.tag-check.outputs.release_version }}"
+          prerelease="false"
+          cargo_publish="false"
+          npm_publish="false"
+          cargo_reason="missing CARGO_REGISTRY_TOKEN"
+          npm_reason="missing NPM_TOKEN"
+
+          if [[ "${version}" == *-* ]]; then
+            prerelease="true"
+            cargo_reason="disabled for prerelease tags"
+            npm_reason="disabled for prerelease tags"
+          else
+            if [[ -n "${CARGO_REGISTRY_TOKEN}" ]]; then
+              cargo_publish="true"
+              cargo_reason="token present"
+            fi
+
+            if [[ -n "${NPM_TOKEN}" ]]; then
+              npm_publish="true"
+              npm_reason="token present"
+            fi
+          fi
+
+          echo "cargo_publish=${cargo_publish}" >> "${GITHUB_OUTPUT}"
+          echo "npm_publish=${npm_publish}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${prerelease}" >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## Publish readiness"
+            echo ""
+            echo "- release version: \`${version}\`"
+            echo "- prerelease: \`${prerelease}\`"
+            echo "- crates.io publish: \`${cargo_publish}\` (${cargo_reason})"
+            echo "- npm publish: \`${npm_publish}\` (${npm_reason})"
+            if [[ "${cargo_publish}" == "false" || "${npm_publish}" == "false" ]]; then
+              echo ""
+              echo "> GitHub Release assets and checksum commit still proceed even when registry publish is skipped."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Commit checksums to repo
         if: ${{ needs.tag-check.outputs.publish_enabled == 'true' }}
@@ -278,7 +326,7 @@ jobs:
           git push origin "${default_branch}"
 
       - name: Publish to crates.io
-        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' && !contains(needs.tag-check.outputs.release_version, '-') }}
+        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' && steps.publish-readiness.outputs.cargo_publish == 'true' }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
@@ -298,7 +346,7 @@ jobs:
           cargo publish --locked --token "${CARGO_REGISTRY_TOKEN}"
 
       - name: Publish to npm
-        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' && !contains(needs.tag-check.outputs.release_version, '-') }}
+        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' && steps.publish-readiness.outputs.npm_publish == 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -339,3 +387,18 @@ jobs:
             dist/checksums/*
           generate_release_notes: true
           prerelease: ${{ contains(needs.tag-check.outputs.release_version, '-') }}
+      - name: Summarize release outcome
+        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ needs.tag-check.outputs.release_version }}"
+          {
+            echo ""
+            echo "## Release outcome"
+            echo ""
+            echo "- GitHub Release: created for \`${version}\`"
+            echo "- checksum commit: attempted on default branch"
+            echo "- crates.io publish executed: \`${{ steps.publish-readiness.outputs.cargo_publish }}\`"
+            echo "- npm publish executed: \`${{ steps.publish-readiness.outputs.npm_publish }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

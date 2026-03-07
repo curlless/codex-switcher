@@ -35,6 +35,11 @@ Use this checklist before creating a release tag.
 - confirm release artifacts and checksums paths match the tagged version
 - confirm `scripts/verify-artifacts.sh` sees all expected platform npm tarballs
 - confirm release workflow publishes platform npm packages before the main wrapper package
+- confirm GitHub Actions secrets exist for any registry publication you expect:
+  - `CARGO_REGISTRY_TOKEN`
+  - `NPM_TOKEN`
+- remember that a GitHub Release can still succeed without registry publication if
+  those secrets are missing
 
 ## 5. Notes and communication
 
@@ -61,4 +66,8 @@ Optional pre-tag step:
 
 - smoke-test one install path from the published release
 - verify the latest release page and notes
+- verify the release workflow summary:
+  - whether `crates.io publish` actually executed
+  - whether `npm publish` actually executed
+- confirm registry versions directly if publication was expected
 - close the release checklist issue
