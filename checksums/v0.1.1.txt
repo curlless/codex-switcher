@@ -1,0 +1,13 @@
+4fa0cc4c7459c5463f21e257c33a1e9806070a8c1578cf92a79b32814e688495  /home/runner/work/codex-switcher/codex-switcher/dist/release/codex-switcher-aarch64-apple-darwin.tar.gz
+dda76480b7ee10f6dac3224eb152de487916f083c0c8f1061eaf993e9c100012  /home/runner/work/codex-switcher/codex-switcher/dist/release/codex-switcher-aarch64-unknown-linux-gnu.tar.gz
+eaf65aa1e36305b58d5c247aa46ac0088140cf13d3aeb1bb54a747205b160751  /home/runner/work/codex-switcher/codex-switcher/dist/release/codex-switcher-x86_64-apple-darwin.tar.gz
+ec428f534ed9276fa7b235ab34bb947aab7c44c257670d8e647ade41b02faac4  /home/runner/work/codex-switcher/codex-switcher/dist/release/codex-switcher-x86_64-pc-windows-msvc.exe.zip
+6c2c42f71df3c8fcfdf7fa22f38096e2ba4817388411c7641cfd72f63df698f6  /home/runner/work/codex-switcher/codex-switcher/dist/release/codex-switcher-x86_64-unknown-linux-gnu.tar.gz
+8dcde3d4a3d49553a55ec3cbcae34ebc095aedfe2990287e1c6d5f203c15adf8  /home/runner/work/codex-switcher/codex-switcher/dist/npm-packages/codex-switcher-0.1.1.tgz
+7d47338bb460bdd11572a9bfb8f2f139f8be0fcdc38f0de08d34d4af6b2c7c37  /home/runner/work/codex-switcher/codex-switcher/dist/npm-packages/codex-switcher-darwin-arm64-0.1.1.tgz
+1d9334f151a2b3460c67095288c08214f9e119f0c3335627c3fbb2012b7c6439  /home/runner/work/codex-switcher/codex-switcher/dist/npm-packages/codex-switcher-darwin-x64-0.1.1.tgz
+596a305ef927c0543d75bb894504652e21239a8e6195b7a0a7d4cf75c2f12c71  /home/runner/work/codex-switcher/codex-switcher/dist/npm-packages/codex-switcher-linux-arm64-0.1.1.tgz
+34ec4f43d102f192772a02ed53993273cfa2d3bb7f9bc99e40533f3121669092  /home/runner/work/codex-switcher/codex-switcher/dist/npm-packages/codex-switcher-linux-x64-0.1.1.tgz
+66658eb421aa40a1625abd0a325e3fc45530f876fd56b37d73b79a32433aea39  /home/runner/work/codex-switcher/codex-switcher/dist/npm-packages/codex-switcher-win32-x64-0.1.1.tgz
+578a0bd59a01ff98df66f98cdb6c6e0464ff3ffda537c5a302c49121f72e8fa7  /home/runner/work/codex-switcher/codex-switcher/dist/cargo/codex-switcher-0.1.1.crate
+2e414b70ee840be1cfd3cb7bbf19df482358876e8c6488f68440e8051b23045a  /home/runner/work/codex-switcher/codex-switcher/dist/homebrew/codex-switcher.rb
