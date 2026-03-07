@@ -99,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/develop/insta
 Installer overrides:
 
 ```bash
-CODEX_SWITCHER_VERSION=0.1.0 CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
+CODEX_SWITCHER_VERSION=0.1.1 CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
   curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/develop/install.sh | bash
 ```
 

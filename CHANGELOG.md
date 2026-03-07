@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-07
+
 ### Added
 
 - `switch` command to auto-rank profiles by remaining 7-day and 5-hour limits and load the top profile
@@ -16,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `relay-login [--url <callback_url>]` command to forward an already-issued Roo/Codex loopback callback URL to a running local login listener
 - `relay-login` docs covering strict callback URL requirements and relay-only semantics (no login bootstrap, no PKCE bypass)
 - `CODEX_PROFILES_AUTH_DIR` support to read auth/config from a separate Codex directory (parallel mode)
-- Removed the legacy `codex-profiles` command alias and standardized on `codex-switcher`
+- release workflow support for `workflow_dispatch` dry runs with a `core` build profile
 
 ### Changed
 
@@ -24,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `status --current` for current-profile-only usage view
 - New tabular priority view for profile usage output
 - Update checks are now disabled by default and require opt-in (`CODEX_PROFILES_ENABLE_UPDATE=1`)
+- reserved profiles can be excluded from automatic switching while still
+  remaining manually loadable
+- standalone Codex app detection and reload behavior are configurable and more
+  robust on Windows
+- packaging, installer, and release metadata now consistently prefer
+  `codex-switcher` while documenting compatibility aliases
+- Removed the legacy `codex-profiles` command alias and standardized on `codex-switcher`
 
 ## [0.1.0] - 2026-01-28
 
@@ -60,5 +69,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pre-commit hooks for code quality
 - Binary releases for 5 platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64)
 
-[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.1
 [0.1.0]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.0
