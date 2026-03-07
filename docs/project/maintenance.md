@@ -22,6 +22,14 @@ For scripted full-gate execution:
 Use `-NoAudit` / `--no-audit` locally if `cargo-audit` is not installed in the
 current environment.
 
+Line endings are repository-controlled through [`.gitattributes`](/F:/cursor%20projects/codex-switcher/.gitattributes):
+
+- shell/CI/docs/source files stay LF
+- PowerShell entrypoints stay CRLF
+
+Avoid bulk line-ending rewrites unless you are intentionally doing a
+renormalization pass.
+
 The parallel `switcher-unit-tests` gate is expected to stay green. If it starts
 flaking again, treat that as a regression in test isolation.
 
