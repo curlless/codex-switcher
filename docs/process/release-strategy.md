@@ -50,6 +50,7 @@ Recommended release contents for `v0.1.1`:
 - improved legacy profile deduplication
 - repository cleanup and corrected release metadata
 - cleaned README and community files
+- explicit packaging compatibility documentation for legacy aliases
 
 ## Release flow
 

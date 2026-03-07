@@ -1,6 +1,6 @@
 # T002: Harden packaging and installer consistency
 
-**Status:** Todo
+**Status:** Done
 **Story:** US001
 **Labels:** implementation
 **Created:** 2026-03-07

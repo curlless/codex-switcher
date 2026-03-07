@@ -95,7 +95,7 @@ cask "codex-switcher" do
   end
 
   name "codex-switcher"
-  desc "Manage multiple Codex CLI auth profiles"
+  desc "Manage multiple Codex CLI accounts with usage-aware switching"
   homepage "https://github.com/1Voin1/codex-switcher"
 
   binary "codex-switcher"

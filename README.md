@@ -105,6 +105,9 @@ CODEX_SWITCHER_VERSION=0.1.0 CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
 
 Legacy `CODEX_PROFILES_VERSION` and `CODEX_PROFILES_INSTALL_DIR` are still accepted as compatibility aliases.
 
+Canonical packaging and compatibility rules are summarized in
+[docs/process/packaging-compatibility.md](docs/process/packaging-compatibility.md).
+
 ## Quick Start
 
 ### 1. Save the current login
@@ -255,7 +258,11 @@ By default, saved profiles live under `~/.codex/profiles/`.
 | `CODEX_PROFILES_AUTH_DIR` | Alternate auth/config source directory |
 | `CODEX_SWITCHER_CODEX_APP_PATH` / `CODEX_PROFILES_CODEX_APP_PATH` | Explicit standalone Codex app path override |
 | `CODEX_SWITCHER_CODEX_APP_AUMID` / `CODEX_PROFILES_CODEX_APP_AUMID` | Optional AppUserModelID override for relaunch |
-| `CODEX_PROFILES_ENABLE_UPDATE=1` | Opt in to startup update checks |
+| `CODEX_SWITCHER_ENABLE_UPDATE=1` / `CODEX_PROFILES_ENABLE_UPDATE=1` | Opt in to startup update checks |
+| `CODEX_SWITCHER_SKIP_UPDATE=1` / `CODEX_PROFILES_SKIP_UPDATE=1` | Skip startup update checks even when enabled |
+
+`CODEX_SWITCHER_*` is the canonical packaging namespace. `CODEX_PROFILES_*`
+aliases remain supported only for compatibility with older local scripts.
 
 ### Parallel install example on Windows
 
@@ -290,6 +297,7 @@ codex-switcher relay-login --url "http://localhost:1455/auth/callback?code=...&s
 - [docs/principles.md](docs/principles.md)
 - [docs/project/tech_stack.md](docs/project/tech_stack.md)
 - [docs/project/codebase_audit.md](docs/project/codebase_audit.md)
+- [docs/process/packaging-compatibility.md](docs/process/packaging-compatibility.md)
 - [tests/README.md](tests/README.md)
 
 ## Development

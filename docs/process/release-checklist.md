@@ -14,6 +14,8 @@ Use this checklist before creating a release tag.
 - update `package.json` version if needed
 - update `CHANGELOG.md`
 - confirm repository URLs, installer URLs, and release note links still point to `1Voin1/codex-switcher`
+- confirm canonical packaging names still prefer `codex-switcher`
+- confirm any remaining `CODEX_PROFILES_*` aliases are documented, not newly introduced by accident
 
 ## 3. Verification
 

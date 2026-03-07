@@ -16,6 +16,7 @@ This directory holds the engineering-facing documentation for `codex-switcher`.
 
 - [Release Checklist](process/release-checklist.md)
 - [Release Strategy](process/release-strategy.md)
+- [Packaging Compatibility](process/packaging-compatibility.md)
 
 ## Tasking
 
