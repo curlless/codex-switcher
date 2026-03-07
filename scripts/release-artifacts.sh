@@ -62,9 +62,10 @@ for artifact_dir in "${artifacts_dir}"/codex-switcher-*; do
 done
 
 scripts/package-npm.sh "${version}" "${artifacts_dir}" "${npm_dir}"
-for pkg_dir in "${npm_dir}"/*; do
+while IFS= read -r package_json; do
+  pkg_dir="$(dirname "${package_json}")"
   npm pack "${pkg_dir}" --pack-destination "${npm_packages_dir}"
-done
+done < <(find "${npm_dir}" -mindepth 2 -maxdepth 3 -type f -name package.json | sort)
 npm pack --pack-destination "${npm_packages_dir}"
 
 cargo package --locked
