@@ -50,6 +50,11 @@ Use this checklist before creating a release tag.
 - push the tag
 - verify the GitHub release workflow starts and completes
 
+Optional pre-tag step:
+
+- run the release workflow through `workflow_dispatch` with `publish=false` to
+  validate build/package/release-artifact stages without side effects
+
 ## 7. Post-release
 
 - smoke-test one install path from the published release

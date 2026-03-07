@@ -58,6 +58,19 @@ ASCII flow:
 
 `develop -> release checklist issue -> version/changelog update -> tag vX.Y.Z -> GitHub workflow -> smoke-test published artifact`
 
+## Manual dry run
+
+Use `workflow_dispatch` for a release dry run when you want to validate build,
+packaging, and artifact verification without creating a tag and without
+publishing side effects.
+
+Rules:
+
+- leave `publish` disabled for normal dry runs
+- set `release_version` only when you want the workflow to package a specific
+  manifest-aligned version explicitly
+- real publishing remains tag-driven by default
+
 ## Rollback rule
 
 If a tag produces broken artifacts or incorrect metadata:
