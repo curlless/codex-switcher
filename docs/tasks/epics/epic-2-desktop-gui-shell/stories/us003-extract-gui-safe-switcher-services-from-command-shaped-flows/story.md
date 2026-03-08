@@ -1,6 +1,6 @@
 # US003: Extract GUI-safe switcher services from command-shaped flows
 
-**Status:** In Progress
+**Status:** Done
 **Epic:** Epic 2
 **Labels:** user-story
 **Created:** 2026-03-07
@@ -20,7 +20,7 @@
 - US002 added the desktop shell and typed command contracts, but the Tauri bridge still returns placeholder data from `apps/desktop/src-tauri/src/commands.rs`.
 - The canonical runtime under `src/switcher/*` is still command-shaped: list, status, switch, and reload flows are tightly coupled to terminal rendering and side-effect orchestration.
 - Desktop work cannot safely continue until the Rust runtime exposes structured service outputs that preserve current CLI behavior and remain reusable from the GUI.
-- The Stage 2 rework follow-up `T005` cleared the last failed Stage 3 lint blocker on 2026-03-09, so US003 is waiting only on the next quality-gate rerun.
+- The Stage 2 rework follow-up `T005` cleared the last failed Stage 3 lint blocker, and the Stage 3 rerun passed on 2026-03-09 so US003 is ready for merge handoff.
 
 ### Desired Outcome
 

@@ -14,11 +14,7 @@
 ### In Progress
 
 - **Epic 2: Desktop GUI Shell**
-  - [book] [US003: Extract GUI-safe switcher services from command-shaped flows](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/story.md)
-    - [gear] [T001: Extract GUI-safe profile listing and active profile query services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T001-extract-gui-safe-profile-listing-and-active-profile-query-services.md)
-    - [gear] [T002: Extract switch preview and switch execution services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T002-extract-switch-preview-and-switch-execution-services.md)
-    - [gear] [T003: Extract structured reload outcome services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T003-extract-structured-reload-outcome-services.md)
-    - [gear] [T004: Adapt CLI and desktop commands to shared switcher services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T004-adapt-cli-and-desktop-commands-to-shared-switcher-services.md)
+  - None
 
 ### In Review
 
@@ -38,8 +34,14 @@
     - [gear] [T001: Create desktop workspace scaffold](epics/epic-2-desktop-gui-shell/stories/us002-bootstrap-the-tauri-desktop-shell-and-shared-gui-contracts/tasks/T001-create-desktop-workspace-scaffold.md)
     - [gear] [T002: Define GUI command contracts](epics/epic-2-desktop-gui-shell/stories/us002-bootstrap-the-tauri-desktop-shell-and-shared-gui-contracts/tasks/T002-define-gui-command-contracts.md)
     - [gear] [T003: Establish Cursor-inspired shell layout](epics/epic-2-desktop-gui-shell/stories/us002-bootstrap-the-tauri-desktop-shell-and-shared-gui-contracts/tasks/T003-establish-cursor-inspired-shell-layout.md)
+  - [book] [US003: Extract GUI-safe switcher services from command-shaped flows](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/story.md) [APPROVED]
+    - [gear] [T001: Extract GUI-safe profile listing and active profile query services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T001-extract-gui-safe-profile-listing-and-active-profile-query-services.md)
+    - [gear] [T002: Extract switch preview and switch execution services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T002-extract-switch-preview-and-switch-execution-services.md)
+    - [gear] [T003: Extract structured reload outcome services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T003-extract-structured-reload-outcome-services.md)
+    - [gear] [T004: Adapt CLI and desktop commands to shared switcher services](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T004-adapt-cli-and-desktop-commands-to-shared-switcher-services.md)
+    - [gear] [T005: Clear the US003 clippy warning in switch reload hint rendering](epics/epic-2-desktop-gui-shell/stories/us003-extract-gui-safe-switcher-services-from-command-shaped-flows/tasks/T005-clear-the-us003-clippy-warning-in-switch-reload-hint-rendering.md)
 
 ## Notes
 
-- File-backed kanban mode is active for session-native pipeline execution.
-- Linear is currently not used as the active pipeline backend because the `DSG` workflow does not match `ln-1000` status expectations.
+- `linear-kgsedds` is the primary execution source of truth for active delivery tracking.
+- This file-backed kanban remains a local mirror of the current execution state and should be kept aligned with active Linear plus actual code state.
