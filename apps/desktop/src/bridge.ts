@@ -1,72 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  ActionNotice,
   ActiveProfileStatusPayload,
   DesktopCommandResult,
   ProfilesOverviewPayload,
+  ReloadOutcomePayload,
   ReloadTarget,
-  ReloadTargetsPayload
+  ReloadTargetsPayload,
+  SwitchPreviewPayload
 } from "./lib/contracts";
 
-const fallbackOverview: ProfilesOverviewPayload = {
-  workspaceLabel: "Windows-first MVP shell",
-  profiles: [
-    {
-      label: "work-pro",
-      plan: "ChatGPT Pro",
-      reserved: false,
-      status: "active",
-      sevenDayRemaining: "74%",
-      fiveHourRemaining: "61%"
-    },
-    {
-      label: "openclaw-raymond",
-      plan: "Team",
-      reserved: true,
-      status: "reserved",
-      sevenDayRemaining: "93%",
-      fiveHourRemaining: "80%"
-    },
-    {
-      label: "night-shift",
-      plan: "Plus",
-      reserved: false,
-      status: "available",
-      sevenDayRemaining: "41%",
-      fiveHourRemaining: "34%"
-    }
-  ],
-  events: [
-    "Desktop shell scaffold ready",
-    "Shared service extraction is the next story",
-    "CLI remains the production path during MVP bootstrap"
-  ],
-  lastRefresh: "Mocked browser preview"
-};
-
-const fallbackStatus: ActiveProfileStatusPayload = {
-  activeProfile: "work-pro",
-  summary: "Pro profile is active and has enough headroom for another switching cycle.",
-  reservedProfiles: 1
-};
-
-const fallbackReloadTargets: ReloadTargetsPayload = {
-  targets: [
-    {
-      id: "codex",
-      label: "Reload Codex",
-      description: "Refresh the Codex desktop session after a profile change."
-    },
-    {
-      id: "cursor",
-      label: "Reload Cursor",
-      description: "Refresh Cursor only when the switch affects editor-side auth state."
-    }
-  ],
-  lastReloaded: "Not reloaded yet"
-};
-
-function fallbackError(message: string): DesktopCommandResult<never> {
+function fallbackError<T>(message: string): DesktopCommandResult<T> {
   return {
     ok: false,
     error: {
@@ -85,7 +28,9 @@ export async function loadProfilesOverview(): Promise<
       "desktop_profiles_overview"
     );
   } catch {
-    return { ok: true, data: fallbackOverview };
+    return fallbackError(
+      "The native desktop bridge is unavailable, so shared switcher data could not be loaded."
+    );
   }
 }
 
@@ -97,33 +42,30 @@ export async function loadActiveProfileStatus(): Promise<
       "desktop_active_profile_status"
     );
   } catch {
-    return { ok: true, data: fallbackStatus };
+    return fallbackError(
+      "The native desktop bridge is unavailable, so the active profile status could not be loaded."
+    );
   }
 }
 
 export async function previewSwitch(
   profileLabel: string
-): Promise<DesktopCommandResult<ActionNotice>> {
+): Promise<DesktopCommandResult<SwitchPreviewPayload>> {
   if (!profileLabel) {
     return fallbackError("Choose a profile before previewing a switch.");
   }
 
   try {
-    return await invoke<DesktopCommandResult<ActionNotice>>(
+    return await invoke<DesktopCommandResult<SwitchPreviewPayload>>(
       "desktop_switch_preview",
       {
         request: { profileLabel }
       }
     );
   } catch {
-    return {
-      ok: true,
-      data: {
-        title: "Preview switch",
-        status: "placeholder",
-        detail: `Browser preview is showing a mocked switch plan for ${profileLabel}.`
-      }
-    };
+    return fallbackError(
+      "The native desktop bridge is unavailable, so switch preview could not be loaded."
+    );
   }
 }
 
@@ -135,29 +77,25 @@ export async function loadReloadTargets(): Promise<
       "desktop_reload_targets"
     );
   } catch {
-    return { ok: true, data: fallbackReloadTargets };
+    return fallbackError(
+      "The native desktop bridge is unavailable, so reload targets could not be loaded."
+    );
   }
 }
 
 export async function reloadTarget(
   target: ReloadTarget
-): Promise<DesktopCommandResult<ActionNotice>> {
+): Promise<DesktopCommandResult<ReloadOutcomePayload>> {
   try {
-    return await invoke<DesktopCommandResult<ActionNotice>>(
+    return await invoke<DesktopCommandResult<ReloadOutcomePayload>>(
       "desktop_reload_target",
       {
         request: { target }
       }
     );
   } catch {
-    const label = target === "codex" ? "Codex" : "Cursor";
-    return {
-      ok: true,
-      data: {
-        title: `Reload ${label}`,
-        status: "placeholder",
-        detail: `${label} reload is stubbed in browser preview mode.`
-      }
-    };
+    return fallbackError(
+      "The native desktop bridge is unavailable, so reload execution could not be requested."
+    );
   }
 }

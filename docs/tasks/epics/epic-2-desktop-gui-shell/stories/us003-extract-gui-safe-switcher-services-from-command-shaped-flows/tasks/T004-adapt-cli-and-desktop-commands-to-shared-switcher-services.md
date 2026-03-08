@@ -1,6 +1,6 @@
 # T004: Adapt CLI and desktop commands to shared switcher services
 
-**Status:** Backlog
+**Status:** Done
 **Story:** US003
 **Labels:** implementation
 **Created:** 2026-03-07
@@ -28,18 +28,18 @@
 
 ### Phase 1: Replace placeholder desktop consumers
 
-- [ ] Remove placeholder profile, switch, and reload data paths from the Tauri command bridge.
-- [ ] Keep `apps/desktop/src/bridge.ts` limited to invoking the Rust bridge and handling transport-level fallbacks only.
+- [x] Remove placeholder profile, switch, and reload data paths from the Tauri command bridge.
+- [x] Keep `apps/desktop/src/bridge.ts` limited to invoking the Rust bridge and handling transport-level fallbacks only.
 
 ### Phase 2: Thin the CLI adapter layer
 
-- [ ] Update CLI command handlers to call the extracted query, switch, and reload services.
-- [ ] Preserve current terminal output behavior by rendering shared service results inside CLI-specific adapters only.
+- [x] Update CLI command handlers to call the extracted query, switch, and reload services.
+- [x] Preserve current terminal output behavior by rendering shared service results inside CLI-specific adapters only.
 
 ### Phase 3: Refresh existing regression coverage
 
-- [ ] Update existing CLI and switcher tests to exercise the new shared service seam.
-- [ ] Re-run the documented Rust verification boundary so the refactor stays safe for both CLI and desktop consumers.
+- [x] Update existing CLI and switcher tests to exercise the new shared service seam.
+- [x] Re-run the documented Rust verification boundary so the refactor stays safe for both CLI and desktop consumers.
 
 ## Technical Approach
 
@@ -106,9 +106,9 @@
 
 ## Acceptance Criteria
 
-- [ ] **Given** CLI handlers currently own command-shaped business flows **When** the task is completed **Then** CLI commands render shared service results while preserving existing behavior `verify: test cargo test --test cli`
-- [ ] **Given** desktop commands still depend on placeholder business data **When** the task is completed **Then** Tauri commands and the desktop bridge consume the canonical shared Rust services without JavaScript duplication `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
-- [ ] **Given** existing regression suites already protect the switcher runtime **When** the task is completed **Then** those suites are refreshed around the new seam and remain green `verify: test cargo test --features switcher-unit-tests -- --test-threads=1`
+- [x] **Given** CLI handlers currently own command-shaped business flows **When** the task is completed **Then** CLI commands render shared service results while preserving existing behavior `verify: test cargo test --test cli`
+- [x] **Given** desktop commands still depend on placeholder business data **When** the task is completed **Then** Tauri commands and the desktop bridge consume the canonical shared Rust services without JavaScript duplication `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- [x] **Given** existing regression suites already protect the switcher runtime **When** the task is completed **Then** those suites are refreshed around the new seam and remain green `verify: test cargo test --features switcher-unit-tests -- --test-threads=1`
 
 ## Affected Components
 
@@ -144,9 +144,9 @@
 
 ## Definition of Done
 
-- [ ] All task acceptance criteria met.
-- [ ] CLI and desktop consumers both use the shared Rust switcher services.
-- [ ] Placeholder desktop business data is removed.
-- [ ] Existing regression suites are refreshed without creating new standalone test files in this task.
-- [ ] CLI behavior remains intact for users.
-- [ ] Documentation references stay accurate.
+- [x] All task acceptance criteria met.
+- [x] CLI and desktop consumers both use the shared Rust switcher services.
+- [x] Placeholder desktop business data is removed.
+- [x] Existing regression suites are refreshed without creating new standalone test files in this task.
+- [x] CLI behavior remains intact for users.
+- [x] Documentation references stay accurate.

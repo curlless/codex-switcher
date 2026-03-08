@@ -1,6 +1,6 @@
 # T002: Extract switch preview and switch execution services
 
-**Status:** Backlog
+**Status:** Done
 **Story:** US003
 **Labels:** implementation
 **Created:** 2026-03-07
@@ -27,18 +27,18 @@
 
 ### Phase 1: Separate decision data from rendering
 
-- [ ] Identify the ranking, best-profile selection, and no-candidate branches that should become service result variants.
-- [ ] Define preview and execution result models that capture chosen profile, ranking context, and user-facing follow-up hints.
+- [x] Identify the ranking, best-profile selection, and no-candidate branches that should become service result variants.
+- [x] Define preview and execution result models that capture chosen profile, ranking context, and user-facing follow-up hints.
 
 ### Phase 2: Extract the service workflow
 
-- [ ] Move switch preview and execution orchestration behind service functions that return structured outcomes.
-- [ ] Keep profile loading and reload dispatch delegated to existing lower-level modules rather than reimplemented in the desktop layer.
+- [x] Move switch preview and execution orchestration behind service functions that return structured outcomes.
+- [x] Keep profile loading and reload dispatch delegated to existing lower-level modules rather than reimplemented in the desktop layer.
 
 ### Phase 3: Preserve consumer behavior
 
-- [ ] Adapt CLI `switch` handling to render the new service result without behavioral drift.
-- [ ] Prepare the Tauri bridge to consume the same service for switch preview and execution requests.
+- [x] Adapt CLI `switch` handling to render the new service result without behavioral drift.
+- [x] Prepare the Tauri bridge to consume the same service for switch preview and execution requests.
 
 ## Technical Approach
 
@@ -105,9 +105,9 @@
 
 ## Acceptance Criteria
 
-- [ ] **Given** switch ranking and best-profile selection already live in the Rust runtime **When** the task is completed **Then** a shared service exposes switch preview data without terminal rendering dependencies `verify: inspect src/switcher/ for switch preview service result types`
-- [ ] **Given** switch execution currently happens inside a CLI-shaped flow **When** the task is completed **Then** CLI execution uses the shared switch service while keeping current behavior `verify: test cargo test --test cli ui_switch_command`
-- [ ] **Given** the desktop bridge needs the same canonical switch behavior **When** the task is completed **Then** Tauri switch commands are wired to shared Rust services instead of placeholder-only text `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- [x] **Given** switch ranking and best-profile selection already live in the Rust runtime **When** the task is completed **Then** a shared service exposes switch preview data without terminal rendering dependencies `verify: inspect src/switcher/ for switch preview service result types`
+- [x] **Given** switch execution currently happens inside a CLI-shaped flow **When** the task is completed **Then** CLI execution uses the shared switch service while keeping current behavior `verify: test cargo test --test cli ui_switch_command`
+- [x] **Given** the desktop bridge needs the same canonical switch behavior **When** the task is completed **Then** Tauri switch commands are wired to shared Rust services instead of placeholder-only text `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
 
 ## Affected Components
 
@@ -142,9 +142,9 @@
 
 ## Definition of Done
 
-- [ ] All task acceptance criteria met.
-- [ ] Switch preview and execution run through shared Rust services.
-- [ ] CLI `switch` remains behaviorally equivalent after the extraction.
-- [ ] Desktop commands can consume the canonical switch service without JavaScript duplication.
-- [ ] Existing tests updated only where the new seam changes helper boundaries.
-- [ ] Documentation references stay accurate.
+- [x] All task acceptance criteria met.
+- [x] Switch preview and execution run through shared Rust services.
+- [x] CLI `switch` remains behaviorally equivalent after the extraction.
+- [x] Desktop commands can consume the canonical switch service without JavaScript duplication.
+- [x] Existing tests updated only where the new seam changes helper boundaries.
+- [x] Documentation references stay accurate.

@@ -3,7 +3,7 @@ use crate::switcher::profile_identity::{
     profile_base, rename_profile_id, sanitize_part, short_account_suffix, unique_id,
 };
 use crate::switcher::profile_store::trim_label;
-use crate::switcher::test_utils::{build_id_token, make_paths};
+use crate::switcher::test_utils::{build_id_token, http_ok_response, make_paths, spawn_server};
 use crate::switcher::{
     Labels, ProfileIndexEntry, ProfilesIndex, assign_label, label_for_id, load_profile_tokens_map,
     profile_path_for_id, read_labels, read_profiles_index, remove_labels_for_id, resolve_label_id,
@@ -508,4 +508,63 @@ fn delete_profile_by_label() {
     crate::switcher::ensure_paths(&paths).unwrap();
     save_profile(&paths, Some("team".to_string())).unwrap();
     delete_profile(&paths, true, Some("team".to_string())).unwrap();
+}
+
+#[test]
+fn switch_preview_returns_structured_service_payload() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let paths = make_paths(dir.path());
+    fs::create_dir_all(&paths.profiles).unwrap();
+    write_profile(
+        &paths,
+        "alpha@example.com-team",
+        "acct-alpha",
+        "alpha@example.com",
+        "team",
+    );
+    write_auth(
+        &paths.auth,
+        "acct-alpha",
+        "alpha@example.com",
+        "team",
+        "acc",
+        "ref",
+    );
+    let index = serde_json::json!({
+        "version": 1,
+        "active_profile_id": "alpha@example.com-team",
+        "profiles": {
+            "alpha@example.com-team": {
+                "label": "alpha",
+                "last_used": 10,
+                "added_at": 1
+            }
+        }
+    });
+    fs::write(
+        &paths.profiles_index,
+        serde_json::to_string(&index).unwrap(),
+    )
+    .unwrap();
+
+    let body = r#"{"rate_limit":{"primary_window":{"used_percent":20,"limit_window_seconds":18000,"reset_at":2000000000},"secondary_window":{"used_percent":50,"limit_window_seconds":604800,"reset_at":2000600000}}}"#;
+    let server = spawn_server(http_ok_response(body, "application/json"));
+    fs::write(
+        paths.auth_codex.join("config.toml"),
+        format!("chatgpt_base_url = \"{server}/backend-api\"\n"),
+    )
+    .unwrap();
+
+    let payload = switch_preview(&paths, "alpha").unwrap();
+    assert_eq!(payload.requested_profile, "alpha");
+    assert_eq!(payload.active_profile.as_deref(), Some("alpha"));
+    assert_eq!(payload.recommended_profile.as_deref(), Some("alpha"));
+    assert!(payload.can_switch);
+    assert!(payload.summary.contains("already the active profile"));
+    assert_eq!(payload.profiles.len(), 1);
+    let profile = &payload.profiles[0];
+    assert_eq!(profile.label, "alpha");
+    assert_eq!(profile.rank, Some(1));
+    assert!(profile.current);
+    assert!(profile.recommended);
 }

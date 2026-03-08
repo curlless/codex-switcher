@@ -1,6 +1,6 @@
 # T003: Extract structured reload outcome services
 
-**Status:** Backlog
+**Status:** Done
 **Story:** US003
 **Labels:** implementation
 **Created:** 2026-03-07
@@ -27,18 +27,18 @@
 
 ### Phase 1: Normalize reload result shapes
 
-- [ ] Inventory the existing reload branches, including dry-run inspection, successful reloads, manual-hint paths, and unsupported-target failures.
-- [ ] Define service result structs or enums that preserve restart status, attempted state, message text, and manual hints for GUI serialization.
+- [x] Inventory the existing reload branches, including dry-run inspection, successful reloads, manual-hint paths, and unsupported-target failures.
+- [x] Define service result structs or enums that preserve restart status, attempted state, message text, and manual hints for GUI serialization.
 
 ### Phase 2: Extract reload services
 
-- [ ] Add shared service entrypoints for reload inspection and reload execution on top of `ide_reload.rs`.
-- [ ] Remove CLI-only reload outcome assembly from the higher-level switch flow where possible.
+- [x] Add shared service entrypoints for reload inspection and reload execution on top of `ide_reload.rs`.
+- [x] Remove CLI-only reload outcome assembly from the higher-level switch flow where possible.
 
 ### Phase 3: Reconnect consumers
 
-- [ ] Adapt explicit CLI reload handling and switch-triggered reload follow-up to render the normalized service outcomes.
-- [ ] Replace placeholder Tauri reload responses with the shared reload service data.
+- [x] Adapt explicit CLI reload handling and switch-triggered reload follow-up to render the normalized service outcomes.
+- [x] Replace placeholder Tauri reload responses with the shared reload service data.
 
 ## Technical Approach
 
@@ -105,9 +105,9 @@
 
 ## Acceptance Criteria
 
-- [ ] **Given** reload inspection and execution already exist in Rust **When** the task is completed **Then** shared services expose structured reload success and failure states for approved targets `verify: inspect src/switcher/ for reload service result types and wrappers`
-- [ ] **Given** explicit reload commands must remain usable from the CLI **When** the task is completed **Then** the CLI reload flow renders the shared reload service outcome without behavioral drift `verify: test cargo test --features switcher-unit-tests -- --test-threads=1`
-- [ ] **Given** the desktop bridge must stop returning placeholders for reload actions **When** the task is completed **Then** Tauri reload commands serialize the shared Rust reload results directly `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- [x] **Given** reload inspection and execution already exist in Rust **When** the task is completed **Then** shared services expose structured reload success and failure states for approved targets `verify: inspect src/switcher/ for reload service result types and wrappers`
+- [x] **Given** explicit reload commands must remain usable from the CLI **When** the task is completed **Then** the CLI reload flow renders the shared reload service outcome without behavioral drift `verify: test cargo test --features switcher-unit-tests -- --test-threads=1`
+- [x] **Given** the desktop bridge must stop returning placeholders for reload actions **When** the task is completed **Then** Tauri reload commands serialize the shared Rust reload results directly `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
 
 ## Affected Components
 
@@ -142,9 +142,9 @@
 
 ## Definition of Done
 
-- [ ] All task acceptance criteria met.
-- [ ] Reload inspection and execution are available through shared Rust services.
-- [ ] CLI reload paths still present the expected behavior using the shared service results.
-- [ ] Desktop reload commands no longer depend on placeholder notices.
-- [ ] Existing tests updated only where the normalized result seam changes wrappers.
-- [ ] Documentation references stay accurate.
+- [x] All task acceptance criteria met.
+- [x] Reload inspection and execution are available through shared Rust services.
+- [x] CLI reload paths still present the expected behavior using the shared service results.
+- [x] Desktop reload commands no longer depend on placeholder notices.
+- [x] Existing tests updated only where the normalized result seam changes wrappers.
+- [x] Documentation references stay accurate.

@@ -42,6 +42,7 @@ submodules.
 | `src/switcher/profile_identity.rs` | id generation, sync identity, and rename logic |
 | `src/switcher/profiles_runtime.rs` | snapshot loading, current-profile sync, shared runtime helpers |
 | `src/switcher/profiles_priority.rs` | ranking model and priority-table generation |
+| `src/switcher/profiles_service.rs` | GUI-safe DTOs and shared profile overview, switch preview/execution, and reload outcome services |
 | `src/switcher/profiles_status.rs` | `list`, `status`, and current-status rendering |
 | `src/switcher/profiles_switch.rs` | `switch` and `reload-app` command flow |
 | `src/switcher/profiles_load.rs` | `save` and `load` profile flows |

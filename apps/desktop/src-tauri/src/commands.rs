@@ -1,45 +1,14 @@
+use codex_switcher::switcher::{
+    ActiveProfileStatusPayload, ProfilesOverviewPayload, ReloadAppTarget,
+    ReloadOutcomePayload, SwitchPreviewPayload, active_profile_status, ensure_paths,
+    execute_reload_outcome, profiles_overview, resolve_paths, switch_preview,
+};
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileCard {
-    label: String,
-    plan: String,
-    reserved: bool,
-    status: String,
-    seven_day_remaining: String,
-    five_hour_remaining: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfilesOverviewPayload {
-    workspace_label: String,
-    profiles: Vec<ProfileCard>,
-    events: Vec<String>,
-    last_refresh: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ActiveProfileStatusPayload {
-    active_profile: String,
-    summary: String,
-    reserved_profiles: usize,
-}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitchPreviewRequest {
     profile_label: String,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ActionNotice {
-    title: String,
-    detail: String,
-    status: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -109,63 +78,36 @@ impl<T> DesktopCommandResult<T> {
     }
 }
 
-fn sample_profiles() -> Vec<ProfileCard> {
-    vec![
-        ProfileCard {
-            label: "work-pro".to_string(),
-            plan: "ChatGPT Pro".to_string(),
-            reserved: false,
-            status: "active".to_string(),
-            seven_day_remaining: "74%".to_string(),
-            five_hour_remaining: "61%".to_string(),
-        },
-        ProfileCard {
-            label: "openclaw-raymond".to_string(),
-            plan: "Team".to_string(),
-            reserved: true,
-            status: "reserved".to_string(),
-            seven_day_remaining: "93%".to_string(),
-            five_hour_remaining: "80%".to_string(),
-        },
-        ProfileCard {
-            label: "night-shift".to_string(),
-            plan: "Plus".to_string(),
-            reserved: false,
-            status: "available".to_string(),
-            seven_day_remaining: "41%".to_string(),
-            five_hour_remaining: "34%".to_string(),
-        },
-    ]
+fn switcher_paths() -> Result<codex_switcher::switcher::Paths, String> {
+    let paths = resolve_paths()?;
+    ensure_paths(&paths)?;
+    Ok(paths)
 }
 
 #[tauri::command]
 pub fn desktop_profiles_overview() -> DesktopCommandResult<ProfilesOverviewPayload> {
-    DesktopCommandResult::ok(ProfilesOverviewPayload {
-        workspace_label: "Desktop shell scaffold".to_string(),
-        profiles: sample_profiles(),
-        events: vec![
-            "Desktop shell scaffold ready".to_string(),
-            "Native command bridge returns typed placeholder data".to_string(),
-            "Next step is extracting shared Rust services from CLI-shaped flows".to_string(),
-        ],
-        last_refresh: "2026-03-07 12:25 +05".to_string(),
-    })
+    match switcher_paths().and_then(|paths| profiles_overview(&paths)) {
+        Ok(payload) => DesktopCommandResult::ok(payload),
+        Err(message) => {
+            DesktopCommandResult::err("switcher-query-failed", &message, true)
+        }
+    }
 }
 
 #[tauri::command]
 pub fn desktop_active_profile_status() -> DesktopCommandResult<ActiveProfileStatusPayload> {
-    DesktopCommandResult::ok(ActiveProfileStatusPayload {
-        active_profile: "work-pro".to_string(),
-        summary: "Pro profile is active and the desktop shell is only consuming typed placeholder data."
-            .to_string(),
-        reserved_profiles: 1,
-    })
+    match switcher_paths().and_then(|paths| active_profile_status(&paths)) {
+        Ok(payload) => DesktopCommandResult::ok(payload),
+        Err(message) => {
+            DesktopCommandResult::err("switcher-query-failed", &message, true)
+        }
+    }
 }
 
 #[tauri::command]
 pub fn desktop_switch_preview(
     request: SwitchPreviewRequest,
-) -> DesktopCommandResult<ActionNotice> {
+) -> DesktopCommandResult<SwitchPreviewPayload> {
     if request.profile_label.trim().is_empty() {
         return DesktopCommandResult::err(
             "missing-profile-selection",
@@ -174,14 +116,12 @@ pub fn desktop_switch_preview(
         );
     }
 
-    DesktopCommandResult::ok(ActionNotice {
-        title: "Preview switch".to_string(),
-        detail: format!(
-            "The desktop bridge would validate a switch from work-pro to {} without leaking terminal strings into the UI.",
-            request.profile_label
-        ),
-        status: "placeholder".to_string(),
-    })
+    match switcher_paths().and_then(|paths| switch_preview(&paths, &request.profile_label)) {
+        Ok(payload) => DesktopCommandResult::ok(payload),
+        Err(message) => {
+            DesktopCommandResult::err("switcher-preview-failed", &message, true)
+        }
+    }
 }
 
 #[tauri::command]
@@ -201,29 +141,30 @@ pub fn desktop_reload_targets() -> DesktopCommandResult<ReloadTargetsPayload> {
                     "Refresh Cursor when the bootstrap shell updates editor-side auth.".to_string(),
             },
         ],
-        last_reloaded: "No reload issued in this scaffold".to_string(),
+        last_reloaded: "Shared Rust reload services are ready.".to_string(),
     })
 }
 
 #[tauri::command]
 pub fn desktop_reload_target(
     request: ReloadTargetRequest,
-) -> DesktopCommandResult<ActionNotice> {
-    let detail = match request.target.as_str() {
-        "codex" => "Codex reload stays behind a narrow desktop command boundary for now.",
-        "cursor" => "Cursor reload stays behind the Rust bridge until service extraction lands.",
+) -> DesktopCommandResult<ReloadOutcomePayload> {
+    let target = match request.target.as_str() {
+        "codex" => ReloadAppTarget::Codex,
+        "cursor" => ReloadAppTarget::Cursor,
         _ => {
             return DesktopCommandResult::err(
                 "unknown-reload-target",
                 "The requested reload target is not part of the approved desktop bootstrap surface.",
                 false,
-            )
+            );
         }
     };
 
-    DesktopCommandResult::ok(ActionNotice {
-        title: format!("Reload {}", request.target),
-        detail: detail.to_string(),
-        status: "placeholder".to_string(),
-    })
+    match switcher_paths().and_then(|paths| execute_reload_outcome(&paths, target)) {
+        Ok(payload) => DesktopCommandResult::ok(payload),
+        Err(message) => {
+            DesktopCommandResult::err("reload-target-failed", &message, true)
+        }
+    }
 }

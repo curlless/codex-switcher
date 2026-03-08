@@ -1,6 +1,6 @@
 # T001: Extract GUI-safe profile listing and active profile query services
 
-**Status:** Backlog
+**Status:** Done
 **Story:** US003
 **Labels:** implementation
 **Created:** 2026-03-07
@@ -27,18 +27,18 @@
 
 ### Phase 1: Inventory the current query path
 
-- [ ] Trace how `list`, `status`, and current-profile lookup load snapshot data, labels, and priority context.
-- [ ] Identify the minimum shared structs needed for profile cards, workspace summary, and active profile status.
+- [x] Trace how `list`, `status`, and current-profile lookup load snapshot data, labels, and priority context.
+- [x] Identify the minimum shared structs needed for profile cards, workspace summary, and active profile status.
 
 ### Phase 2: Introduce service-facing query models
 
-- [ ] Add Rust service DTOs and error types for profile overview and active profile lookups.
-- [ ] Refactor snapshot-loading helpers so profile query services can assemble data without terminal rendering concerns.
+- [x] Add Rust service DTOs and error types for profile overview and active profile lookups.
+- [x] Refactor snapshot-loading helpers so profile query services can assemble data without terminal rendering concerns.
 
 ### Phase 3: Wire first consumers
 
-- [ ] Update the Tauri profile overview and active-profile commands to consume the new services.
-- [ ] Keep CLI-facing callers able to build their existing rendered output from the same shared data.
+- [x] Update the Tauri profile overview and active-profile commands to consume the new services.
+- [x] Keep CLI-facing callers able to build their existing rendered output from the same shared data.
 
 ## Technical Approach
 
@@ -105,9 +105,9 @@
 
 ## Acceptance Criteria
 
-- [ ] **Given** saved profiles and usage data already exist **When** the task is completed **Then** a shared Rust query service returns GUI-safe profile overview data without terminal formatting `verify: inspect src/switcher/ for profile overview service DTOs and helpers`
-- [ ] **Given** the active profile lookup currently depends on CLI command flow **When** the task is completed **Then** the desktop active-profile command reads from the shared query service instead of placeholder data `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
-- [ ] **Given** profile query behavior is already covered by existing regression suites **When** the task is completed **Then** the shared query seam keeps those flows green `verify: test cargo test --test switcher_cli switcher_status_dedupes_same_account_rows`
+- [x] **Given** saved profiles and usage data already exist **When** the task is completed **Then** a shared Rust query service returns GUI-safe profile overview data without terminal formatting `verify: inspect src/switcher/ for profile overview service DTOs and helpers`
+- [x] **Given** the active profile lookup currently depends on CLI command flow **When** the task is completed **Then** the desktop active-profile command reads from the shared query service instead of placeholder data `verify: command cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- [x] **Given** profile query behavior is already covered by existing regression suites **When** the task is completed **Then** the shared query seam keeps those flows green `verify: test cargo test --test switcher_cli switcher_status_dedupes_same_account_rows`
 
 ## Affected Components
 
@@ -142,9 +142,9 @@
 
 ## Definition of Done
 
-- [ ] All task acceptance criteria met.
-- [ ] Profile overview and active-profile lookups come from shared Rust services.
-- [ ] Desktop commands stop returning mocked profile business data for these query flows.
-- [ ] CLI consumers still render the expected output from shared data.
-- [ ] Existing tests updated only where helper boundaries changed.
-- [ ] Documentation references stay accurate.
+- [x] All task acceptance criteria met.
+- [x] Profile overview and active-profile lookups come from shared Rust services.
+- [x] Desktop commands stop returning mocked profile business data for these query flows.
+- [x] CLI consumers still render the expected output from shared data.
+- [x] Existing tests updated only where helper boundaries changed.
+- [x] Documentation references stay accurate.

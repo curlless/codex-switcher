@@ -44,10 +44,27 @@ export interface SwitchPreviewRequest {
   profileLabel: string;
 }
 
-export interface ActionNotice {
-  title: string;
-  detail: string;
-  status: "ok" | "placeholder";
+export interface SwitchProfilePayload {
+  label: string;
+  plan: string;
+  reserved: boolean;
+  status: ProfileStatus;
+  current: boolean;
+  recommended: boolean;
+  rank: number | null;
+  sevenDayRemaining: string;
+  fiveHourRemaining: string;
+  unavailableReason: string | null;
+}
+
+export interface SwitchPreviewPayload {
+  requestedProfile: string;
+  activeProfile: string | null;
+  recommendedProfile: string | null;
+  canSwitch: boolean;
+  summary: string;
+  profiles: SwitchProfilePayload[];
+  manualHints: string[];
 }
 
 export interface ReloadTargetInfo {
@@ -63,4 +80,12 @@ export interface ReloadTargetsPayload {
 
 export interface ReloadTargetRequest {
   target: ReloadTarget;
+}
+
+export interface ReloadOutcomePayload {
+  target: string;
+  attempted: boolean;
+  restarted: boolean;
+  message: string;
+  manualHints: string[];
 }

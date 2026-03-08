@@ -51,9 +51,12 @@ pub(crate) use profile_store::{
     usage_map_from_index, write_profiles_index,
 };
 pub use profiles::{
-    delete_profile, list_profiles, load_profile, migrate_profiles, reload_app, reserve_profile,
-    save_profile, status_label, status_profiles, switch_best_profile, sync_current_readonly,
-    unreserve_profile,
+    ActiveProfileStatusPayload, ProfileCard, ProfilesOverviewPayload, ReloadOutcomePayload,
+    SwitchExecutionPayload, SwitchPreviewPayload, SwitchProfilePayload,
+    active_profile_status, delete_profile, execute_best_switch, execute_reload_outcome,
+    inspect_reload_outcome, list_profiles, load_profile, migrate_profiles, profiles_overview,
+    reload_app, reserve_profile, save_profile, status_label, status_profiles, switch_best_profile,
+    switch_preview, sync_current_readonly, unreserve_profile,
 };
 pub use relay::relay_login;
 pub use requirements::ensure_codex_cli;

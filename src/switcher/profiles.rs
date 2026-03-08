@@ -117,6 +117,42 @@ pub fn sync_current_readonly(paths: &Paths) -> Result<(), String> {
     profile_status::sync_current_readonly(paths)
 }
 
+pub fn profiles_overview(paths: &Paths) -> Result<ProfilesOverviewPayload, String> {
+    profile_service::profiles_overview(paths)
+}
+
+pub fn active_profile_status(paths: &Paths) -> Result<ActiveProfileStatusPayload, String> {
+    profile_service::active_profile_status(paths)
+}
+
+pub fn switch_preview(
+    paths: &Paths,
+    requested_profile: &str,
+) -> Result<SwitchPreviewPayload, String> {
+    profile_service::switch_preview(paths, requested_profile)
+}
+
+pub fn execute_best_switch(
+    paths: &Paths,
+    reload_target: Option<ReloadAppTarget>,
+) -> Result<SwitchExecutionPayload, String> {
+    profile_service::execute_best_switch(paths, reload_target)
+}
+
+pub fn inspect_reload_outcome(
+    paths: &Paths,
+    target: ReloadAppTarget,
+) -> Result<ReloadOutcomePayload, String> {
+    profile_service::inspect_reload_outcome(paths, target)
+}
+
+pub fn execute_reload_outcome(
+    paths: &Paths,
+    target: ReloadAppTarget,
+) -> Result<ReloadOutcomePayload, String> {
+    profile_service::execute_reload_outcome(paths, target)
+}
+
 #[path = "profiles_ui.rs"]
 mod profile_ui;
 use profile_ui::*;
@@ -144,6 +180,13 @@ mod profile_switch;
 #[path = "profiles_runtime.rs"]
 mod profile_runtime;
 use profile_runtime::*;
+
+#[path = "profiles_service.rs"]
+mod profile_service;
+pub use profile_service::{
+    ActiveProfileStatusPayload, ProfileCard, ProfilesOverviewPayload, ReloadOutcomePayload,
+    SwitchExecutionPayload, SwitchPreviewPayload, SwitchProfilePayload,
+};
 
 #[cfg(all(test, feature = "switcher-unit-tests"))]
 #[path = "profiles_tests.rs"]

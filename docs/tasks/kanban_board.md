@@ -8,7 +8,8 @@
 
 ### Todo
 
-- None
+- **Epic 2: Desktop GUI Shell**
+  - None
 
 ### In Progress
 
@@ -21,7 +22,8 @@
 
 ### In Review
 
-- None
+- **Epic 2: Desktop GUI Shell**
+  - None
 
 ### Done
 

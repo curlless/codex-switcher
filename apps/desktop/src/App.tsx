@@ -7,7 +7,6 @@ import {
   reloadTarget
 } from "./bridge";
 import type {
-  ActionNotice,
   ActiveProfileStatusPayload,
   DesktopCommandError,
   ProfileCard,
@@ -15,6 +14,13 @@ import type {
   ReloadTargetInfo,
   ReloadTargetsPayload
 } from "./lib/contracts";
+
+type ActionResultView = {
+  title: string;
+  detail: string;
+  status: string;
+  hints: string[];
+};
 
 function ProfileList({
   profiles,
@@ -67,7 +73,7 @@ export function App() {
   const [reloadTargets, setReloadTargets] =
     useState<ReloadTargetsPayload | null>(null);
   const [selectedLabel, setSelectedLabel] = useState("");
-  const [actionResult, setActionResult] = useState<ActionNotice | null>(null);
+  const [actionResult, setActionResult] = useState<ActionResultView | null>(null);
   const [commandError, setCommandError] = useState<DesktopCommandError | null>(
     null
   );
@@ -119,7 +125,12 @@ export function App() {
   async function handlePreviewSwitch() {
     const result = await previewSwitch(selectedLabel);
     if (result.ok) {
-      setActionResult(result.data);
+      setActionResult({
+        title: `Preview ${result.data.requestedProfile}`,
+        detail: result.data.summary,
+        status: result.data.canSwitch ? "ready" : "blocked",
+        hints: result.data.manualHints
+      });
       setCommandError(null);
       return;
     }
@@ -129,7 +140,16 @@ export function App() {
   async function handleReloadTarget(target: ReloadTargetInfo) {
     const result = await reloadTarget(target.id);
     if (result.ok) {
-      setActionResult(result.data);
+      setActionResult({
+        title: target.label,
+        detail: result.data.message,
+        status: result.data.restarted
+          ? "restarted"
+          : result.data.attempted
+            ? "attempted"
+            : "manual",
+        hints: result.data.manualHints
+      });
       setCommandError(null);
       return;
     }
@@ -244,7 +264,17 @@ export function App() {
             <article className="card">
               <span className="eyebrow">Action result</span>
               <h3>{actionResult?.title ?? "No action yet"}</h3>
-              <p>{actionResult?.detail ?? "Native commands are stubbed but wired."}</p>
+              <p>
+                {actionResult?.detail ??
+                  "Shared Rust switcher services are connected and waiting for a desktop action."}
+              </p>
+              {actionResult?.hints.length ? (
+                <ul className="event-list">
+                  {actionResult.hints.map((hint) => (
+                    <li key={hint}>{hint}</li>
+                  ))}
+                </ul>
+              ) : null}
               <div className="status-bar">
                 <span>Status</span>
                 <strong>{actionResult?.status ?? "idle"}</strong>
@@ -266,7 +296,7 @@ export function App() {
               <strong>
                 {commandError
                   ? `${commandError.code}: ${commandError.message}`
-                  : "Typed placeholder commands are available for the shell bootstrap."}
+                  : "Native bridge is serving shared Rust switcher services."}
               </strong>
             </div>
           </section>
