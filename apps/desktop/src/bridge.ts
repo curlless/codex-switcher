@@ -36,6 +36,16 @@ function mockOk<T>(data: T): DesktopCommandResult<T> {
   return { ok: true, data };
 }
 
+export interface SmokeTraceSnapshot {
+  phase: string;
+  view: string;
+  activeProfile: string | null;
+  selectedLabel: string | null;
+  profileCount: number;
+  refreshCount: number;
+  event: string;
+}
+
 export async function loadProfilesOverview(): Promise<
   DesktopCommandResult<ProfilesOverviewPayload>
 > {
@@ -164,5 +174,33 @@ export async function reloadTarget(
     return fallbackError(
       "The native desktop bridge is unavailable, so reload execution could not be requested."
     );
+  }
+}
+
+export async function loadSmokeMode(): Promise<boolean> {
+  if (!isTauriAvailable()) {
+    return false;
+  }
+
+  try {
+    return await invoke<boolean>("desktop_smoke_mode");
+  } catch {
+    return false;
+  }
+}
+
+export async function recordSmokeTrace(snapshot: SmokeTraceSnapshot): Promise<boolean> {
+  if (!isTauriAvailable()) {
+    return false;
+  }
+
+  try {
+    const result = await invoke<DesktopCommandResult<boolean>>(
+      "desktop_record_smoke_trace",
+      { snapshot }
+    );
+    return result.ok ? result.data : false;
+  } catch {
+    return false;
   }
 }

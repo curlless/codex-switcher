@@ -1,0 +1,51 @@
+{
+    "executablePath":  "F:\\cursor projects\\codex-switcher\\.worktrees\\gui-intake\\apps\\desktop\\src-tauri\\target\\x86_64-pc-windows-msvc\\release\\codex-switcher-desktop.exe",
+    "smokeHome":  "C:\\Users\\tompski\\AppData\\Local\\Temp\\codex-switcher-desktop-smoke-08a9053b362b48fa89b26386e2f18b65",
+    "processId":  26088,
+    "windowTitle":  "Codex Switcher Desktop",
+    "smokeTracePath":  "C:\\Users\\tompski\\AppData\\Local\\Temp\\codex-switcher-desktop-smoke-08a9053b362b48fa89b26386e2f18b65\\.codex\\desktop-smoke-trace.json",
+    "smokeTrace":  {
+                       "phase":  "ready",
+                       "view":  "reload",
+                       "activeProfile":  "primary",
+                       "selectedLabel":  "primary",
+                       "profileCount":  2,
+                       "refreshCount":  1,
+                       "event":  "refresh-success"
+                   },
+    "checks":  [
+                   {
+                       "detail":  "Native window launched and smoke trace reached ready profiles state.",
+                       "ok":  true,
+                       "name":  "startup"
+                   },
+                   {
+                       "detail":  "Smoke trace proved bridge-loaded profile metadata in the profiles view.",
+                       "ok":  true,
+                       "name":  "profiles-view"
+                   },
+                   {
+                       "detail":  "Smoke trace reached the quick-switch view.",
+                       "ok":  true,
+                       "name":  "switch-view"
+                   },
+                   {
+                       "detail":  "Smoke trace reached the reload view.",
+                       "ok":  true,
+                       "name":  "reload-view"
+                   },
+                   {
+                       "detail":  "Smoke trace proved a bridge-backed refresh action from the packaged runtime.",
+                       "ok":  true,
+                       "name":  "bridge-refresh"
+                   }
+               ],
+    "observedNames":  [
+                          "Codex Switcher Desktop | phase:loading",
+                          "Codex Switcher Desktop | view:profiles | active:primary | selected:primary | profiles:2 | refresh:0 — веб-содержимое",
+                          "Без имени",
+                          "Свернуть",
+                          "Развернуть",
+                          "Закрыть"
+                      ]
+}

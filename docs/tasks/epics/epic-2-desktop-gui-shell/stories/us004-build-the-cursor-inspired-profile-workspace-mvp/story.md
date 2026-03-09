@@ -1,112 +1,71 @@
-# US004: Build the Cursor/Codex-inspired profile workspace MVP
+# US004: Build the Cursor-inspired profile workspace MVP
 
 **Status:** Done
 **Epic:** Epic 2
 **Labels:** user-story
 **Created:** 2026-03-07
-**Updated:** 2026-03-08
+**Updated:** 2026-03-09
 
-## Goal
+## Story
 
-Implement a polished desktop GUI workspace for browsing profiles, understanding usage state, and switching or reloading accounts — modelled on the best design patterns from Cursor and Codex desktop applications.
+As a Windows desktop user, I want a usable profile workspace that lets me inspect profiles, preview switches, execute switches, and reload IDE sessions from one GUI surface, so that I can manage Codex Switcher accounts without relying on terminal-first flows.
 
-## Design Reference
+## Context
 
-### From Cursor
-- **Activity bar**: Thin 48px vertical icon strip on the far left for view navigation
-- **Sidebar sections**: Collapsible groups with chevron toggles (like file tree)
-- **Flat titlebar**: 40px, app name left, workspace info right
-- **Neutral dark grays**: `#1e1e1e` / `#252526` / `#1f1f1f` — no color tints
-- **Status bar**: 24px bottom bar with dot indicators, active context, timestamps
-- **Overlay scrollbar**: Thin, auto-hiding scrollbar
-- **Flat buttons**: Surface-colored, no gradients, subtle hover brightness shift
+The imported `codex/feature/gui-intake-replit` branch already contains a broad React/Tauri UI pass under `apps/desktop/src/*`. That code is the reality source for this replan, but the imported US004 document cannot be accepted as a completion record:
 
-### From Codex
-- **Thread-like sidebar**: Items with metadata inline (plan, usage)
-- **Rich content area**: Clean typography, accent-colored links
-- **Section headers**: Visual separation of content blocks
-- **Subtle scrollbar**: Overlay style, thin
+- validation for the imported US004 pack returned `NO_GO`
+- the imported task pack is inconsistent with a sync-safe planning model
+- the branch mixes real UI work with intake-only artifacts and unsupported completion claims
+- reserve and unreserve behavior is still client-side mock state in the current frontend
 
-### Adapted for Profile Switcher
+This replan keeps US004 as the canonical story for the desktop workspace MVP and narrows it to evidence-backed scope that can be safely integrated.
 
-**Activity Bar** (48px, far left):
-- Profiles icon (default active view)
-- Switch icon (quick switch action)
-- Reload icon (session reload)
-- Settings icon (bottom, separated)
+## Quality Gate
 
-**Sidebar** (220px):
-- Collapsible "PROFILES" section with chevron
-- Profile rows: dot indicator + name + plan + percentage + mini usage bar
-- "RECENT" section at bottom: last actions (switches/reloads)
+- Stage 3 quality gate on 2026-03-09 returned `CONCERNS` with quality score `90`.
+- Evidence rerun in the intake worktree: `npm run build` for `apps/desktop` and static review of the US004 implementation diff across `App.tsx`, the extracted workspace-shell/helpers, and the localized MVP surfaces.
+- Concern retained for handoff: reliability evidence is still limited to build plus static review because the current desktop package exposes no dedicated automated test script and no separate test task is in the active US004 execution scope.
+- Merge handoff is allowed with this concern documented; no blocking rework tasks were required.
 
-**Main Content Area**:
-- Breadcrumb navigation: Workspace > Profile Name
-- Profile detail with progress bar meters (hints only when < 50%)
-- Summary text, max 3 recent events
-- Inline actions row (Preview switch, Reload Codex, Reload Cursor)
-- Switch preview panel (inline expand with animation)
+## Acceptance Criteria
 
-**Settings View**:
-- Language (EN/RU)
-- Sort mode (Rating/Name/Usage)
-- Reload after switch (On/Off)
-- Primary reload target (Codex/Cursor/All)
+1. Given the desktop shell starts with shared bridge data or browser-mode fallback, when the workspace loads, then it renders the activity bar, profile list, profile detail, status strip, and explicit loading, error, and empty states.
+2. Given a profile is selected, when the user previews or executes a switch, then the UI shows the switch preview, outcome summary, manual hints, and refreshed workspace state after execution.
+3. Given reload targets are available, when the user opens the reload surface or enables reload-after-switch, then reload actions are available from the UI and respect the chosen primary reload target.
+4. Given the user changes locale or sort and reload preferences, when the app is refreshed, then those settings persist locally and the refreshed profile ordering and reload behavior still reflect the persisted selections.
+5. Given keyboard or assistive-technology interaction, when the user navigates the MVP workspace, then primary controls remain keyboard-operable, labeled for screen readers, and accompanied by visible focus and error feedback.
 
-**Status Bar** (24px):
-- Connection dot + status
-- Active profile name
-- Timestamp
-- Profile count + current view (right-aligned)
+## Implementation Tasks
 
-## Color Tokens
+- T001 merges shell orchestration and thin-shell refactor work into one task that extracts `App.tsx` bootstrap, refresh, settings persistence, and action wiring behind focused helpers without introducing a global store.
+- T002 aligns the preview, execute, and reload workflow with the real MVP boundaries, including refreshed state, the current stale `reloadTargets` post-refresh seam in `App.tsx`, and explicit handling of mock-only reserve behavior.
+- T003 closes only the remaining evidenced localization and accessibility deltas: hardcoded labels, screen-reader metadata, and any primary-control keyboard/focus gaps left on the shipped MVP surfaces, including `QuickSwitchView`, after T001-T002.
+- Former T004 is merged into T001 because both tasks were competing for the same `App.tsx` orchestration/refactor seam.
+- Imported task docs beyond the final T003 pack were discarded because they either describe already-evidenced code, overclaim unsupported completion, or expand scope beyond the current MVP replan.
+- Execution order for the approved pack is T001 -> T002 -> T003; later tasks may reuse the seams created by earlier ones, but the pack should not be treated as concurrent edits to the same `App.tsx` surface.
 
-```css
---bg: #1e1e1e;           /* editor / main */
---bg-sidebar: #252526;    /* sidebar */
---bg-titlebar: #1f1f1f;   /* titlebar */
---bg-statusbar: #1f1f1f;  /* statusbar */
---surface0: #2d2d2d;      /* buttons / elevated */
---surface1: #383838;      /* hover */
---border: #2b2b2b;        /* all borders */
---text: #cccccc;          /* primary text */
---text-sub: #9d9d9d;      /* secondary text */
---text-dim: #858585;      /* muted text */
---text-faint: #5a5a5a;    /* faintest text */
---accent: #007acc;        /* primary blue */
---green: #4ec9b0;         /* active / success */
---yellow: #dcdcaa;        /* warning */
---red: #f14c4c;           /* error / danger */
---peach: #ce9178;         /* reserved */
-```
+## Test Strategy
 
-## Completed Features
-
-1. Activity bar with 4-icon navigation (Profiles, Switch, Reload + Settings at bottom).
-2. Sidebar with collapsible sections, profile list with usage bars, recent actions.
-3. Profile detail with progress bar meters, conditional hints (only < 50%), breadcrumb navigation.
-4. Quick Switch view with cards for current/available/reserved profiles.
-5. Reload view with large target cards, loading spinners.
-6. Settings view: language (EN/RU), sort mode, reload config, primary target.
-7. i18n system with full EN/RU translations across all components.
-8. Profile sorting: rating (score = 7d%*70 + 5h%*30, tier system), name, usage modes.
-9. Reserve/unreserve toggle in sidebar and detail (client-side mock).
-10. Decluttered UI: minimal sidebar (name + plan + %), minimal detail tags, conditional meter hints, 3 events max, simplified status bar.
-11. Keyboard navigation (Ctrl+1/2/3/4, Ctrl+R, Escape, Arrow keys).
-12. ARIA attributes, toasts, overlay scrollbar, micro-interactions.
-13. Settings persisted in localStorage.
-14. Reload-after-switch auto-triggers based on settings.
-15. All colors match the Cursor/Codex neutral dark palette.
+_Intentionally left empty. Test planning belongs to the later test-planning stage._
 
 ## Technical Notes
 
-- Browser-mode development uses mock data via `bridge.ts` auto-fallback.
-- Activity bar view switching is client-side state only (no routing).
-- `prefers-reduced-motion` disables all animations.
-- Reserve/unreserve is client-side only — no Rust backend command registered yet.
+- Reality source for this replan is the imported GUI code under `apps/desktop/src/*`, plus the existing desktop bridge and contract layer.
+- `bridge.ts` still falls back to mock data when Tauri internals are unavailable; that is acceptable for browser-mode development, but it is not evidence that the native bridge is fully verified end to end.
+- `reserve` and `unreserve` are currently UI-only state mutation and must not be treated as backend-complete behavior.
+- `App.tsx` already persists `locale`, `sortMode`, `reloadAfterSwitch`, and `primaryReloadTarget` in local storage; the remaining plan must verify that persisted sort choice still changes the refreshed profile ordering instead of assuming persistence from the settings UI alone.
+- `handleExecuteSwitch()` currently awaits `bootstrapShell()` and then still reads the pre-refresh `reloadTargets` closure for reload-after-switch behavior; T002 owns making that refreshed-state seam explicit during execution.
+- Imported additions such as `lib/i18n.ts`, `lib/sorting.ts`, `SettingsView.tsx`, `QuickSwitchView.tsx`, `ReloadView.tsx`, and accessibility or toast behaviors stay in scope because they support the core MVP journey rather than representing separate completed stories.
 
-## Validation Notes
+## Definition of Done
 
-- Design demo approved by user.
-- E2E tests cover all interactive flows (sorting, settings, i18n, decluttered UI).
-- Code review passed (architect).
+- Story text describes planned scope and dependencies, not retrospective completion claims.
+- Accepted scope maps to the actual imported GUI runtime files and excludes intake noise.
+- Follow-up task planning is regenerated from this normalized story before execution resumes.
+- Validation evidence is captured only after code checks and review actually run.
+
+## Dependencies
+
+- Depends on US002 for the desktop shell and typed bridge baseline.
+- Depends on US003 for shared GUI-safe switcher services and native command payloads.

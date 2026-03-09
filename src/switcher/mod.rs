@@ -54,6 +54,7 @@ pub use profiles::{
     ActiveProfileStatusPayload, ProfileCard, ProfilesOverviewPayload, ReloadOutcomePayload,
     SwitchExecutionPayload, SwitchPreviewPayload, SwitchProfilePayload,
     active_profile_status, delete_profile, execute_best_switch, execute_reload_outcome,
+    execute_switch,
     inspect_reload_outcome, list_profiles, load_profile, migrate_profiles, profiles_overview,
     reload_app, reserve_profile, save_profile, status_label, status_profiles, switch_best_profile,
     switch_preview, sync_current_readonly, unreserve_profile,

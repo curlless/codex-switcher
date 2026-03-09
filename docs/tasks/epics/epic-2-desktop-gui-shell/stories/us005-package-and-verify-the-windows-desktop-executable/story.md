@@ -4,64 +4,65 @@
 **Epic:** Epic 2
 **Labels:** user-story
 **Created:** 2026-03-07
-**Updated:** 2026-03-08
+**Updated:** 2026-03-09
 
-## Goal
+## Story
 
-Produce a reliable Windows desktop executable distribution lane for the GUI and verify that it coexists with the current CLI release workflow.
+As a maintainer shipping the desktop GUI, I want a verified Windows packaging lane with clear smoke evidence and isolated release behavior, so that the desktop executable can be integrated without destabilizing the existing CLI distribution path.
+
+## Context
+
+The imported branch adds part of the desktop packaging surface, but the imported US005 document also overstates what is actually evidenced. The intake worktree currently proves:
+
+- `apps/desktop/src-tauri/tauri.conf.json` now declares bundle targets and app window constraints
+- `scripts/build-desktop.sh` exists as a local build helper
+- `apps/desktop/vite.config.ts` is aligned with the configured dev URL port
+
+The branch does not prove a native Windows packaging pass, a dedicated `desktop-release.yml` workflow, or smoke evidence beyond browser-mode frontend output. US005 therefore remains a planned packaging and verification story.
 
 ## Acceptance Criteria
 
-1. The desktop app builds as a Windows-targeted executable artifact. **Done** — Tauri bundle config with NSIS + MSI targets.
-2. Release automation or documented local build flow can produce the desktop artifact repeatably. **Done** — GitHub Actions `desktop-release.yml` + `scripts/build-desktop.sh`.
-3. Smoke verification confirms the GUI starts, displays core screens, and can call the native bridge. **Done** — Frontend build verified (44 modules, no errors), all views render correctly in browser mode.
-4. The existing CLI release path remains intact. **Done** — Desktop release is a separate workflow (`desktop-release.yml`), triggered by `v*-desktop` tags, completely independent from CLI `release.yml`.
+1. Given a Windows-capable packaging environment, when the desktop bundle runs, then Tauri emits the intended Windows installer artifacts using maintained app metadata and bundle targets.
+2. Given a maintainer uses the documented local build flow, when prerequisites are missing or present, then the script surfaces required tools, build commands, and output artifact locations clearly.
+3. Given smoke verification runs for the packaged desktop app, when the GUI starts on a native runner, then startup, core screens, and native bridge invocation are evidenced beyond browser-mode frontend build output.
+4. Given the current CLI release workflows already exist, when a desktop packaging lane is introduced or refined, then it remains isolated from `release.yml` and `release-smoke.yml` rather than replacing them.
 
-## Completed Work
+## Implementation Tasks
 
-### Tauri Configuration
-- Fixed devUrl port mismatch (1420 → 5000 to match Vite config)
-- Added `bundle` section with NSIS + MSI Windows targets
-- Added `security.csp` for content security policy
-- Added window min-size constraints (800x600)
-- Icon: `icons/icon.ico`
+- `T001` - Finalize Windows bundle metadata and the local packaging entrypoint.
+- `T002` - Add an isolated desktop packaging lane.
+- `T003` - Capture native Windows packaging smoke evidence.
+- `T004` - Make packaged-runtime smoke deterministic through a bridge-visible observability surface.
+- Keep Replit deployment and other intake environment artifacts out of desktop packaging acceptance unless they are separately planned.
 
-### CI/CD — Desktop Release Workflow
-- New `.github/workflows/desktop-release.yml`
-- Builds on Windows, Linux, macOS (3-platform matrix)
-- Installs Rust + Node.js 22, Linux webkit dependencies
-- Runs `npm ci` + `npx tauri build --target <target>`
-- Uploads platform-specific artifacts (NSIS/MSI, deb/AppImage, dmg)
-- Creates draft GitHub Release on tag push
-- Triggered by `v*-desktop` tags or manual dispatch
-- Completely separate from CLI release path
+## Test Strategy
 
-### Local Build Script
-- `scripts/build-desktop.sh` — prerequisite checks (Rust, Node.js, Tauri CLI), version reporting, optional target override
-- Runs full pipeline: `npm ci` → `npx tauri build`
-- Lists output artifacts on completion
-
-### Web Deployment
-- Replit static site deployment configured
-- Build: `cd apps/desktop && npm run build`
-- Public dir: `apps/desktop/dist`
-
-### Frontend Build Verification
-- `npm run build` succeeds: TypeScript check + Vite build
-- 44 modules, 229KB JS + 19KB CSS (gzipped: 70KB + 4KB)
-- No errors, no warnings
+_Intentionally left empty. Test planning belongs to the later test-planning stage._
 
 ## Technical Notes
 
-- Desktop release uses separate tag pattern (`v*-desktop`) to avoid conflicts with CLI releases.
-- Tauri build requires platform-specific dependencies (webkit2gtk on Linux, Xcode on macOS).
-- Windows builds produce both NSIS (.exe installer) and MSI packages.
-- The `beforeBuildCommand` runs `npm run build` (tsc + vite build) automatically.
-- Icon generation for additional sizes (32x32, 128x128, etc.) can be added later from the existing .ico file.
-- Code signing (`certificateThumbprint`) is left null — to be configured when a signing certificate is obtained.
+- Evidence-backed imported changes for this story are currently limited to `tauri.conf.json`, `build-desktop.sh`, and the aligned Vite dev port.
+- `.github/workflows/desktop-release.yml` is not present in the intake worktree and must not be treated as delivered scope.
+- Replit static deployment is not part of the Windows executable acceptance boundary.
+- Code signing, updater artifacts, and broader multi-platform release automation remain follow-up concerns unless explicitly added and verified.
 
-## Validation Notes
+## Definition of Done
 
-- Frontend build verified on Replit (Linux).
-- Full Tauri build requires native platform — CI handles this via GitHub Actions runners.
-- CLI release workflow (`release.yml`) is unchanged and unaffected.
+- Story text reflects verified packaging scope instead of unsupported completion claims.
+- Native Windows packaging and smoke evidence exists for the accepted flow.
+- Desktop packaging automation, if added, is present in-repo and clearly isolated from the CLI release workflows.
+- Validation notes reference real checks rather than inferred or browser-only results.
+
+## Execution Notes
+
+- `scripts/build-desktop.sh x86_64-pc-windows-msvc release` now works as the canonical entrypoint from this worktree and reaches the native Rust/Tauri build on Windows, producing `apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/codex-switcher-desktop.exe`.
+- The isolated desktop packaging lane now exists in `.github/workflows/desktop-release.yml` and remains separate from `.github/workflows/release.yml` and `.github/workflows/release-smoke.yml`.
+- Native installer bundling is now reproducible in this worktree after seeding Tauri's `.tauri/WixTools314` and `.tauri/NSIS` caches from the successfully downloaded WiX/NSIS archives plus `nsis_tauri_utils.dll`. This produced both `bundle/msi/Codex Switcher Desktop_0.1.0_x64_en-US.msi` and `bundle/nsis/Codex Switcher Desktop_0.1.0_x64-setup.exe`.
+- Native smoke evidence now passes AC3. `native-windows-smoke.json` proves startup, profiles-view reachability, quick-switch progression, reload-view progression, and a bridge-backed refresh action from the packaged runtime.
+- `T004` closed the remaining observability gap by moving the smoke helper onto a repository-owned runtime trace under `CODEX_SWITCHER_HOME/.codex/desktop-smoke-trace.json`, avoiding fragile dependence on WebView DOM accessibility.
+- US005 is now ready for the story-level quality gate.
+
+## Dependencies
+
+- Depends on US004 producing the desktop GUI runtime that will be packaged.
+- Must preserve the existing CLI release path established in Epic 1 and the current repository workflows.

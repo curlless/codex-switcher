@@ -19,12 +19,15 @@ export function ReloadView({
     <div className="reload-view">
       <div className="view-header">
         <h2 className="view-header__title">{t(locale, "reloadSessions")}</h2>
-        <p className="view-header__desc">{t(locale, "reloadDesc")} {t(locale, "lastReloaded")}: {lastReloaded}</p>
+        <p className="view-header__desc">
+          {t(locale, "reloadDesc")} {t(locale, "lastReloaded")}: {lastReloaded}
+        </p>
       </div>
 
       <div className="reload-view__grid">
         {targets.map((target) => {
           const isLoading = reloadingTargets.has(target.id);
+
           return (
             <button
               key={target.id}
@@ -32,6 +35,8 @@ export function ReloadView({
               onClick={() => onReload(target)}
               disabled={isLoading}
               type="button"
+              aria-label={`${t(locale, "reload")} ${target.label}`}
+              aria-busy={isLoading}
             >
               <div className="reload-view__card-icon">
                 {target.id === "codex" ? "\u25C8" : target.id === "cursor" ? "\u25C7" : "\u21BB"}
@@ -53,14 +58,10 @@ export function ReloadView({
       </div>
 
       {targets.length === 0 && (
-        <div className="reload-view__empty">
-          {t(locale, "noReloadTargets")}
-        </div>
+        <div className="reload-view__empty">{t(locale, "noReloadTargets")}</div>
       )}
 
-      <div className="reload-view__hint">
-        {t(locale, "reloadTip")}
-      </div>
+      <div className="reload-view__hint">{t(locale, "reloadTip")}</div>
     </div>
   );
 }

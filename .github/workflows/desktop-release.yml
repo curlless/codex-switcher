@@ -1,0 +1,85 @@
+name: desktop-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Rust target triple for the desktop bundle"
+        required: false
+        default: "x86_64-pc-windows-msvc"
+        type: string
+      profile:
+        description: "Build profile for the desktop bundle"
+        required: false
+        default: "release"
+        type: choice
+        options:
+          - release
+          - debug
+  pull_request:
+    paths:
+      - ".github/workflows/desktop-release.yml"
+      - "apps/desktop/**"
+      - "scripts/build-desktop.sh"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-windows:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      DESKTOP_TARGET: ${{ inputs.target || 'x86_64-pc-windows-msvc' }}
+      DESKTOP_PROFILE: ${{ inputs.profile || 'release' }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.DESKTOP_TARGET }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Package desktop bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/build-desktop.sh "${DESKTOP_TARGET}" "${DESKTOP_PROFILE}"
+
+      - name: Summarize bundle outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_dir="apps/desktop/src-tauri/target/${DESKTOP_TARGET}/${DESKTOP_PROFILE}/bundle"
+          echo "Bundle directory: ${bundle_dir}"
+          find "${bundle_dir}" -type f | sort
+          {
+            echo "## Desktop packaging lane"
+            echo ""
+            echo "- target: \`${DESKTOP_TARGET}\`"
+            echo "- profile: \`${DESKTOP_PROFILE}\`"
+            echo "- bundle directory: \`${bundle_dir}\`"
+            echo ""
+            echo "### Packaged files"
+            find "${bundle_dir}" -type f | sort | sed 's#^#- `#; s#$#`#'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload desktop bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-bundle-${{ env.DESKTOP_TARGET }}-${{ env.DESKTOP_PROFILE }}
+          path: apps/desktop/src-tauri/target/${{ env.DESKTOP_TARGET }}/${{ env.DESKTOP_PROFILE }}/bundle
+          if-no-files-found: error

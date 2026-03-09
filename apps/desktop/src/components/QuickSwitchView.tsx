@@ -1,7 +1,6 @@
 import type { ProfileCard } from "../lib/contracts";
 import type { Locale } from "../lib/i18n";
 import { t } from "../lib/i18n";
-import { profileScore } from "../lib/sorting";
 
 function parsePercent(s: string): number {
   const n = parseInt(s, 10);
@@ -21,9 +20,11 @@ export function QuickSwitchView({
   switchLoading: boolean;
   locale: Locale;
 }) {
-  const available = profiles.filter((p) => p.label !== activeProfile && p.status !== "reserved");
-  const reserved = profiles.filter((p) => p.status === "reserved");
-  const current = profiles.find((p) => p.label === activeProfile);
+  const available = profiles.filter(
+    (profile) => profile.label !== activeProfile && profile.status !== "reserved",
+  );
+  const reserved = profiles.filter((profile) => profile.status === "reserved");
+  const current = profiles.find((profile) => profile.label === activeProfile);
 
   return (
     <div className="quick-switch">
@@ -39,9 +40,13 @@ export function QuickSwitchView({
             <span className="profile-item__dot profile-item__dot--active" />
             <div className="quick-switch__card-info">
               <span className="quick-switch__card-name">{current.label}</span>
-              <span className="quick-switch__card-meta">{current.plan} &middot; 7d {current.sevenDayRemaining} &middot; 5h {current.fiveHourRemaining} &middot; {t(locale, "score")} {profileScore(current)}</span>
+              <span className="quick-switch__card-meta">
+                {current.plan} &middot; {t(locale, "sevenDayHeadroom")}{" "}
+                {current.sevenDayRemaining} &middot; {t(locale, "fiveHourHeadroom")}{" "}
+                {current.fiveHourRemaining}
+              </span>
             </div>
-            <span className="tag tag--status">active</span>
+            <span className="tag tag--status">{t(locale, "activeBadge")}</span>
           </div>
         </div>
       )}
@@ -49,24 +54,32 @@ export function QuickSwitchView({
       {available.length > 0 && (
         <div className="quick-switch__section">
           <div className="quick-switch__section-label">{t(locale, "available")}</div>
-          {available.map((p) => {
-            const pct = parsePercent(p.sevenDayRemaining);
-            const barColor = pct >= 50 ? "var(--green)" : pct >= 25 ? "var(--yellow)" : "var(--red)";
-            const score = profileScore(p);
+          {available.map((profile) => {
+            const pct = parsePercent(profile.sevenDayRemaining);
+            const barColor =
+              pct >= 50 ? "var(--green)" : pct >= 25 ? "var(--yellow)" : "var(--red)";
+
             return (
               <button
-                key={p.label}
+                key={profile.label}
                 className="quick-switch__card quick-switch__card--clickable"
-                onClick={() => onSwitch(p.label)}
+                onClick={() => onSwitch(profile.label)}
                 disabled={switchLoading}
                 type="button"
               >
-                <span className={`profile-item__dot profile-item__dot--${p.status}`} />
+                <span className={`profile-item__dot profile-item__dot--${profile.status}`} />
                 <div className="quick-switch__card-info">
-                  <span className="quick-switch__card-name">{p.label}</span>
-                  <span className="quick-switch__card-meta">{p.plan} &middot; 7d {p.sevenDayRemaining} &middot; 5h {p.fiveHourRemaining} &middot; {t(locale, "score")} {score}</span>
+                  <span className="quick-switch__card-name">{profile.label}</span>
+                  <span className="quick-switch__card-meta">
+                    {profile.plan} &middot; {t(locale, "sevenDayHeadroom")}{" "}
+                    {profile.sevenDayRemaining} &middot; {t(locale, "fiveHourHeadroom")}{" "}
+                    {profile.fiveHourRemaining}
+                  </span>
                   <span className="quick-switch__bar">
-                    <span className="quick-switch__bar-fill" style={{ width: `${pct}%`, background: barColor }} />
+                    <span
+                      className="quick-switch__bar-fill"
+                      style={{ width: `${pct}%`, background: barColor }}
+                    />
                   </span>
                 </div>
                 <span className="quick-switch__arrow">{"\u2192"}</span>
@@ -79,12 +92,14 @@ export function QuickSwitchView({
       {reserved.length > 0 && (
         <div className="quick-switch__section">
           <div className="quick-switch__section-label">{t(locale, "reserved")}</div>
-          {reserved.map((p) => (
-            <div key={p.label} className="quick-switch__card quick-switch__card--disabled">
+          {reserved.map((profile) => (
+            <div key={profile.label} className="quick-switch__card quick-switch__card--disabled">
               <span className="profile-item__dot profile-item__dot--reserved" />
               <div className="quick-switch__card-info">
-                <span className="quick-switch__card-name">{p.label}</span>
-                <span className="quick-switch__card-meta">{p.plan} &middot; {t(locale, "reservedForAnotherSession")}</span>
+                <span className="quick-switch__card-name">{profile.label}</span>
+                <span className="quick-switch__card-meta">
+                  {profile.plan} &middot; {t(locale, "reservedForAnotherSession")}
+                </span>
               </div>
             </div>
           ))}
@@ -92,14 +107,11 @@ export function QuickSwitchView({
       )}
 
       {available.length === 0 && (
-        <div className="quick-switch__empty">
-          {t(locale, "noAvailableProfiles")}
-        </div>
+        <div className="quick-switch__empty">{t(locale, "noAvailableProfiles")}</div>
       )}
 
-      <div className="quick-switch__hint">
-        {t(locale, "quickSwitchTip")}
-      </div>
+      <div className="quick-switch__hint">{t(locale, "quickSwitchTip")}</div>
+      <div className="quick-switch__hint">{t(locale, "localReserveNote")}</div>
     </div>
   );
 }

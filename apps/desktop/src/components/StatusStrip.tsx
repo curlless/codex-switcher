@@ -28,7 +28,7 @@ export function StatusStrip({
   locale: Locale;
 }) {
   return (
-    <footer className="statusbar" aria-label="Status bar">
+    <footer className="statusbar" aria-label={t(locale, "statusBar")}>
       <div className="statusbar__item">
         <span className={`statusbar__dot statusbar__dot--${commandError ? "error" : "ok"}`} />
         <span>{commandError ? t(locale, "error") : t(locale, "connected")}</span>
@@ -48,6 +48,11 @@ export function StatusStrip({
       <div className="statusbar__item">
         <span className="statusbar__view-label">{t(locale, viewLabelKeys[view])}</span>
       </div>
+      {lastReloaded && (
+        <div className="statusbar__item" aria-live="polite">
+          <span>{t(locale, "lastReloaded")}: {lastReloaded}</span>
+        </div>
+      )}
       {commandError && (
         <div className="statusbar__item" aria-live="polite">
           <span className="statusbar__error">{commandError.code}: {commandError.message}</span>

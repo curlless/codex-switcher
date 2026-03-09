@@ -75,10 +75,11 @@ pub struct ReloadOutcomePayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitchExecutionPayload {
-    pub requested_profile: String,
-    pub active_profile: Option<String>,
+    pub switched_to: String,
+    pub previous_profile: Option<String>,
+    pub success: bool,
     pub summary: String,
-    pub reload: Option<ReloadOutcomePayload>,
+    pub manual_hints: Vec<String>,
 }
 
 struct ProfileQueryContext {
@@ -177,6 +178,24 @@ pub(super) fn execute_best_switch(
     reload_target: Option<ReloadAppTarget>,
 ) -> Result<SwitchExecutionPayload, String> {
     let plan = best_switch_plan(paths)?;
+    execute_switch_plan(paths, plan, reload_target)
+}
+
+pub(super) fn execute_switch(
+    paths: &Paths,
+    requested_profile: &str,
+    reload_target: Option<ReloadAppTarget>,
+) -> Result<SwitchExecutionPayload, String> {
+    let plan = build_switch_plan(paths, Some(requested_profile))?;
+    execute_switch_plan(paths, plan, reload_target)
+}
+
+fn execute_switch_plan(
+    paths: &Paths,
+    plan: SwitchPlan,
+    reload_target: Option<ReloadAppTarget>,
+) -> Result<SwitchExecutionPayload, String> {
+    let previous_profile = plan.preview.active_profile.clone();
     let selected_id = plan
         .selected_id
         .as_deref()
@@ -185,11 +204,18 @@ pub(super) fn execute_best_switch(
         .selected_display
         .as_deref()
         .ok_or_else(no_eligible_profile_error)?;
+    if !plan.preview.can_switch && previous_profile.as_deref() != Some(selected_display) {
+        return Err(format!(
+            "Profile '{selected_display}' is not currently switchable from the shared Rust runtime."
+        ));
+    }
     profile_load::load_profile_by_id(paths, selected_id, selected_display)?;
     let reload = reload_target
         .map(|target| reload_target_outcome(paths, false, target))
         .transpose()?;
+    let mut manual_hints = plan.preview.manual_hints;
     let summary = if let Some(reload) = reload.as_ref() {
+        manual_hints.extend(reload.manual_hints.iter().cloned());
         format!(
             "Loaded {selected_display} via the shared Rust switch service and processed {} reload guidance.",
             reload_target_display(&reload.target)
@@ -199,10 +225,11 @@ pub(super) fn execute_best_switch(
     };
 
     Ok(SwitchExecutionPayload {
-        requested_profile: selected_display.to_string(),
-        active_profile: Some(selected_display.to_string()),
+        switched_to: selected_display.to_string(),
+        previous_profile,
+        success: true,
         summary,
-        reload,
+        manual_hints,
     })
 }
 

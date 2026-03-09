@@ -1,6 +1,7 @@
 import type { ProfileCard, SwitchProfilePayload } from "../lib/contracts";
 import type { Locale } from "../lib/i18n";
 import { t } from "../lib/i18n";
+
 function parsePercent(s: string): number {
   const n = parseInt(s, 10);
   return isNaN(n) ? 0 : n;
@@ -37,7 +38,9 @@ export function ProfileDetail({
         <div className="breadcrumb">
           <span className="breadcrumb__item">{workspaceLabel}</span>
           <span className="breadcrumb__sep">/</span>
-          <span className="breadcrumb__item breadcrumb__item--active">{t(locale, "selectProfile")}</span>
+          <span className="breadcrumb__item breadcrumb__item--active">
+            {t(locale, "selectProfile")}
+          </span>
         </div>
         <div className="detail__placeholder">
           <p>{t(locale, "selectProfileHint")}</p>
@@ -46,16 +49,20 @@ export function ProfileDetail({
     );
   }
 
-  const rank = enriched?.rank;
   const recommended = enriched?.recommended ?? false;
   const unavailableReason = enriched?.unavailableReason ?? null;
   const pct7d = parsePercent(profile.sevenDayRemaining);
   const pct5h = parsePercent(profile.fiveHourRemaining);
-  const statusTag = profile.status === "active"
-    ? "tag--status"
-    : profile.status === "reserved"
-      ? "tag--status-reserved"
-      : "tag--status-available";
+  const statusTag =
+    profile.status === "active"
+      ? "tag--status"
+      : profile.status === "reserved"
+        ? "tag--status-reserved"
+        : "tag--status-available";
+  const eventsToRender =
+    reservedProfiles > 0 && !summary
+      ? [`${reservedProfiles} ${t(locale, "reserved").toLowerCase()}`, ...events].slice(0, 3)
+      : events.slice(0, 3);
 
   return (
     <div className="detail">
@@ -68,7 +75,13 @@ export function ProfileDetail({
       <div className="detail__header">
         <span className="detail__name">{profile.label}</span>
         <div className="detail__tags">
-          <span className={`tag ${statusTag}`}>{profile.status === "active" ? (locale === "ru" ? "актив" : "active") : profile.status === "reserved" ? t(locale, "reserved").toLowerCase() : t(locale, "available").toLowerCase()}</span>
+          <span className={`tag ${statusTag}`}>
+            {profile.status === "active"
+              ? t(locale, "activeBadge")
+              : profile.status === "reserved"
+                ? t(locale, "reserved").toLowerCase()
+                : t(locale, "available").toLowerCase()}
+          </span>
           <span className="tag tag--plan">{profile.plan}</span>
           {recommended && <span className="tag tag--recommended">{t(locale, "recommended")}</span>}
         </div>
@@ -81,7 +94,10 @@ export function ProfileDetail({
             <span className="meter__value">{profile.sevenDayRemaining}</span>
           </div>
           <div className="meter__track">
-            <div className={`meter__fill meter__fill--${meterVariant(pct7d)}`} style={{ width: `${pct7d}%` }} />
+            <div
+              className={`meter__fill meter__fill--${meterVariant(pct7d)}`}
+              style={{ width: `${pct7d}%` }}
+            />
           </div>
           {pct7d < 50 && (
             <div className="meter__hint">
@@ -95,7 +111,10 @@ export function ProfileDetail({
             <span className="meter__value">{profile.fiveHourRemaining}</span>
           </div>
           <div className="meter__track">
-            <div className={`meter__fill meter__fill--${meterVariant(pct5h)}`} style={{ width: `${pct5h}%` }} />
+            <div
+              className={`meter__fill meter__fill--${meterVariant(pct5h)}`}
+              style={{ width: `${pct5h}%` }}
+            />
           </div>
           {pct5h < 50 && (
             <div className="meter__hint">
@@ -108,27 +127,32 @@ export function ProfileDetail({
       {summary && <p className="detail__summary">{summary}</p>}
 
       {profile.status !== "active" && (
-        <button
-          className={`btn ${profile.reserved ? "btn--ghost" : "btn--outline-warn"}`}
-          onClick={() => onReserve(profile.label, !profile.reserved)}
-          type="button"
-        >
-          {profile.reserved ? t(locale, "unreserve") : t(locale, "reserve")}
-        </button>
+        <>
+          <button
+            className={`btn ${profile.reserved ? "btn--ghost" : "btn--outline-warn"}`}
+            onClick={() => onReserve(profile.label, !profile.reserved)}
+            type="button"
+          >
+            {t(locale, profile.reserved ? "clearLocalReserve" : "reserveLocally")}
+          </button>
+          <p className="detail__summary">{t(locale, "localReserveNote")}</p>
+        </>
       )}
 
       {unavailableReason && (
         <div className="detail__warning">
-          <span>!</span>
+          <span aria-hidden="true">!</span>
           {unavailableReason}
         </div>
       )}
 
-      {events.length > 0 && (
+      {eventsToRender.length > 0 && (
         <div className="detail__events">
           <div className="detail__events-label">{t(locale, "recentEvents")}</div>
-          {events.slice(0, 3).map((ev, i) => (
-            <div key={i} className="detail__event">{ev}</div>
+          {eventsToRender.map((event, index) => (
+            <div key={index} className="detail__event">
+              {event}
+            </div>
           ))}
         </div>
       )}

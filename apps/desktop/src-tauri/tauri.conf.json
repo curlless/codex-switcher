@@ -29,6 +29,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "useLocalToolsDir": true,
     "icon": [
       "icons/icon.ico"
     ],
@@ -38,7 +39,10 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "",
+      "wix": {
+        "language": "en-US"
+      }
     },
     "createUpdaterArtifacts": false
   }

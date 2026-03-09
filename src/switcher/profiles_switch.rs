@@ -40,8 +40,18 @@ pub(super) fn switch_best_profile(
     }
 
     let outcome = profile_service::execute_best_switch(paths, reload_target)?;
-    if let Some(reload) = outcome.reload {
-        print_reload_outcome(&reload);
+    if !outcome.summary.is_empty() {
+        let message = format_action(&outcome.summary, use_color);
+        print_output_block(&message);
+    }
+    if !outcome.manual_hints.is_empty() {
+        let hints = outcome
+            .manual_hints
+            .iter()
+            .map(|hint| format_hint(hint, use_color))
+            .collect::<Vec<_>>()
+            .join("\n");
+        print_output_block(&hints);
     }
 
     Ok(())

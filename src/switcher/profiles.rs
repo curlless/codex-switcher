@@ -139,6 +139,14 @@ pub fn execute_best_switch(
     profile_service::execute_best_switch(paths, reload_target)
 }
 
+pub fn execute_switch(
+    paths: &Paths,
+    requested_profile: &str,
+    reload_target: Option<ReloadAppTarget>,
+) -> Result<SwitchExecutionPayload, String> {
+    profile_service::execute_switch(paths, requested_profile, reload_target)
+}
+
 pub fn inspect_reload_outcome(
     paths: &Paths,
     target: ReloadAppTarget,

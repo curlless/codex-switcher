@@ -1,0 +1,30 @@
+2026-03-09 rerun note
+- Latest packaged-runtime smoke attempt observed `browserSurfaceName=""` and `observedNames=null` in `native-windows-smoke.json`.
+- The raw UIAutomation dump below is retained from the earlier executable-only inspection and should not be treated as proof that the current packaged runtime surfaces the required `view:*` / `profiles:*` tokens.
+
+0`t`tControlType.Pane`tWRY_WEBVIEW`t
+1`t`tControlType.Pane`tChrome_WidgetWin_0`t
+2`t`tControlType.Pane`tChrome_WidgetWin_0`t
+3`t`tControlType.Pane`tChrome_WidgetWin_0`t
+4`t`tControlType.Pane`tChrome_WidgetWin_0`t
+5`t`tControlType.Pane`tChrome_WidgetWin_0`t
+6`tCodex Switcher Desktop`tControlType.Pane`tChrome_WidgetWin_1`t
+7`t`tControlType.Pane`tIntermediate D3D Window`t
+8`tCodex Switcher Desktop вЂ” РІРµР±-СЃРѕРґРµСЂР¶РёРјРѕРµ`tControlType.Pane`tBrowserRootView`t
+9`t`tControlType.Pane`tNonClientView`t
+10`t`tControlType.Pane`tEmbeddedBrowserTabRootView`t
+11`t`tControlType.Pane`tEmbeddedBrowserFrameView`t
+12`tР‘РµР· РёРјРµРЅРё`tControlType.Text`tLabel`tview_9
+13`t`tControlType.Pane`tBrowserCaptionButtonContainer`t
+14`tРЎРІРµСЂРЅСѓС‚СЊ`tControlType.Button`tEdgeWindowsCaptionButton`tview_2
+15`tР Р°Р·РІРµСЂРЅСѓС‚СЊ`tControlType.Button`tEdgeWindowsCaptionButton`tview_3
+16`tР—Р°РєСЂС‹С‚СЊ`tControlType.Button`tEdgeWindowsCaptionButton`tview_7
+17`t`tControlType.Pane`tBrowserView`t
+18`t`tControlType.Pane`tTopContainerView`t
+19`t`tControlType.Pane`tSidebarContentsSplitView`t
+20`t`tControlType.Pane`tSidebarContentsSplitView`t
+21`t`tControlType.Pane`tView`t
+22`t`tControlType.Pane`tMultiContentsView`t
+23`t`tControlType.Pane`tView`t
+24`t`tControlType.Pane`tEmbeddedBrowserDownloadView`t
+25`t`tControlType.Pane`tTopContainerOverlayView`t

@@ -3,7 +3,10 @@ import { t } from "../lib/i18n";
 
 export type ActivityView = "profiles" | "switch" | "reload" | "settings";
 
-const icons: Record<ActivityView, { char: string; labelKey: "profiles" | "quickSwitch" | "reload" | "settings" }> = {
+const icons: Record<
+  ActivityView,
+  { char: string; labelKey: "profiles" | "quickSwitch" | "reload" | "settings" }
+> = {
   profiles: { char: "\u2630", labelKey: "profiles" },
   switch: { char: "\u21C4", labelKey: "quickSwitch" },
   reload: { char: "\u21BB", labelKey: "reload" },
@@ -22,7 +25,7 @@ export function ActivityBar({
   const mainViews: ActivityView[] = ["profiles", "switch", "reload"];
 
   return (
-    <nav className="activity-bar" aria-label="View navigation">
+    <nav className="activity-bar" aria-label={t(locale, "viewNavigation")}>
       <div className="activity-bar__top">
         {mainViews.map((view) => (
           <button

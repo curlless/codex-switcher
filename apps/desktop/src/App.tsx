@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   executeSwitch,
-  loadActiveProfileStatus,
-  loadProfilesOverview,
-  loadReloadTargets,
   previewSwitch,
-  reloadTarget
+  recordSmokeTrace,
+  reloadTarget,
 } from "./bridge";
 import { ActivityBar } from "./components/ActivityBar";
 import type { ActivityView } from "./components/ActivityBar";
@@ -14,14 +12,20 @@ import { ProfileList } from "./components/ProfileList";
 import { QuickSwitchView } from "./components/QuickSwitchView";
 import { ReloadView } from "./components/ReloadView";
 import { SettingsView } from "./components/SettingsView";
-import type { AppSettings } from "./components/SettingsView";
 import { StatusStrip } from "./components/StatusStrip";
 import { SwitchPanel } from "./components/SwitchPanel";
 import { ToastContainer } from "./components/ToastContainer";
-import type { Toast } from "./components/ToastContainer";
+import { useAppSettings } from "./hooks/useAppSettings";
+import { useRecentActions } from "./hooks/useRecentActions";
+import { useToasts } from "./hooks/useToasts";
 import { t } from "./lib/i18n";
 import type { Locale } from "./lib/i18n";
 import { sortProfiles } from "./lib/sorting";
+import {
+  bootstrapWorkspaceShell,
+  type AppPhase,
+  selectReloadTargets,
+} from "./lib/workspace-shell";
 import type {
   ActiveProfileStatusPayload,
   DesktopCommandError,
@@ -29,25 +33,73 @@ import type {
   ReloadTargetInfo,
   ReloadTargetsPayload,
   SwitchPreviewPayload,
-  SwitchProfilePayload
+  SwitchProfilePayload,
 } from "./lib/contracts";
 
-type AppPhase = "loading" | "error" | "ready";
-
-function loadSettings(): AppSettings {
-  try {
-    const saved = localStorage.getItem("codex-switcher-settings");
-    if (saved) return { ...defaultSettings, ...JSON.parse(saved) };
-  } catch {}
-  return defaultSettings;
+function titleViewToken(activeView: ActivityView): string {
+  switch (activeView) {
+    case "profiles":
+      return "profiles";
+    case "switch":
+      return "quick-switch";
+    case "reload":
+      return "reload";
+    case "settings":
+      return "settings";
+  }
 }
 
-const defaultSettings: AppSettings = {
-  locale: "en",
-  sortMode: "rating",
-  reloadAfterSwitch: false,
-  primaryReloadTarget: "codex",
-};
+function buildWindowTitle({
+  phase,
+  activeView,
+  overview,
+  activeStatus,
+  selectedLabel,
+  refreshing,
+  refreshCount,
+  commandError,
+}: {
+  phase: AppPhase;
+  activeView: ActivityView;
+  overview: ProfilesOverviewPayload | null;
+  activeStatus: ActiveProfileStatusPayload | null;
+  selectedLabel: string;
+  refreshing: boolean;
+  refreshCount: number;
+  commandError: DesktopCommandError | null;
+}): string {
+  const segments = ["Codex Switcher Desktop"];
+
+  if (phase === "loading") {
+    segments.push("phase:loading");
+    return segments.join(" | ");
+  }
+
+  if (phase === "error" && !overview && !activeStatus) {
+    segments.push("phase:error");
+    if (commandError?.code) {
+      segments.push(`error:${commandError.code}`);
+    }
+    return segments.join(" | ");
+  }
+
+  segments.push(`view:${titleViewToken(activeView)}`);
+  if (activeStatus?.activeProfile) {
+    segments.push(`active:${activeStatus.activeProfile}`);
+  }
+  if (selectedLabel) {
+    segments.push(`selected:${selectedLabel}`);
+  }
+  if (overview) {
+    segments.push(`profiles:${overview.profiles.length}`);
+  }
+  segments.push(`refresh:${refreshCount}`);
+  if (refreshing) {
+    segments.push("busy:refresh");
+  }
+
+  return segments.join(" | ");
+}
 
 export function App() {
   const [overview, setOverview] = useState<ProfilesOverviewPayload | null>(null);
@@ -61,91 +113,182 @@ export function App() {
   const [switchPreview, setSwitchPreview] = useState<SwitchPreviewPayload | null>(null);
   const [switchLoading, setSwitchLoading] = useState(false);
   const [switchExecuting, setSwitchExecuting] = useState(false);
-
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [toastCounter, setToastCounter] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [recentActions, setRecentActions] = useState<string[]>([]);
+  const [refreshCount, setRefreshCount] = useState(0);
   const [reloadingTargets, setReloadingTargets] = useState<Set<string>>(new Set());
-  const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  const [smokeMode, setSmokeMode] = useState(false);
+  const [smokeSequenceStarted, setSmokeSequenceStarted] = useState(false);
+  const [smokeEvent, setSmokeEvent] = useState("boot");
+
+  const { settings, updateSettings } = useAppSettings();
+  const { recentActions, addRecent } = useRecentActions();
+  const { toasts, addToast, removeToast, clearToasts } = useToasts();
 
   const locale: Locale = settings.locale;
 
-  function updateSettings(patch: Partial<AppSettings>) {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      localStorage.setItem("codex-switcher-settings", JSON.stringify(next));
-      return next;
+  async function bootstrapShell() {
+    const snapshot = await bootstrapWorkspaceShell({
+      overview,
+      activeStatus,
+      reloadTargets,
+      selectedLabel,
     });
+
+    setOverview(snapshot.overview);
+    setActiveStatus(snapshot.activeStatus);
+    setReloadTargets(snapshot.reloadTargets);
+    setSelectedLabel(snapshot.selectedLabel);
+    setCommandError(snapshot.commandError);
+    setPhase(snapshot.phase);
+    setSmokeEvent(snapshot.ok ? "bootstrap-ready" : "bootstrap-partial");
+
+    return snapshot;
   }
-
-  function addRecent(action: string) {
-    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setRecentActions((prev) => [`${ts} ${action}`, ...prev].slice(0, 5));
-  }
-
-  function addToast(status: Toast["status"], title: string, detail: string, hints: string[] = []) {
-    const id = toastCounter + 1;
-    setToastCounter(id);
-    setToasts((prev) => [...prev, { id, status, title, detail, hints }]);
-    setTimeout(() => { setToasts((prev) => prev.filter((t) => t.id !== id)); }, 5000);
-  }
-
-  function removeToast(id: number) {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }
-
-  async function bootstrapShell(): Promise<boolean> {
-    const [overviewResult, activeStatusResult, reloadTargetsResult] = await Promise.all([
-      loadProfilesOverview(),
-      loadActiveProfileStatus(),
-      loadReloadTargets()
-    ]);
-
-    let hasData = false;
-    let lastError: DesktopCommandError | null = null;
-
-    if (overviewResult.ok) { setOverview(overviewResult.data); hasData = true; }
-    else { lastError = overviewResult.error; }
-
-    if (activeStatusResult.ok) { setActiveStatus(activeStatusResult.data); setSelectedLabel(activeStatusResult.data.activeProfile); hasData = true; }
-    else { lastError = activeStatusResult.error; }
-
-    if (reloadTargetsResult.ok) { setReloadTargets(reloadTargetsResult.data); }
-    else { lastError = reloadTargetsResult.error; }
-
-    setCommandError(lastError);
-    setPhase(hasData ? "ready" : "error");
-    return lastError === null;
-  }
-
-  useEffect(() => { bootstrapShell(); }, []);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        if (switchPreview) setSwitchPreview(null);
-        else if (toasts.length > 0) setToasts([]);
+    void bootstrapShell();
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (switchPreview) {
+          setSwitchPreview(null);
+        } else if (toasts.length > 0) {
+          clearToasts();
+        }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "r") { e.preventDefault(); handleRefresh(); }
-      if ((e.ctrlKey || e.metaKey) && e.key === "1") { e.preventDefault(); setActiveView("profiles"); }
-      if ((e.ctrlKey || e.metaKey) && e.key === "2") { e.preventDefault(); setActiveView("switch"); }
-      if ((e.ctrlKey || e.metaKey) && e.key === "3") { e.preventDefault(); setActiveView("reload"); }
-      if ((e.ctrlKey || e.metaKey) && e.key === "4") { e.preventDefault(); setActiveView("settings"); }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "r") {
+        event.preventDefault();
+        void handleRefresh();
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "1") {
+        event.preventDefault();
+        setActiveView("profiles");
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "2") {
+        event.preventDefault();
+        setActiveView("switch");
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "3") {
+        event.preventDefault();
+        setActiveView("reload");
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "4") {
+        event.preventDefault();
+        setActiveView("settings");
+      }
     }
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [switchPreview, toasts]);
+  }, [clearToasts, switchPreview, toasts.length]);
+
+  useEffect(() => {
+    document.title = buildWindowTitle({
+      phase,
+      activeView,
+      overview,
+      activeStatus,
+      selectedLabel,
+      refreshing,
+      refreshCount,
+      commandError,
+    });
+  }, [
+    activeStatus,
+    activeView,
+    commandError,
+    overview,
+    phase,
+    refreshCount,
+    refreshing,
+    selectedLabel,
+  ]);
+
+  useEffect(() => {
+    if (phase === "loading") {
+      return;
+    }
+
+    let ignore = false;
+
+    async function syncSmokeTrace() {
+      const wroteTrace = await recordSmokeTrace({
+        phase,
+        view: titleViewToken(activeView),
+        activeProfile: activeStatus?.activeProfile ?? null,
+        selectedLabel: selectedLabel || null,
+        profileCount: overview?.profiles.length ?? 0,
+        refreshCount,
+        event: smokeEvent,
+      });
+
+      if (!ignore && wroteTrace && !smokeMode) {
+        setSmokeMode(true);
+      }
+    }
+
+    void syncSmokeTrace();
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    activeStatus,
+    activeView,
+    overview,
+    phase,
+    refreshCount,
+    selectedLabel,
+    smokeEvent,
+    smokeMode,
+  ]);
+
+  useEffect(() => {
+    if (!smokeMode || smokeSequenceStarted || phase !== "ready") {
+      return;
+    }
+
+    setSmokeSequenceStarted(true);
+
+    async function runSmokeSequence() {
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      setSmokeEvent("switch-view");
+      setActiveView("switch");
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      setSmokeEvent("reload-view");
+      setActiveView("reload");
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      await handleRefresh();
+    }
+
+    void runSmokeSequence();
+  }, [phase, smokeMode, smokeSequenceStarted]);
 
   const sortedProfiles = sortProfiles(overview?.profiles ?? [], settings.sortMode);
-  const selectedProfile = sortedProfiles.find((p) => p.label === selectedLabel) ?? null;
-  const enrichedProfile: SwitchProfilePayload | null = switchPreview?.profiles.find((p) => p.label === selectedLabel) ?? null;
+  const selectedProfile =
+    sortedProfiles.find((profile) => profile.label === selectedLabel) ?? null;
+  const enrichedProfile: SwitchProfilePayload | null =
+    switchPreview?.profiles.find((profile) => profile.label === selectedLabel) ?? null;
 
   async function handleRefresh() {
     setRefreshing(true);
-    const ok = await bootstrapShell();
+    const snapshot = await bootstrapShell();
     setRefreshing(false);
-    addToast(ok ? "success" : "warning", t(locale, ok ? "refreshed" : "partialRefresh"), t(locale, ok ? "profileDataUpdated" : "someDataCouldNotBeLoaded"));
+    setRefreshCount((prev) => prev + 1);
+    setSmokeEvent(snapshot.ok ? "refresh-success" : "refresh-warning");
+
+    addToast(
+      snapshot.ok ? "success" : "warning",
+      t(locale, snapshot.ok ? "refreshed" : "partialRefresh"),
+      t(locale, snapshot.ok ? "profileDataUpdated" : "someDataCouldNotBeLoaded"),
+    );
     addRecent(t(locale, "refreshedProfiles"));
   }
 
@@ -153,71 +296,125 @@ export function App() {
     setSwitchLoading(true);
     const result = await previewSwitch(selectedLabel);
     setSwitchLoading(false);
-    if (result.ok) { setSwitchPreview(result.data); setCommandError(null); }
-    else { setCommandError(result.error); addToast("error", t(locale, "previewFailed"), result.error.message); }
+
+    if (result.ok) {
+      setSwitchPreview(result.data);
+      setCommandError(null);
+      setSmokeEvent("preview-ready");
+      return;
+    }
+
+    setCommandError(result.error);
+    addToast("error", t(locale, "previewFailed"), result.error.message);
   }
 
   async function handleQuickSwitch(profileLabel: string) {
     setSwitchLoading(true);
     const result = await previewSwitch(profileLabel);
     setSwitchLoading(false);
+
     if (result.ok) {
       setSwitchPreview(result.data);
       setSelectedLabel(profileLabel);
       setCommandError(null);
-    } else {
-      setCommandError(result.error);
-      addToast("error", t(locale, "previewFailed"), result.error.message);
+      setSmokeEvent("quick-switch-preview");
+      return;
     }
+
+    setCommandError(result.error);
+    addToast("error", t(locale, "previewFailed"), result.error.message);
   }
 
   async function handleExecuteSwitch(profileLabel: string) {
     setSwitchExecuting(true);
     const result = await executeSwitch(profileLabel);
     setSwitchExecuting(false);
-    if (result.ok) {
-      addToast(result.data.success ? "success" : "warning", t(locale, result.data.success ? "switched" : "switchIncomplete"), result.data.summary, result.data.manualHints);
-      setSwitchPreview(null);
-      addRecent(`${t(locale, "switched")} → ${profileLabel}`);
-      await bootstrapShell();
-      if (settings.reloadAfterSwitch && reloadTargets?.targets) {
-        const targets = settings.primaryReloadTarget === "all"
-          ? reloadTargets.targets
-          : reloadTargets.targets.filter((tt) => tt.id === settings.primaryReloadTarget);
-        for (const target of targets) {
-          void handleReloadTarget(target);
-        }
-      }
-    } else {
+
+    if (!result.ok) {
       addToast("error", t(locale, "switchFailed"), result.error.message);
+      return;
+    }
+
+    addToast(
+      result.data.success ? "success" : "warning",
+      t(locale, result.data.success ? "switched" : "switchIncomplete"),
+      result.data.summary,
+      result.data.manualHints,
+    );
+    setSwitchPreview(null);
+    setSmokeEvent(result.data.success ? "switch-executed" : "switch-warning");
+    addRecent(`${t(locale, "switched")} -> ${profileLabel}`);
+    const refreshedShell = await bootstrapShell();
+
+    if (settings.reloadAfterSwitch) {
+      const targets = selectReloadTargets(
+        refreshedShell.reloadTargets,
+        settings.primaryReloadTarget,
+      );
+
+      for (const target of targets) {
+        void handleReloadTarget(target);
+      }
     }
   }
 
   async function handleReloadTarget(target: ReloadTargetInfo) {
     setReloadingTargets((prev) => new Set(prev).add(target.id));
     const result = await reloadTarget(target.id);
-    setReloadingTargets((prev) => { const next = new Set(prev); next.delete(target.id); return next; });
+    setReloadingTargets((prev) => {
+      const next = new Set(prev);
+      next.delete(target.id);
+      return next;
+    });
+
     if (result.ok) {
-      addToast(result.data.restarted ? "success" : result.data.attempted ? "warning" : "error", target.label, result.data.message, result.data.manualHints);
+      addToast(
+        result.data.restarted
+          ? "success"
+          : result.data.attempted
+            ? "warning"
+            : "error",
+        target.label,
+        result.data.message,
+        result.data.manualHints,
+      );
       setCommandError(null);
+      setSmokeEvent(
+        result.data.restarted
+          ? `reload-${target.id}-success`
+          : `reload-${target.id}-warning`,
+      );
       addRecent(`${t(locale, "reload")} ${target.label}`);
-    } else {
-      addToast("error", t(locale, "reloadFailed"), result.error.message);
+      return;
     }
+
+    addToast("error", t(locale, "reloadFailed"), result.error.message);
   }
 
   function handleReserve(label: string, reserve: boolean) {
-    if (!overview) return;
-    const updated = {
+    if (!overview) {
+      return;
+    }
+
+    setOverview({
       ...overview,
-      profiles: overview.profiles.map((p) =>
-        p.label === label
-          ? { ...p, reserved: reserve, status: reserve ? "reserved" as const : "available" as const }
-          : p
+      profiles: overview.profiles.map((profile) =>
+        profile.label === label
+          ? {
+              ...profile,
+              reserved: reserve,
+              status: reserve ? "reserved" : "available",
+            }
+          : profile,
       ),
-    };
-    setOverview(updated);
-    addToast("success", t(locale, reserve ? "reserveSuccess" : "unreserveSuccess"), t(locale, reserve ? "profileReserved" : "profileUnreserved"));
+    });
+
+    addToast(
+      "warning",
+      t(locale, reserve ? "reserveSuccess" : "unreserveSuccess"),
+      t(locale, "localReserveNote"),
+      [t(locale, reserve ? "profileReserved" : "profileUnreserved")],
+    );
     addRecent(`${reserve ? t(locale, "reserve") : t(locale, "unreserve")} ${label}`);
   }
 
@@ -240,10 +437,20 @@ export function App() {
           <div className="error-screen__icon">!</div>
           <h2>{t(locale, "unableToConnect")}</h2>
           <p className="error-screen__detail">
-            {commandError ? `${commandError.code}: ${commandError.message}` : t(locale, "bridgeNotResponding")}
+            {commandError
+              ? `${commandError.code}: ${commandError.message}`
+              : t(locale, "bridgeNotResponding")}
           </p>
           {commandError?.retryable !== false && (
-            <button className="btn btn--primary" onClick={() => { setPhase("loading"); setCommandError(null); bootstrapShell(); }} type="button">
+            <button
+              className="btn btn--primary"
+              onClick={() => {
+                setPhase("loading");
+                setCommandError(null);
+                void bootstrapShell();
+              }}
+              type="button"
+            >
               {t(locale, "retry")}
             </button>
           )}
@@ -271,6 +478,7 @@ export function App() {
                 executing={switchExecuting}
                 onExecute={(label) => void handleExecuteSwitch(label)}
                 onDismiss={() => setSwitchPreview(null)}
+                locale={locale}
               />
             </>
           )}
@@ -344,6 +552,7 @@ export function App() {
             executing={switchExecuting}
             onExecute={(label) => void handleExecuteSwitch(label)}
             onDismiss={() => setSwitchPreview(null)}
+            locale={locale}
           />
         )}
       </>
@@ -358,7 +567,9 @@ export function App() {
           {t(locale, "appName")}
         </div>
         <div className="titlebar__right">
-          <span className="titlebar__workspace">{overview?.workspaceLabel ?? t(locale, "workspace")}</span>
+          <span className="titlebar__workspace">
+            {overview?.workspaceLabel ?? t(locale, "workspace")}
+          </span>
           <button
             className={`titlebar__btn${refreshing ? " titlebar__btn--spinning" : ""}`}
             onClick={() => void handleRefresh()}
@@ -373,21 +584,28 @@ export function App() {
       </header>
 
       <main className="workspace">
-        <ActivityBar activeView={activeView} onViewChange={setActiveView} locale={locale} />
+        <ActivityBar
+          activeView={activeView}
+          onViewChange={setActiveView}
+          locale={locale}
+        />
 
         <ProfileList
           profiles={sortedProfiles}
           selectedLabel={selectedLabel}
           activeProfile={activeStatus?.activeProfile ?? ""}
-          onSelect={(label) => { setSelectedLabel(label); if (activeView !== "profiles") setActiveView("profiles"); }}
+          onSelect={(label) => {
+            setSelectedLabel(label);
+            if (activeView !== "profiles") {
+              setActiveView("profiles");
+            }
+          }}
           onReserve={handleReserve}
           recentActions={recentActions}
           locale={locale}
         />
 
-        <section className="main">
-          {renderMainContent()}
-        </section>
+        <section className="main">{renderMainContent()}</section>
       </main>
 
       <StatusStrip
@@ -400,7 +618,7 @@ export function App() {
         locale={locale}
       />
 
-      <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      <ToastContainer toasts={toasts} onDismiss={removeToast} locale={locale} />
     </div>
   );
 }

@@ -1,13 +1,21 @@
 use codex_switcher::switcher::{
     ActiveProfileStatusPayload, ProfilesOverviewPayload, ReloadAppTarget,
-    ReloadOutcomePayload, SwitchPreviewPayload, active_profile_status, ensure_paths,
-    execute_reload_outcome, profiles_overview, resolve_paths, switch_preview,
+    ReloadOutcomePayload, SwitchExecutionPayload, SwitchPreviewPayload,
+    active_profile_status, ensure_paths, execute_reload_outcome, execute_switch,
+    profiles_overview, resolve_paths, switch_preview, write_atomic,
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitchPreviewRequest {
+    profile_label: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitchExecuteRequest {
     profile_label: String,
 }
 
@@ -30,6 +38,18 @@ pub struct ReloadTargetsPayload {
 #[serde(rename_all = "camelCase")]
 pub struct ReloadTargetRequest {
     target: String,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmokeTraceSnapshot {
+    phase: String,
+    view: String,
+    active_profile: Option<String>,
+    selected_label: Option<String>,
+    profile_count: usize,
+    refresh_count: usize,
+    event: String,
 }
 
 #[derive(Serialize)]
@@ -84,6 +104,10 @@ fn switcher_paths() -> Result<codex_switcher::switcher::Paths, String> {
     Ok(paths)
 }
 
+fn smoke_trace_path(paths: &codex_switcher::switcher::Paths) -> PathBuf {
+    paths.codex.join("desktop-smoke-trace.json")
+}
+
 #[tauri::command]
 pub fn desktop_profiles_overview() -> DesktopCommandResult<ProfilesOverviewPayload> {
     match switcher_paths().and_then(|paths| profiles_overview(&paths)) {
@@ -120,6 +144,56 @@ pub fn desktop_switch_preview(
         Ok(payload) => DesktopCommandResult::ok(payload),
         Err(message) => {
             DesktopCommandResult::err("switcher-preview-failed", &message, true)
+        }
+    }
+}
+
+#[tauri::command]
+pub fn desktop_switch_execute(
+    request: SwitchExecuteRequest,
+) -> DesktopCommandResult<SwitchExecutionPayload> {
+    if request.profile_label.trim().is_empty() {
+        return DesktopCommandResult::err(
+            "missing-profile-selection",
+            "Choose a profile before executing a switch.",
+            true,
+        );
+    }
+
+    match switcher_paths().and_then(|paths| execute_switch(&paths, &request.profile_label, None)) {
+        Ok(payload) => DesktopCommandResult::ok(payload),
+        Err(message) => {
+            DesktopCommandResult::err("switcher-execute-failed", &message, true)
+        }
+    }
+}
+
+#[tauri::command]
+pub fn desktop_smoke_mode() -> bool {
+    std::env::var("CODEX_SWITCHER_SMOKE_AUTOMATION")
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            normalized == "1" || normalized == "true" || normalized == "yes"
+        })
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn desktop_record_smoke_trace(snapshot: SmokeTraceSnapshot) -> DesktopCommandResult<bool> {
+    if !desktop_smoke_mode() {
+        return DesktopCommandResult::ok(false);
+    }
+
+    match switcher_paths().and_then(|paths| {
+        let trace_path = smoke_trace_path(&paths);
+        let payload = serde_json::to_vec_pretty(&snapshot)
+            .map_err(|error| format!("failed to serialize smoke trace: {error}"))?;
+        write_atomic(&trace_path, &payload)?;
+        Ok(true)
+    }) {
+        Ok(written) => DesktopCommandResult::ok(written),
+        Err(message) => {
+            DesktopCommandResult::err("smoke-trace-write-failed", &message, true)
         }
     }
 }
