@@ -37,4 +37,4 @@
 - `linear-kgsedds` remains the active story tracker; this file mirrors the intake-worktree replan state.
 - Epic 2 is complete as of 2026-03-09: US002-US005 are merged to `develop` and reflected as `Done` in `linear-kgsedds`.
 - Intake-only artifacts `apps/desktop/src/_backup/*`, `attached_assets/*`, `.replit`, and `replit.md` are excluded from Epic 2 story scope unless separately planned.
-- Public publication is not yet approved. Epic 3 tracks the follow-up hardening needed before opening the repository broadly.
+- Epic 3 completed the artifact-hygiene and history-aware secret-scan gates on 2026-03-09. The repository now has a tracked-file cleanup pass and a reproducible `gitleaks git` pass with no leaks found.
