@@ -1,6 +1,6 @@
 # US006: Remove intake artifacts and verify public-safe tracked files
 
-**Status:** In Progress
+**Status:** Done
 **Epic:** Epic 3
 **Labels:** user-story
 **Created:** 2026-03-09

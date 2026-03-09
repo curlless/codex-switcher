@@ -6,10 +6,6 @@
 
 ### In Progress
 
-- **Epic 3: Public Release Hardening**
-  - [book] [US006: Remove intake artifacts and verify public-safe tracked files](epics/epic-3-public-release-hardening/stories/us006-remove-intake-artifacts-and-verify-public-safe-tracked-files/story.md) [IN PROGRESS]
-    - [gear] T001-T003
-
 ### In Review
 
 - None
@@ -29,6 +25,12 @@
     - [gear] T001-T003; Stage 3 quality gate on 2026-03-09 returned CONCERNS (quality score 90) because build/static review passed but no deeper desktop test task was in the active execution scope
   - [book] [US005: Package and verify the Windows desktop executable](epics/epic-2-desktop-gui-shell/stories/us005-package-and-verify-the-windows-desktop-executable/story.md) [APPROVED]
     - [gear] T001-T004; story-level quality boundary passed with repository-backed MSI/NSIS artifacts and packaged-runtime smoke evidence
+
+- **Epic 3: Public Release Hardening**
+  - [book] [US006: Remove intake artifacts and verify public-safe tracked files](epics/epic-3-public-release-hardening/stories/us006-remove-intake-artifacts-and-verify-public-safe-tracked-files/story.md) [APPROVED]
+    - [gear] T001-T003; merged to `develop` with intake-only tracked artifacts removed and a recorded publication-focused tracked-file sweep
+  - [book] [US007: Resolve history-aware secret scan blockers for public publication](epics/epic-3-public-release-hardening/stories/us007-resolve-history-aware-secret-scan-blockers-for-public-publication/story.md) [APPROVED]
+    - [gear] T001-T003; reproducible `gitleaks git` pass now returns no leaks after a narrow historical test-fixture allowlist
 
 ## Notes
 

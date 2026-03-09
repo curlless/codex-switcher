@@ -1,0 +1,14 @@
+title = "codex-switcher gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Historical test placeholder values in tests/cli.rs"
+paths = [
+  '''tests/cli\.rs''',
+]
+regexes = [
+  '''api-key-hidden''',
+  '''api-key-sk-proj-hidden1234567890''',
+]
