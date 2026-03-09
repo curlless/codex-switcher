@@ -20,6 +20,11 @@
 /memory-bank
 *.tar.gz
 .DS_Store
+/attached_assets
+/apps/desktop/src/_backup
+/.replit
+/replit.md
+/gitleaks*.json
 
 # Python
 __pycache__/

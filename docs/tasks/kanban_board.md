@@ -6,6 +6,10 @@
 
 ### In Progress
 
+- **Epic 3: Public Release Hardening**
+  - [book] [US006: Remove intake artifacts and verify public-safe tracked files](epics/epic-3-public-release-hardening/stories/us006-remove-intake-artifacts-and-verify-public-safe-tracked-files/story.md) [IN PROGRESS]
+    - [gear] T001-T003
+
 ### In Review
 
 - None
@@ -31,3 +35,4 @@
 - `linear-kgsedds` remains the active story tracker; this file mirrors the intake-worktree replan state.
 - Epic 2 is complete as of 2026-03-09: US002-US005 are merged to `develop` and reflected as `Done` in `linear-kgsedds`.
 - Intake-only artifacts `apps/desktop/src/_backup/*`, `attached_assets/*`, `.replit`, and `replit.md` are excluded from Epic 2 story scope unless separately planned.
+- Public publication is not yet approved. Epic 3 tracks the follow-up hardening needed before opening the repository broadly.
