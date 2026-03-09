@@ -1,22 +1,23 @@
 # Pipeline Readiness Report
 
-- Prepared at: `2026-03-07T06:41:16.9614405+05:00`
+- Prepared at: `2026-03-09T18:29:59.4480308+05:00`
 - Mode: `standard`
 - Selected provider: `file`
-- Rationale: Linear MCP is reachable in the current Codex session, but the current `DSG` workflow still has a status-model mismatch, so the local kanban board is the active safe backend for `ln-1000`.
+- Rationale: `linear-kgsedds` is reachable in the current Codex session, but the available workspace resolves to team `KGS` (`Kgsedds`) and there is no repository-specific `ln-1000` workflow mapping for this worktree, so the local kanban board is the active safe backend.
 
 ## Readiness Table
 
 | Check | Status | Details |
 | --- | --- | --- |
-| Git repository available | PASS | Repository root detected at `F:\cursor projects\codex-switcher`. |
+| Git repository available | PASS | Git worktree detected at `F:\cursor projects\codex-switcher\.worktrees\gui-intake`. |
 | Provider resolved | PASS | Using `file`; local board is the active pipeline backend. |
-| Kanban source ready | PASS | [`docs/tasks/kanban_board.md`](/F:/cursor%20projects/codex-switcher/docs/tasks/kanban_board.md) is parseable and contains a current story seed. |
-| Pipeline state scaffold present | PASS | Created [`state.json`](/F:/cursor%20projects/codex-switcher/.pipeline/state.json) and `.pipeline/logs/`. |
+| Kanban source ready | PASS | [`docs/tasks/kanban_board.md`](/F:/cursor%20projects/codex-switcher/.worktrees/gui-intake/docs/tasks/kanban_board.md) is parseable and safe to use as the active local pipeline board. |
+| Pipeline state scaffold present | PASS | [`.pipeline/state.json`](/F:/cursor%20projects/codex-switcher/.worktrees/gui-intake/.pipeline/state.json) is valid JSON and `.pipeline/logs/` exists. |
 | Required ln skills discoverable | PASS | `ln-300`, `ln-310`, `ln-400`, `ln-500`, `ln-1000` are discoverable locally, including marketplace cache paths. |
-| Session-native guardrails documented | PASS | Added provider and gate policy notes in [`docs/tools_config.md`](/F:/cursor%20projects/codex-switcher/docs/tools_config.md). |
+| Session-native guardrails documented | PASS | Added provider and gate policy notes in [`docs/tools_config.md`](/F:/cursor%20projects/codex-switcher/.worktrees/gui-intake/docs/tools_config.md). |
 | Multi-agent enabled in Codex environment | PASS | Subagent tooling is available in the current session. |
-| Linear workflow compatibility | WARN | Team `DSG` currently has `In Review`, but `ln-1000` expects `To Review` and `To Rework`. This is acceptable for now because the active provider is `file`. |
+| Linear workflow mapping | WARN | `linear-kgsedds` is reachable, but the available workspace resolves to `Kgsedds` (`KGS`) rather than a repository-specific pipeline team, so `linear` is not a safe primary provider here. |
+| Existing pipeline state freshness | WARN | [`.pipeline/state.json`](/F:/cursor%20projects/codex-switcher/.worktrees/gui-intake/.pipeline/state.json) currently reflects the completed `US001` run from `2026-03-07`; it is structurally valid but historical. |
 
 ## Unresolved Blockers
 
@@ -24,11 +25,11 @@
 
 ## Linear Follow-up
 
-- Team `DSG` is still not workflow-compatible with the current `ln-1000` expectations.
-- Status mismatch:
-  - present: `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`
-  - missing: `To Review`, `To Rework`
-- Fix that before switching the active provider back to `linear`.
+- If this repository should use Linear as the primary task backend, provision or map a repository-specific workspace/team first.
+- Current reachable workspace evidence:
+  - workspace/team: `Kgsedds` / `KGS`
+  - repo mapping: not detected in this worktree
+- Keep `file` as the active provider until that mapping exists and is documented.
 
 ## Session-Native Guardrails
 
@@ -43,4 +44,4 @@
 run skill ln-1000-pipeline-orchestrator
 ```
 
-Current local file-backed story in progress: `US001`.
+Current `.pipeline/state.json` snapshot is preserved historical data from `US001`; the next `ln-1000` run should select the next active story from the local board.

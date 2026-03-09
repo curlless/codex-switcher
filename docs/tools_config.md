@@ -3,9 +3,9 @@
 ## Task Management
 
 - Provider: `file`
-- Rationale: Linear MCP is reachable, but the current `DSG` workflow is incompatible with `ln-1000` stage expectations, so the local kanban board is the active safe backend.
-- Workspace signal: team `DSG` (`Dsgsg`) is available but not currently used as the primary orchestration backend.
-- File fallback: [`docs/tasks/kanban_board.md`](/F:/cursor%20projects/codex-switcher/docs/tasks/kanban_board.md)
+- Rationale: `linear-kgsedds` is reachable, but the available workspace resolves to team `KGS` (`Kgsedds`) and there is no repository-specific `ln-1000` workflow mapping for this worktree, so the local kanban board remains the active safe backend.
+- Workspace signal: accessible Linear workspace `Kgsedds` (`KGS`) is available but not mapped as this repository's pipeline source of truth.
+- File fallback: [`docs/tasks/kanban_board.md`](/F:/cursor%20projects/codex-switcher/.worktrees/gui-intake/docs/tasks/kanban_board.md)
 
 ## Pipeline Runtime
 
@@ -18,5 +18,5 @@
 
 - This file is intentionally minimal and non-destructive.
 - Add provider-specific operational details here instead of rewriting task history files.
-- Linear team `DSG` still uses `In Review` and is missing `To Review` / `To Rework`.
-- Until that workflow is fixed, session-native pipeline execution should use the local file board.
+- `.pipeline/state.json` is preserved as historical state until the next session-native pipeline run rewrites it.
+- Until a repository-specific Linear workflow is provisioned for this worktree, session-native pipeline execution should use the local file board.

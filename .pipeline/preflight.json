@@ -1,13 +1,13 @@
 {
-  "prepared_at": "2026-03-07T06:41:16.9614405+05:00",
+  "prepared_at": "2026-03-09T18:29:59.4480308+05:00",
   "mode": "standard",
   "provider": "file",
-  "provider_rationale": "Linear MCP is reachable, but the current DSG workflow is not compatible with ln-1000 stage expectations, so the local kanban board is selected as the active backend.",
+  "provider_rationale": "linear-kgsedds is reachable, but the available workspace resolves to team KGS (Kgsedds) and there is no repository-specific ln-1000 workflow mapping for this worktree, so the local kanban board remains the active safe backend.",
   "checks": [
     {
       "name": "git_repository_available",
       "status": "PASS",
-      "details": "Repository root detected at F:/cursor projects/codex-switcher."
+      "details": "Git worktree detected at F:/cursor projects/codex-switcher/.worktrees/gui-intake."
     },
     {
       "name": "provider_resolved",
@@ -17,12 +17,12 @@
     {
       "name": "kanban_source_ready",
       "status": "PASS",
-      "details": "docs/tasks/kanban_board.md is present and now contains a runnable local story."
+      "details": "docs/tasks/kanban_board.md is present and parseable as the active local pipeline board."
     },
     {
       "name": "pipeline_state_scaffold_present",
       "status": "PASS",
-      "details": "Created .pipeline/state.json and .pipeline/logs/."
+      "details": ".pipeline/state.json is valid JSON and .pipeline/logs/ exists."
     },
     {
       "name": "required_ln_skills_discoverable",
@@ -35,11 +35,20 @@
       "details": "Codex session exposes subagent tooling."
     },
     {
-      "name": "linear_workflow_compatibility",
+      "name": "linear_workflow_mapping",
       "status": "WARN",
-      "details": "Team DSG still has 'In Review' and is missing 'To Review'/'To Rework', but this no longer blocks session-native execution because the active provider is file."
+      "details": "linear-kgsedds is reachable, but the available workspace resolves to Kgsedds/KGS rather than a repository-specific pipeline team, so linear is not a safe primary provider here."
+    },
+    {
+      "name": "pipeline_state_freshness",
+      "status": "WARN",
+      "details": ".pipeline/state.json currently reflects the completed US001 run from 2026-03-07; it is structurally valid but historical."
     }
   ],
   "unresolved_blockers": [],
+  "warnings": [
+    "Linear access is available, but not to a repository-specific pipeline workspace/team for this worktree.",
+    "The preserved .pipeline/state.json snapshot is historical and will need to be superseded by the next ln-1000 run."
+  ],
   "next_command": "run skill ln-1000-pipeline-orchestrator"
 }
