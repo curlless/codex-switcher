@@ -29,5 +29,5 @@
 ## Notes
 
 - `linear-kgsedds` remains the active story tracker; this file mirrors the intake-worktree replan state.
-- US004 and US005 were returned to Backlog on 2026-03-09 because the imported branch rewrote them as completion reports without sufficient validation evidence.
+- Epic 2 is complete as of 2026-03-09: US002-US005 are merged to `develop` and reflected as `Done` in `linear-kgsedds`.
 - Intake-only artifacts `apps/desktop/src/_backup/*`, `attached_assets/*`, `.replit`, and `replit.md` are excluded from Epic 2 story scope unless separately planned.
