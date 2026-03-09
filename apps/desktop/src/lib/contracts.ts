@@ -1,4 +1,20 @@
 export type ProfileStatus = "active" | "available" | "reserved";
+export type AvailabilityTag =
+  | "tokenUnreadable"
+  | "apiKeyUnsupported"
+  | "freePlanUnsupported"
+  | "missingAccessToken"
+  | "missingAccountId"
+  | "usageFetchError"
+  | "missingFiveHourWindow"
+  | "missingSevenDayWindow";
+
+export interface AvailabilityInfo {
+  tag: AvailabilityTag;
+  label: string;
+  reason: string;
+  retryable: boolean;
+}
 
 export type ReloadTarget = "codex" | "cursor";
 
@@ -25,6 +41,7 @@ export interface ProfileCard {
   status: ProfileStatus;
   sevenDayRemaining: string;
   fiveHourRemaining: string;
+  availability: AvailabilityInfo | null;
 }
 
 export interface ProfilesOverviewPayload {
@@ -54,7 +71,7 @@ export interface SwitchProfilePayload {
   rank: number | null;
   sevenDayRemaining: string;
   fiveHourRemaining: string;
-  unavailableReason: string | null;
+  availability: AvailabilityInfo | null;
 }
 
 export interface SwitchPreviewPayload {

@@ -6,8 +6,6 @@
 
 ### In Progress
 
-- None
-
 ### In Review
 
 - None
@@ -27,6 +25,8 @@
     - [gear] T001-T003; Stage 3 quality gate on 2026-03-09 returned CONCERNS (quality score 90) because build/static review passed but no deeper desktop test task was in the active execution scope
   - [book] [US005: Package and verify the Windows desktop executable](epics/epic-2-desktop-gui-shell/stories/us005-package-and-verify-the-windows-desktop-executable/story.md) [APPROVED]
     - [gear] T001-T004; story-level quality boundary passed with repository-backed MSI/NSIS artifacts and packaged-runtime smoke evidence
+  - [book] [US009: Replace coarse UNAVAILABLE with precise availability tags](epics/epic-2-desktop-gui-shell/stories/us009-replace-coarse-unavailable-with-precise-availability-tags/story.md) [APPROVED]
+    - [gear] T001-T004; Stage 3 quality gate on 2026-03-10 returned CONCERNS (quality score 90) with no required rework tasks after the shared Rust, CLI, and GUI availability-tag rollout checks all passed
 
 - **Epic 3: Public Release Hardening**
   - [book] [US006: Remove intake artifacts and verify public-safe tracked files](epics/epic-3-public-release-hardening/stories/us006-remove-intake-artifacts-and-verify-public-safe-tracked-files/story.md) [APPROVED]
@@ -38,8 +38,9 @@
 
 ## Notes
 
-- `linear-kgsedds` remains the active story tracker; this file mirrors the intake-worktree replan state.
+- `linear-kgsedds` remains the active story and task tracker; this file mirrors the current worktree state after tracker updates land.
 - Epic 2 is complete as of 2026-03-09: US002-US005 are merged to `develop` and reflected as `Done` in `linear-kgsedds`.
+- Epic 2 reopened on 2026-03-10 for US009, a post-release shared-runtime taxonomy update covering precise availability/error tags across the Rust seam, CLI rendering, and GUI surfaces, and was re-closed the same day after the rollout checks passed.
 - Intake-only artifacts `apps/desktop/src/_backup/*`, `attached_assets/*`, `.replit`, and `replit.md` are excluded from Epic 2 story scope unless separately planned.
 - Epic 3 completed the artifact-hygiene and history-aware secret-scan gates on 2026-03-09. The repository now has a tracked-file cleanup pass and a reproducible `gitleaks git` pass with no leaks found.
 - The latest post-release runtime hotfix lives under US003/T006 because the recoverable `UNAVAILABLE` defect was inside the shared switcher service seam rather than the GUI-only shell.

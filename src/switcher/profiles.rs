@@ -45,6 +45,7 @@ const RESERVED_DISPLAY_MARKER: &str = " [reserved]";
 mod profile_priority;
 #[cfg(all(test, feature = "switcher-unit-tests"))]
 use profile_priority::{PriorityRow, PriorityState, PriorityUsage, priority_row_cmp};
+pub use profile_priority::AvailabilityPayload;
 use profile_priority::{
     best_ready_row, ordered_profiles_by_usage, priority_rows, render_priority_table,
 };

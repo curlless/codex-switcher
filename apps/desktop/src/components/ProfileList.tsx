@@ -123,6 +123,11 @@ export function ProfileList({
                               {t(locale, "reserved").toLowerCase()}
                             </span>
                           )}
+                          {profile.availability && (
+                            <span className="profile-item__availability-badge">
+                              {profile.availability.label}
+                            </span>
+                          )}
                         </span>
                         <span className="profile-item__meta">
                           <span>{profile.plan}</span>

@@ -50,7 +50,7 @@ export function ProfileDetail({
   }
 
   const recommended = enriched?.recommended ?? false;
-  const unavailableReason = enriched?.unavailableReason ?? null;
+  const availability = enriched?.availability ?? profile.availability ?? null;
   const pct7d = parsePercent(profile.sevenDayRemaining);
   const pct5h = parsePercent(profile.fiveHourRemaining);
   const statusTag =
@@ -84,6 +84,13 @@ export function ProfileDetail({
           </span>
           <span className="tag tag--plan">{profile.plan}</span>
           {recommended && <span className="tag tag--recommended">{t(locale, "recommended")}</span>}
+          {availability && (
+            <span
+              className={`tag ${availability.retryable ? "tag--availability-retryable" : "tag--availability-hard"}`}
+            >
+              {availability.label}
+            </span>
+          )}
         </div>
       </div>
 
@@ -139,10 +146,10 @@ export function ProfileDetail({
         </>
       )}
 
-      {unavailableReason && (
+      {availability && (
         <div className="detail__warning">
           <span aria-hidden="true">!</span>
-          {unavailableReason}
+          {availability.reason}
         </div>
       )}
 

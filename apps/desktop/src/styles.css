@@ -518,6 +518,16 @@ button:focus-visible {
   color: var(--green);
 }
 
+.tag--availability-retryable {
+  background: var(--yellow-dim);
+  color: var(--yellow);
+}
+
+.tag--availability-hard {
+  background: var(--red-dim);
+  color: var(--red);
+}
+
 .tag--rank {
   color: var(--text-dim);
   font-size: 11px;
@@ -1005,6 +1015,17 @@ button:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--peach);
+  background: var(--yellow-dim);
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 1.6;
+}
+
+.profile-item__availability-badge {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--yellow);
   background: var(--yellow-dim);
   padding: 0 4px;
   border-radius: 3px;

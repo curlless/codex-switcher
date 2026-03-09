@@ -15,7 +15,8 @@ export const mockOverview: ProfilesOverviewPayload = {
       reserved: false,
       status: "active",
       sevenDayRemaining: "72%",
-      fiveHourRemaining: "45%"
+      fiveHourRemaining: "45%",
+      availability: null
     },
     {
       label: "work-main",
@@ -23,7 +24,8 @@ export const mockOverview: ProfilesOverviewPayload = {
       reserved: false,
       status: "available",
       sevenDayRemaining: "91%",
-      fiveHourRemaining: "88%"
+      fiveHourRemaining: "88%",
+      availability: null
     },
     {
       label: "work-backup",
@@ -31,15 +33,27 @@ export const mockOverview: ProfilesOverviewPayload = {
       reserved: true,
       status: "reserved",
       sevenDayRemaining: "100%",
-      fiveHourRemaining: "100%"
+      fiveHourRemaining: "100%",
+      availability: {
+        tag: "apiKeyUnsupported",
+        label: "API key only",
+        reason: "Usage-based switching does not support API key logins.",
+        retryable: false
+      }
     },
     {
       label: "testing",
       plan: "Plus",
       reserved: false,
       status: "available",
-      sevenDayRemaining: "34%",
-      fiveHourRemaining: "12%"
+      sevenDayRemaining: "--",
+      fiveHourRemaining: "--",
+      availability: {
+        tag: "usageFetchError",
+        label: "Usage fetch error",
+        reason: "The last usage request failed; retry refresh before forcing a re-login.",
+        retryable: true
+      }
     }
   ],
   events: [
@@ -95,7 +109,7 @@ export function mockSwitchPreview(
         rank: 2,
         sevenDayRemaining: "72%",
         fiveHourRemaining: "45%",
-        unavailableReason: null
+        availability: null
       },
       {
         label: "work-main",
@@ -107,7 +121,7 @@ export function mockSwitchPreview(
         rank: 1,
         sevenDayRemaining: "91%",
         fiveHourRemaining: "88%",
-        unavailableReason: null
+        availability: null
       },
       {
         label: "work-backup",
@@ -117,9 +131,14 @@ export function mockSwitchPreview(
         current: false,
         recommended: false,
         rank: null,
-        sevenDayRemaining: "100%",
-        fiveHourRemaining: "100%",
-        unavailableReason: "Profile is reserved and cannot be switched to directly."
+        sevenDayRemaining: "--",
+        fiveHourRemaining: "--",
+        availability: {
+          tag: "apiKeyUnsupported",
+          label: "API key only",
+          reason: "Usage-based switching does not support API key logins.",
+          retryable: false
+        }
       },
       {
         label: "testing",
@@ -129,9 +148,14 @@ export function mockSwitchPreview(
         current: false,
         recommended: false,
         rank: 3,
-        sevenDayRemaining: "34%",
-        fiveHourRemaining: "12%",
-        unavailableReason: null
+        sevenDayRemaining: "--",
+        fiveHourRemaining: "--",
+        availability: {
+          tag: "usageFetchError",
+          label: "Usage fetch error",
+          reason: "The last usage request failed; retry refresh before forcing a re-login.",
+          retryable: true
+        }
       }
     ],
     manualHints: []

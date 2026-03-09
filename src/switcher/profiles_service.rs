@@ -16,6 +16,7 @@ pub struct ProfileCard {
     pub status: String,
     pub seven_day_remaining: String,
     pub five_hour_remaining: String,
+    pub availability: Option<AvailabilityPayload>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -47,7 +48,7 @@ pub struct SwitchProfilePayload {
     pub rank: Option<usize>,
     pub seven_day_remaining: String,
     pub five_hour_remaining: String,
-    pub unavailable_reason: Option<String>,
+    pub availability: Option<AvailabilityPayload>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -152,9 +153,14 @@ pub(super) fn active_profile_status(paths: &Paths) -> Result<ActiveProfileStatus
         ),
         Some(row) => {
             let profile_state = profile_status_label(row);
-            format!(
-                "{active_profile_label} is the current {profile_state} profile exposed by the shared Rust query service."
-            )
+            match availability_summary(row) {
+                Some(summary) => format!(
+                    "{active_profile_label} is the current {profile_state} profile exposed by the shared Rust query service ({summary})."
+                ),
+                None => format!(
+                    "{active_profile_label} is the current {profile_state} profile exposed by the shared Rust query service."
+                ),
+            }
         }
         None => "No active profile could be derived from the current auth state.".to_string(),
     };
@@ -315,7 +321,7 @@ fn switch_profiles(
             } else {
                 None
             };
-            let (seven_day_remaining, five_hour_remaining, unavailable_reason) = usage_strings(row);
+            let (seven_day_remaining, five_hour_remaining, availability) = usage_strings(row);
             SwitchProfilePayload {
                 label: profile_selection_label(row),
                 plan: profile_plan(paths, snapshot, row),
@@ -326,23 +332,29 @@ fn switch_profiles(
                 rank,
                 seven_day_remaining,
                 five_hour_remaining,
-                unavailable_reason,
+                availability,
             }
         })
         .collect()
 }
 
-fn usage_strings(row: &profile_priority::PriorityRow) -> (String, String, Option<String>) {
+fn usage_strings(
+    row: &profile_priority::PriorityRow,
+) -> (
+    String,
+    String,
+    Option<AvailabilityPayload>,
+) {
     match &row.state {
         profile_priority::PriorityState::Ready(usage) => (
             format!("{}%", usage.seven_day_left),
             format!("{}%", usage.five_hour_left),
             None,
         ),
-        profile_priority::PriorityState::Unavailable(reason) => (
-            "UNAVAILABLE".to_string(),
-            "UNAVAILABLE".to_string(),
-            Some(reason.clone()),
+        profile_priority::PriorityState::Unavailable(state) => (
+            "--".to_string(),
+            "--".to_string(),
+            Some(state.payload()),
         ),
     }
 }
@@ -386,8 +398,12 @@ fn switch_summary(
     if !selected.candidate {
         return format!("{label} is reserved and excluded from automatic switching.");
     }
-    if let profile_priority::PriorityState::Unavailable(reason) = &selected.state {
-        return format!("{label} is not currently switchable: {reason}.");
+    if let profile_priority::PriorityState::Unavailable(state) = &selected.state {
+        return format!(
+            "{label} is not currently switchable [{}]: {}.",
+            state.cli_state_label(),
+            state.reason
+        );
     }
     if recommended.is_some_and(|row| row.id == selected.id) {
         return format!(
@@ -425,13 +441,33 @@ fn switch_manual_hints(
                 .to_string(),
         );
     }
-    if selected
-        .is_some_and(|row| matches!(row.state, profile_priority::PriorityState::Unavailable(_)))
+    if let Some(profile_priority::PriorityRow {
+        state: profile_priority::PriorityState::Unavailable(state),
+        ..
+    }) = selected
     {
-        hints.push(
-            "Refresh usage data or repair the saved profile before attempting an automatic switch."
-                .to_string(),
-        );
+        hints.push(match state.tag {
+            profile_priority::AvailabilityTag::MissingAccessToken
+            | profile_priority::AvailabilityTag::MissingAccountId
+            | profile_priority::AvailabilityTag::UsageFetchError => {
+                "Retry the shared refresh path before forcing a re-login.".to_string()
+            }
+            profile_priority::AvailabilityTag::ApiKeyUnsupported => {
+                "Usage-based switching does not support API key logins.".to_string()
+            }
+            profile_priority::AvailabilityTag::FreePlanUnsupported => {
+                "Usage-based switching requires a supported paid Cursor plan.".to_string()
+            }
+            profile_priority::AvailabilityTag::MissingFiveHourWindow
+            | profile_priority::AvailabilityTag::MissingSevenDayWindow => {
+                "Refresh usage windows or inspect account usage data before switching."
+                    .to_string()
+            }
+            profile_priority::AvailabilityTag::TokenUnreadable => {
+                "Repair or resave the saved profile before attempting an automatic switch."
+                    .to_string()
+            }
+        });
     }
     if recommended.is_none() {
         hints.push(
@@ -505,7 +541,7 @@ fn profile_card(
     snapshot: &Snapshot,
     row: &profile_priority::PriorityRow,
 ) -> ProfileCard {
-    let (seven_day_remaining, five_hour_remaining, _) = usage_strings(row);
+    let (seven_day_remaining, five_hour_remaining, availability) = usage_strings(row);
 
     ProfileCard {
         label: profile_selection_label(row),
@@ -514,6 +550,18 @@ fn profile_card(
         status: profile_status_label(row),
         seven_day_remaining,
         five_hour_remaining,
+        availability,
+    }
+}
+
+fn availability_summary(row: &profile_priority::PriorityRow) -> Option<String> {
+    match &row.state {
+        profile_priority::PriorityState::Ready(_) => None,
+        profile_priority::PriorityState::Unavailable(state) => Some(format!(
+            "{}: {}",
+            state.cli_state_label(),
+            state.reason
+        )),
     }
 }
 

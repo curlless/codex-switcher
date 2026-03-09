@@ -69,7 +69,17 @@ export function QuickSwitchView({
               >
                 <span className={`profile-item__dot profile-item__dot--${profile.status}`} />
                 <div className="quick-switch__card-info">
-                  <span className="quick-switch__card-name">{profile.label}</span>
+                  <span className="quick-switch__card-name">
+                    {profile.label}
+                    {profile.availability && (
+                      <span
+                        className={`tag ${profile.availability.retryable ? "tag--availability-retryable" : "tag--availability-hard"}`}
+                        style={{ marginLeft: 6 }}
+                      >
+                        {profile.availability.label}
+                      </span>
+                    )}
+                  </span>
                   <span className="quick-switch__card-meta">
                     {profile.plan} &middot; {t(locale, "sevenDayHeadroom")}{" "}
                     {profile.sevenDayRemaining} &middot; {t(locale, "fiveHourHeadroom")}{" "}

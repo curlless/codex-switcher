@@ -925,7 +925,7 @@ fn ui_status_all_no_usage() {
     let output = env.run(&["status", "--all"]);
     assert!(output.contains("alpha@example.com"));
     assert!(output.contains("beta@example.com"));
-    assert!(output.contains("UNAVAILABLE"));
+    assert!(output.contains("USAGE_FETCH"));
 }
 
 #[test]

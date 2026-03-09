@@ -39,7 +39,7 @@ export function SwitchPanel({
 
       {preview.profiles.map((candidate) => {
         const isCurrent = candidate.current;
-        const isUnavailable = !!candidate.unavailableReason;
+        const isUnavailable = !!candidate.availability;
         const dotColor =
           candidate.status === "active"
             ? "var(--green)"
@@ -61,6 +61,14 @@ export function SwitchPanel({
                     {t(locale, "recommended")}
                   </span>
                 )}
+                {candidate.availability && (
+                  <span
+                    className={`tag ${candidate.availability.retryable ? "tag--availability-retryable" : "tag--availability-hard"}`}
+                    style={{ marginLeft: 6 }}
+                  >
+                    {candidate.availability.label}
+                  </span>
+                )}
                 {isCurrent && (
                   <span className="tag tag--plan" style={{ marginLeft: 6 }}>
                     {t(locale, "current")}
@@ -76,7 +84,7 @@ export function SwitchPanel({
                 )}
               </div>
               {isUnavailable && (
-                <div className="candidate-row__reason">{candidate.unavailableReason}</div>
+                <div className="candidate-row__reason">{candidate.availability?.reason}</div>
               )}
             </div>
             {!isCurrent && !isUnavailable && preview.canSwitch && (

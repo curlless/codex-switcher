@@ -51,7 +51,8 @@ pub(crate) use profile_store::{
     usage_map_from_index, write_profiles_index,
 };
 pub use profiles::{
-    ActiveProfileStatusPayload, ProfileCard, ProfilesOverviewPayload, ReloadOutcomePayload,
+    ActiveProfileStatusPayload, AvailabilityPayload, ProfileCard, ProfilesOverviewPayload,
+    ReloadOutcomePayload,
     SwitchExecutionPayload, SwitchPreviewPayload, SwitchProfilePayload, active_profile_status,
     delete_profile, execute_best_switch, execute_reload_outcome, execute_switch,
     inspect_reload_outcome, list_profiles, load_profile, migrate_profiles, profiles_overview,

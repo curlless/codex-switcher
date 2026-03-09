@@ -1,4 +1,5 @@
 use super::*;
+use serde::Serialize;
 
 #[derive(Clone, Debug)]
 pub(super) struct PriorityUsage {
@@ -13,7 +14,112 @@ pub(super) struct PriorityUsage {
 #[derive(Clone, Debug)]
 pub(super) enum PriorityState {
     Ready(PriorityUsage),
-    Unavailable(String),
+    Unavailable(AvailabilityState),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum AvailabilityTag {
+    TokenUnreadable,
+    ApiKeyUnsupported,
+    FreePlanUnsupported,
+    MissingAccessToken,
+    MissingAccountId,
+    UsageFetchError,
+    MissingFiveHourWindow,
+    MissingSevenDayWindow,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct AvailabilityState {
+    pub(super) tag: AvailabilityTag,
+    pub(super) reason: String,
+    pub(super) retryable: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AvailabilityPayload {
+    pub tag: String,
+    pub label: String,
+    pub reason: String,
+    pub retryable: bool,
+}
+
+impl AvailabilityTag {
+    fn sort_rank(self) -> u8 {
+        match self {
+            AvailabilityTag::MissingAccessToken => 0,
+            AvailabilityTag::MissingAccountId => 1,
+            AvailabilityTag::UsageFetchError => 2,
+            AvailabilityTag::MissingFiveHourWindow => 3,
+            AvailabilityTag::MissingSevenDayWindow => 4,
+            AvailabilityTag::TokenUnreadable => 5,
+            AvailabilityTag::ApiKeyUnsupported => 6,
+            AvailabilityTag::FreePlanUnsupported => 7,
+        }
+    }
+
+    fn wire_tag(self) -> &'static str {
+        match self {
+            AvailabilityTag::TokenUnreadable => "tokenUnreadable",
+            AvailabilityTag::ApiKeyUnsupported => "apiKeyUnsupported",
+            AvailabilityTag::FreePlanUnsupported => "freePlanUnsupported",
+            AvailabilityTag::MissingAccessToken => "missingAccessToken",
+            AvailabilityTag::MissingAccountId => "missingAccountId",
+            AvailabilityTag::UsageFetchError => "usageFetchError",
+            AvailabilityTag::MissingFiveHourWindow => "missingFiveHourWindow",
+            AvailabilityTag::MissingSevenDayWindow => "missingSevenDayWindow",
+        }
+    }
+
+    fn display_label(self) -> &'static str {
+        match self {
+            AvailabilityTag::TokenUnreadable => "Token error",
+            AvailabilityTag::ApiKeyUnsupported => "API key only",
+            AvailabilityTag::FreePlanUnsupported => "Free plan",
+            AvailabilityTag::MissingAccessToken => "Auth token missing",
+            AvailabilityTag::MissingAccountId => "Account id missing",
+            AvailabilityTag::UsageFetchError => "Usage fetch error",
+            AvailabilityTag::MissingFiveHourWindow => "5h window missing",
+            AvailabilityTag::MissingSevenDayWindow => "7d window missing",
+        }
+    }
+
+    fn cli_state_label(self) -> &'static str {
+        match self {
+            AvailabilityTag::TokenUnreadable => "TOKEN_ERROR",
+            AvailabilityTag::ApiKeyUnsupported => "API_KEY",
+            AvailabilityTag::FreePlanUnsupported => "FREE_PLAN",
+            AvailabilityTag::MissingAccessToken => "AUTH_TOKEN",
+            AvailabilityTag::MissingAccountId => "ACCOUNT_ID",
+            AvailabilityTag::UsageFetchError => "USAGE_FETCH",
+            AvailabilityTag::MissingFiveHourWindow => "NO_5H_WINDOW",
+            AvailabilityTag::MissingSevenDayWindow => "NO_7D_WINDOW",
+        }
+    }
+}
+
+impl AvailabilityState {
+    pub(super) fn new(tag: AvailabilityTag, reason: impl Into<String>, retryable: bool) -> Self {
+        Self {
+            tag,
+            reason: reason.into(),
+            retryable,
+        }
+    }
+
+    pub(super) fn payload(&self) -> AvailabilityPayload {
+        AvailabilityPayload {
+            tag: self.tag.wire_tag().to_string(),
+            label: self.tag.display_label().to_string(),
+            reason: self.reason.clone(),
+            retryable: self.retryable,
+        }
+    }
+
+    pub(super) fn cli_state_label(&self) -> &'static str {
+        self.tag.cli_state_label()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -237,7 +343,11 @@ fn priority_state_for_profile(
         .and_then(|result| result.as_ref().ok())
         .cloned()
     else {
-        return PriorityState::Unavailable("Profile tokens are unreadable".to_string());
+        return PriorityState::Unavailable(AvailabilityState::new(
+            AvailabilityTag::TokenUnreadable,
+            "Profile tokens are unreadable",
+            false,
+        ));
     };
     let profile_path = profile_path_for_id(&paths.profiles, id);
     priority_state_for_tokens(tokens, Some(profile_path.as_path()), base_url, now)
@@ -262,17 +372,31 @@ fn fetch_priority_limits(
     profile_path: Option<&Path>,
     base_url: &str,
     now: DateTime<Local>,
-) -> Result<crate::switcher::usage::UsageLimits, String> {
+) -> Result<crate::switcher::usage::UsageLimits, AvailabilityState> {
     if should_refresh_before_usage(tokens)
         && let Some(profile_path) = profile_path
     {
-        refresh_profile_tokens(profile_path, tokens)?;
+        refresh_profile_tokens(profile_path, tokens).map_err(|err| {
+            AvailabilityState::new(AvailabilityTag::UsageFetchError, err, true)
+        })?;
     }
     let access_token = tokens
         .access_token
         .as_deref()
-        .ok_or_else(|| "Missing access token".to_string())?;
-    let account_id = token_account_id(tokens).ok_or_else(|| "Missing account id".to_string())?;
+        .ok_or_else(|| {
+            AvailabilityState::new(
+                AvailabilityTag::MissingAccessToken,
+                "Missing access token",
+                has_refresh_token(tokens),
+            )
+        })?;
+    let account_id = token_account_id(tokens).ok_or_else(|| {
+        AvailabilityState::new(
+            AvailabilityTag::MissingAccountId,
+            "Missing account id",
+            has_refresh_token(tokens),
+        )
+    })?;
     match fetch_usage_limits(base_url, access_token, account_id, now) {
         Ok(limits) => Ok(limits),
         Err(err)
@@ -281,17 +405,40 @@ fn fetch_priority_limits(
                 && profile_path.is_some() =>
         {
             let profile_path = profile_path.expect("path checked above");
-            refresh_profile_tokens(profile_path, tokens)?;
+            refresh_profile_tokens(profile_path, tokens).map_err(|refresh_err| {
+                AvailabilityState::new(AvailabilityTag::UsageFetchError, refresh_err, true)
+            })?;
             let access_token = tokens
                 .access_token
                 .as_deref()
-                .ok_or_else(|| "Missing access token".to_string())?;
-            let account_id =
-                token_account_id(tokens).ok_or_else(|| "Missing account id".to_string())?;
+                .ok_or_else(|| {
+                    AvailabilityState::new(
+                        AvailabilityTag::MissingAccessToken,
+                        "Missing access token",
+                        true,
+                    )
+                })?;
+            let account_id = token_account_id(tokens).ok_or_else(|| {
+                AvailabilityState::new(
+                    AvailabilityTag::MissingAccountId,
+                    "Missing account id",
+                    true,
+                )
+            })?;
             fetch_usage_limits(base_url, access_token, account_id, now)
-                .map_err(|retry_err| normalize_error(&retry_err.message()))
+                .map_err(|retry_err| {
+                    AvailabilityState::new(
+                        AvailabilityTag::UsageFetchError,
+                        normalize_error(&retry_err.message()),
+                        true,
+                    )
+                })
         }
-        Err(err) => Err(normalize_error(&err.message())),
+        Err(err) => Err(AvailabilityState::new(
+            AvailabilityTag::UsageFetchError,
+            normalize_error(&err.message()),
+            true,
+        )),
     }
 }
 
@@ -302,21 +449,37 @@ fn priority_state_for_tokens(
     now: DateTime<Local>,
 ) -> PriorityState {
     if is_api_key_profile(&tokens) {
-        return PriorityState::Unavailable("Usage unavailable for API key login".to_string());
+        return PriorityState::Unavailable(AvailabilityState::new(
+            AvailabilityTag::ApiKeyUnsupported,
+            "Usage unavailable for API key login",
+            false,
+        ));
     }
     let (_, plan) = extract_email_and_plan(&tokens);
     if is_free_plan(plan.as_deref()) {
-        return PriorityState::Unavailable("Usage unavailable for free plan".to_string());
+        return PriorityState::Unavailable(AvailabilityState::new(
+            AvailabilityTag::FreePlanUnsupported,
+            "Usage unavailable for free plan",
+            false,
+        ));
     }
     let limits = match fetch_priority_limits(&mut tokens, profile_path, base_url, now) {
         Ok(limits) => limits,
         Err(err) => return PriorityState::Unavailable(err),
     };
     let Some(five_hour_left) = usage_left_percent(limits.five_hour.as_ref()) else {
-        return PriorityState::Unavailable("Missing 5h usage window".to_string());
+        return PriorityState::Unavailable(AvailabilityState::new(
+            AvailabilityTag::MissingFiveHourWindow,
+            "Missing 5h usage window",
+            false,
+        ));
     };
     let Some(seven_day_left) = usage_left_percent(limits.weekly.as_ref()) else {
-        return PriorityState::Unavailable("Missing 7d usage window".to_string());
+        return PriorityState::Unavailable(AvailabilityState::new(
+            AvailabilityTag::MissingSevenDayWindow,
+            "Missing 7d usage window",
+            false,
+        ));
     };
     let five_hour_reset = usage_reset_remaining(limits.five_hour.as_ref());
     let seven_day_reset = usage_reset_remaining(limits.weekly.as_ref());
@@ -402,7 +565,11 @@ fn priority_state_cmp(left: &PriorityState, right: &PriorityState) -> Ordering {
             .then_with(|| right_usage.score.cmp(&left_usage.score)),
         (PriorityState::Ready(_), PriorityState::Unavailable(_)) => Ordering::Less,
         (PriorityState::Unavailable(_), PriorityState::Ready(_)) => Ordering::Greater,
-        (PriorityState::Unavailable(_), PriorityState::Unavailable(_)) => Ordering::Equal,
+        (PriorityState::Unavailable(left), PriorityState::Unavailable(right)) => left
+            .tag
+            .sort_rank()
+            .cmp(&right.tag.sort_rank())
+            .then_with(|| left.reason.cmp(&right.reason)),
     }
 }
 
@@ -585,9 +752,14 @@ pub(super) fn priority_row_cmp(left: &PriorityRow, right: &PriorityRow) -> Order
             .then_with(|| left.id.cmp(&right.id)),
         (PriorityState::Ready(_), PriorityState::Unavailable(_)) => Ordering::Less,
         (PriorityState::Unavailable(_), PriorityState::Ready(_)) => Ordering::Greater,
-        (PriorityState::Unavailable(_), PriorityState::Unavailable(_)) => priority_sort_label(left)
-            .cmp(&priority_sort_label(right))
-            .then_with(|| left.id.cmp(&right.id)),
+        (PriorityState::Unavailable(left_state), PriorityState::Unavailable(right_state)) => {
+            left_state
+                .tag
+                .sort_rank()
+                .cmp(&right_state.tag.sort_rank())
+                .then_with(|| priority_sort_label(left).cmp(&priority_sort_label(right)))
+                .then_with(|| left.id.cmp(&right.id))
+        }
     }
 }
 
@@ -637,7 +809,7 @@ pub(super) fn render_priority_table(rows: &[PriorityRow], use_color: bool) -> St
                     }
                 }
             }
-            PriorityState::Unavailable(_) => "UNAVAILABLE".to_string(),
+            PriorityState::Unavailable(state) => state.cli_state_label().to_string(),
         };
         data.push(vec![
             rank_text,
@@ -674,7 +846,12 @@ pub(super) fn render_priority_table(rows: &[PriorityRow], use_color: bool) -> St
     let unavailable_rows: Vec<String> = rows
         .iter()
         .filter_map(|row| match &row.state {
-            PriorityState::Unavailable(reason) => Some(format!("{}: {}", row.profile_name, reason)),
+            PriorityState::Unavailable(state) => Some(format!(
+                "{} [{}]: {}",
+                row.profile_name,
+                state.cli_state_label(),
+                state.reason
+            )),
             PriorityState::Ready(_) => None,
         })
         .collect();
@@ -728,7 +905,13 @@ fn style_priority_state_cell(cell: &str, state: Option<&str>, use_color: bool) -
         "CURRENT" => style_text(cell, use_color, |text| text.cyan().bold()),
         "5H=0" => style_text(cell, use_color, |text| text.yellow().bold()),
         "7D=0" => style_text(cell, use_color, |text| text.red().bold()),
-        "UNAVAILABLE" => style_text(cell, use_color, |text| text.dimmed()),
+        "AUTH_TOKEN" | "ACCOUNT_ID" | "USAGE_FETCH" => {
+            style_text(cell, use_color, |text| text.yellow().bold())
+        }
+        "TOKEN_ERROR" | "NO_5H_WINDOW" | "NO_7D_WINDOW" => {
+            style_text(cell, use_color, |text| text.red().bold())
+        }
+        "API_KEY" | "FREE_PLAN" => style_text(cell, use_color, |text| text.dimmed()),
         _ => cell.to_string(),
     }
 }

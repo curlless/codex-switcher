@@ -1,4 +1,5 @@
 use super::*;
+use super::profile_priority::{AvailabilityState, AvailabilityTag};
 use crate::switcher::profile_identity::{
     profile_base, rename_profile_id, sanitize_part, short_account_suffix, unique_id,
 };
@@ -226,7 +227,11 @@ fn priority_order_prefers_tier_score_and_label() {
             label: Some("c".to_string()),
             is_current: false,
             candidate: true,
-            state: PriorityState::Unavailable("usage failed".to_string()),
+            state: PriorityState::Unavailable(AvailabilityState::new(
+                AvailabilityTag::UsageFetchError,
+                "usage failed",
+                true,
+            )),
         },
     ];
     rows.sort_by(priority_row_cmp);
@@ -259,15 +264,20 @@ fn render_priority_table_shows_unavailable_summary() {
             label: Some("b".to_string()),
             is_current: false,
             candidate: true,
-            state: PriorityState::Unavailable("missing 7d window".to_string()),
+            state: PriorityState::Unavailable(AvailabilityState::new(
+                AvailabilityTag::MissingSevenDayWindow,
+                "missing 7d window",
+                false,
+            )),
         },
     ];
     let output = render_priority_table(&rows, false);
     assert!(output.contains("Priority ranking"));
     assert!(output.contains("5H RESET"));
     assert!(output.contains("7D RESET"));
-    assert!(output.contains("UNAVAILABLE"));
+    assert!(output.contains("NO_7D_WINDOW"));
     assert!(output.contains("Unavailable profiles"));
+    assert!(output.contains("[NO_7D_WINDOW]"));
 }
 
 #[test]
@@ -569,6 +579,7 @@ fn switch_preview_returns_structured_service_payload() {
     assert_eq!(profile.rank, Some(1));
     assert!(profile.current);
     assert!(profile.recommended);
+    assert!(profile.availability.is_none());
 }
 
 #[test]
@@ -624,7 +635,7 @@ fn switch_preview_recovers_missing_access_token_via_refresh_token() {
     let payload = switch_preview(&paths, "alpha").unwrap();
     let profile = &payload.profiles[0];
     assert!(payload.can_switch);
-    assert_eq!(profile.unavailable_reason, None);
+    assert!(profile.availability.is_none());
     assert_eq!(profile.seven_day_remaining, "50%");
     assert_eq!(profile.five_hour_remaining, "80%");
 
