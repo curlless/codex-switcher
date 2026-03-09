@@ -96,7 +96,7 @@ where Bash/WSL cannot reliably run extra shell-based packaging checks.
 For post-tag validation, use:
 
 ```powershell
-node scripts/verify-release-publication.mjs v0.1.2
+node scripts/verify-release-publication.mjs v0.2.1
 ```
 
 Add `--require-registries` only when the release is expected to be visible on

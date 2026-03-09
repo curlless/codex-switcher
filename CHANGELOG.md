@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-10
+
+### Added
+
+- Windows desktop release artifacts for the current `develop` head, including
+  a Tauri installer and packaged executable
+- precise availability tags across CLI and GUI so usage failures no longer
+  collapse into a single generic unavailable state
+
+### Changed
+
+- profile recovery now retries refreshable accounts before treating usage
+  checks as unavailable
+- release metadata is now aligned across Cargo, npm, installer, and desktop
+  packaging files for the `v0.2.1` publication
+- local release and maintainer docs now point to the current patch target and
+  verification command
+
 ## [0.1.2] - 2026-03-07
 
 ### Added
@@ -87,7 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pre-commit hooks for code quality
 - Binary releases for 5 platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64)
 
-[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.1
 [0.1.2]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.2
 [0.1.1]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.1
 [0.1.0]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.0

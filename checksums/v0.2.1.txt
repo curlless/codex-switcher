@@ -1,0 +1,3 @@
+439ABDCB393E0BBCAEAEADDF24BD9B58CCAAE78A1F4ECA238FB30F2E75B69363  apps/desktop/src-tauri/target/release/codex-switcher-desktop.exe
+B2E595AB3D0D0060496C2E38F893FF9C4C196D7B3D8B13E0BD25C7DE4B40A691  apps/desktop/src-tauri/target/release/bundle/nsis/Codex Switcher Desktop_0.2.1_x64-setup.exe
+CEF0F805BF10BEEC4D8E000E1E5877B0DB4852620DE969A8CF9FD445A4159844  apps/desktop/src-tauri/target/release/bundle/msi/Codex Switcher Desktop_0.2.1_x64_en-US.msi

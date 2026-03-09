@@ -14,7 +14,7 @@ the work is merged or abandoned.
 
 Use semantic version tags:
 
-- `v0.1.2`
+- `v0.2.1`
 - `v0.2.0`
 - `v1.0.0`
 
@@ -36,20 +36,20 @@ Rules:
 
 The next patch release from this repository should be:
 
-- `v0.1.2`
+- `v0.2.1`
 
 Reason:
 
-- it continues the existing package line after `v0.1.1`
-- it is the first release prepared around the scoped npm package family
-- it adds post-release verification for GitHub assets and registry visibility
+- it closes the post-`v0.2.0` delivery line with the shipped desktop GUI, packaging fixes, and availability-tag improvements
+- it aligns CLI, desktop, installer, and GitHub release metadata on one version
+- it keeps the default release branch on `develop` while publishing the latest verified Windows desktop artifacts
 
-Recommended release contents for `v0.1.2`:
+Recommended release contents for `v0.2.1`:
 
-- scoped npm package family `@1voin1/codex-switcher` and platform packages
-- release artifact packaging that correctly handles scoped npm directory layout
-- release publication verification via `scripts/verify-release-publication.mjs`
-- workflow and maintainer documentation aligned with scoped npm publication
+- precise availability tags across CLI and GUI instead of a single coarse unavailable bucket
+- refresh-aware recovery for profiles that can still be restored without a forced re-login
+- Windows desktop installer and direct executable artifacts built from the current `develop` head
+- synchronized release metadata and publication verification docs for the current version
 
 ## Release flow
 
