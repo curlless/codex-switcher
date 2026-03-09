@@ -6,6 +6,10 @@
 
 ### In Progress
 
+- **Epic 3: Public Release Hardening**
+  - [book] [US008: Suppress the extra Windows console window in the desktop executable](epics/epic-3-public-release-hardening/stories/us008-suppress-the-extra-windows-console-window-in-the-desktop-executable/story.md) [IN PROGRESS]
+    - [gear] T001
+
 ### In Review
 
 - None
