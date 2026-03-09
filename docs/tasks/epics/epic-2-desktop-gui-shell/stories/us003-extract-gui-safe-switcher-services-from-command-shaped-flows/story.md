@@ -4,6 +4,7 @@
 **Epic:** Epic 2
 **Labels:** user-story
 **Created:** 2026-03-07
+**Updated:** 2026-03-10
 
 ## Story
 
@@ -21,6 +22,7 @@
 - The canonical runtime under `src/switcher/*` is still command-shaped: list, status, switch, and reload flows are tightly coupled to terminal rendering and side-effect orchestration.
 - Desktop work cannot safely continue until the Rust runtime exposes structured service outputs that preserve current CLI behavior and remain reusable from the GUI.
 - The Stage 2 rework follow-up `T005` cleared the last failed Stage 3 lint blocker, and the Stage 3 rerun passed on 2026-03-09 so US003 is ready for merge handoff.
+- Post-release follow-up `T006` closed a shared-service gap where refreshable saved profiles could still surface as `UNAVAILABLE` in GUI switch preview even though they could be repaired from an existing `refresh_token` without re-login.
 
 ### Desired Outcome
 
@@ -56,6 +58,7 @@
 - [T003: Extract structured reload outcome services](tasks/T003-extract-structured-reload-outcome-services.md) - Normalize reload inspection and execution results into desktop-safe success and failure payloads.
 - [T004: Adapt CLI and desktop commands to shared switcher services](tasks/T004-adapt-cli-and-desktop-commands-to-shared-switcher-services.md) - Replace placeholder desktop flows, preserve CLI behavior, and refresh existing regression coverage around the new seam.
 - [T005: Clear the US003 clippy warning in switch reload hint rendering](tasks/T005-clear-the-us003-clippy-warning-in-switch-reload-hint-rendering.md) - Fix the Stage 3 lint blocker in `src/switcher/profiles_switch.rs` and rerun the fast-track verification boundary.
+- [T006: Recover refreshable UNAVAILABLE profiles without forcing re-login](tasks/T006-recover-refreshable-unavailable-profiles-without-forcing-re-login.md) - Repair the shared ranking/service path so saved profiles with a valid `refresh_token` can recover from missing or expired access tokens without a fresh login.
 
 ## Test Strategy
 
@@ -117,6 +120,7 @@
 - Keep profile ranking, switch execution, and reload side effects in Rust; GUI and CLI adapters should only format or serialize structured results.
 - Remove placeholder business data from the desktop bridge so GUI consumers cannot drift from the canonical runtime behavior.
 - Preserve the existing CLI verification commands while the service seam is extracted so the shipped runtime cannot regress silently.
+- Shared ranking now attempts the same saved-profile recovery class already expected by the status flow: if a saved profile still has a valid `refresh_token`, missing `access_token` and one-shot `401` usage failures are repaired before the row is left in `UNAVAILABLE`.
 
 ### Risk Register
 
@@ -130,8 +134,8 @@
 |------|----------------------|----------------------|--------|
 | AC1 | Structured profile listing, active profile lookup, switch preview, and switch execution run through GUI-safe Rust services | T001, T002 | Covered |
 | AC2 | Reload flows expose structured success, partial-success, and manual-follow-up states | T003 | Covered |
-| AC3 | CLI commands keep their current behavior by rendering the shared service layer | T002, T004 | Covered |
-| AC4 | Existing regression suites cover the extracted shared seam strongly enough to catch drift | T004 | Covered |
+| AC3 | CLI commands keep their current behavior by rendering the shared service layer | T002, T004, T006 | Covered |
+| AC4 | Existing regression suites cover the extracted shared seam strongly enough to catch drift | T004, T006 | Covered |
 
 **Coverage:** 4/4 ACs (100%)
 
@@ -150,6 +154,7 @@
 - [x] Desktop commands stop depending on mocked profile business logic.
 - [x] Existing regression suites are updated to cover the extracted service seam.
 - [x] Documentation references stay aligned with the implementation.
+- [x] Recoverable `UNAVAILABLE` states in the shared ranking/service seam no longer require a forced re-login.
 
 ## Dependencies
 

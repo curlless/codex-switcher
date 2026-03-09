@@ -225,6 +225,7 @@ fn profile_plan_for_sort(id: &str, snapshot: &Snapshot) -> Option<String> {
 }
 
 fn priority_state_for_profile(
+    paths: &Paths,
     id: &str,
     snapshot: &Snapshot,
     base_url: &str,
@@ -234,33 +235,82 @@ fn priority_state_for_profile(
         .tokens
         .get(id)
         .and_then(|result| result.as_ref().ok())
+        .cloned()
     else {
         return PriorityState::Unavailable("Profile tokens are unreadable".to_string());
     };
-    priority_state_for_tokens(tokens, base_url, now)
+    let profile_path = profile_path_for_id(&paths.profiles, id);
+    priority_state_for_tokens(tokens, Some(profile_path.as_path()), base_url, now)
+}
+
+fn has_refresh_token(tokens: &Tokens) -> bool {
+    tokens
+        .refresh_token
+        .as_deref()
+        .map(|value| !value.is_empty())
+        .unwrap_or(false)
+}
+
+fn should_refresh_before_usage(tokens: &Tokens) -> bool {
+    !is_api_key_profile(tokens)
+        && has_refresh_token(tokens)
+        && (tokens.access_token.is_none() || token_account_id(tokens).is_none())
+}
+
+fn fetch_priority_limits(
+    tokens: &mut Tokens,
+    profile_path: Option<&Path>,
+    base_url: &str,
+    now: DateTime<Local>,
+) -> Result<crate::switcher::usage::UsageLimits, String> {
+    if should_refresh_before_usage(tokens)
+        && let Some(profile_path) = profile_path
+    {
+        refresh_profile_tokens(profile_path, tokens)?;
+    }
+    let access_token = tokens
+        .access_token
+        .as_deref()
+        .ok_or_else(|| "Missing access token".to_string())?;
+    let account_id = token_account_id(tokens).ok_or_else(|| "Missing account id".to_string())?;
+    match fetch_usage_limits(base_url, access_token, account_id, now) {
+        Ok(limits) => Ok(limits),
+        Err(err)
+            if err.status_code() == Some(401)
+                && has_refresh_token(tokens)
+                && profile_path.is_some() =>
+        {
+            let profile_path = profile_path.expect("path checked above");
+            refresh_profile_tokens(profile_path, tokens)?;
+            let access_token = tokens
+                .access_token
+                .as_deref()
+                .ok_or_else(|| "Missing access token".to_string())?;
+            let account_id =
+                token_account_id(tokens).ok_or_else(|| "Missing account id".to_string())?;
+            fetch_usage_limits(base_url, access_token, account_id, now)
+                .map_err(|retry_err| normalize_error(&retry_err.message()))
+        }
+        Err(err) => Err(normalize_error(&err.message())),
+    }
 }
 
 fn priority_state_for_tokens(
-    tokens: &Tokens,
+    mut tokens: Tokens,
+    profile_path: Option<&Path>,
     base_url: &str,
     now: DateTime<Local>,
 ) -> PriorityState {
-    if is_api_key_profile(tokens) {
+    if is_api_key_profile(&tokens) {
         return PriorityState::Unavailable("Usage unavailable for API key login".to_string());
     }
-    let (_, plan) = extract_email_and_plan(tokens);
+    let (_, plan) = extract_email_and_plan(&tokens);
     if is_free_plan(plan.as_deref()) {
         return PriorityState::Unavailable("Usage unavailable for free plan".to_string());
     }
-    let Some(access_token) = tokens.access_token.as_deref() else {
-        return PriorityState::Unavailable("Missing access token".to_string());
-    };
-    let Some(account_id) = token_account_id(tokens) else {
-        return PriorityState::Unavailable("Missing account id".to_string());
-    };
-    let limits = match fetch_usage_limits(base_url, access_token, account_id, now) {
+    let limits = match fetch_priority_limits(&mut tokens, profile_path, base_url, now) {
         Ok(limits) => limits,
-        Err(err) => return PriorityState::Unavailable(normalize_error(&err.message())),
+        Err(err) => return PriorityState::Unavailable(err),
     };
     let Some(five_hour_left) = usage_left_percent(limits.five_hour.as_ref()) else {
         return PriorityState::Unavailable("Missing 5h usage window".to_string());
@@ -490,7 +540,7 @@ pub(super) fn priority_rows(
             label,
             is_current: current_saved_id == Some(id.as_str()),
             candidate: !profile_is_reserved(id, snapshot),
-            state: priority_state_for_profile(id, snapshot, &base_url, now),
+            state: priority_state_for_profile(paths, id, snapshot, &base_url, now),
         }
     };
     let mut rows = if ids.len() > MAX_USAGE_CONCURRENCY {
@@ -515,7 +565,7 @@ pub(super) fn priority_rows(
             label: None,
             is_current: true,
             candidate: false,
-            state: priority_state_for_tokens(&tokens, &base_url, now),
+            state: priority_state_for_tokens(tokens, Some(paths.auth.as_path()), &base_url, now),
         });
     }
     dedupe_priority_rows(rows, snapshot)

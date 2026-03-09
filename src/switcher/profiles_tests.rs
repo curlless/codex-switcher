@@ -3,11 +3,13 @@ use crate::switcher::profile_identity::{
     profile_base, rename_profile_id, sanitize_part, short_account_suffix, unique_id,
 };
 use crate::switcher::profile_store::trim_label;
-use crate::switcher::test_utils::{build_id_token, http_ok_response, make_paths, spawn_server};
+use crate::switcher::test_utils::{
+    ENV_MUTEX, build_id_token, http_ok_response, make_paths, set_env_guard, spawn_server,
+};
 use crate::switcher::{
     Labels, ProfileIndexEntry, ProfilesIndex, assign_label, label_for_id, load_profile_tokens_map,
-    profile_path_for_id, read_labels, read_profiles_index, remove_labels_for_id, resolve_label_id,
-    resolve_save_id, resolve_sync_id, write_profiles_index,
+    profile_path_for_id, read_labels, read_profiles_index, read_tokens, remove_labels_for_id,
+    resolve_label_id, resolve_save_id, resolve_sync_id, write_profiles_index,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -567,4 +569,70 @@ fn switch_preview_returns_structured_service_payload() {
     assert_eq!(profile.rank, Some(1));
     assert!(profile.current);
     assert!(profile.recommended);
+}
+
+#[test]
+fn switch_preview_recovers_missing_access_token_via_refresh_token() {
+    let _env = ENV_MUTEX.lock().unwrap();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let paths = make_paths(dir.path());
+    fs::create_dir_all(&paths.profiles).unwrap();
+    let stale_value = serde_json::json!({
+        "tokens": {
+            "account_id": "acct-alpha",
+            "id_token": build_id_token("alpha@example.com", "team"),
+            "refresh_token": "refresh-alpha"
+        }
+    });
+    fs::write(
+        profile_path_for_id(&paths.profiles, "alpha@example.com-team"),
+        serde_json::to_string(&stale_value).unwrap(),
+    )
+    .unwrap();
+    let index = serde_json::json!({
+        "version": 1,
+        "active_profile_id": null,
+        "profiles": {
+            "alpha@example.com-team": {
+                "label": "alpha",
+                "last_used": 10,
+                "added_at": 1
+            }
+        }
+    });
+    fs::write(
+        &paths.profiles_index,
+        serde_json::to_string(&index).unwrap(),
+    )
+    .unwrap();
+
+    let usage_body = r#"{"rate_limit":{"primary_window":{"used_percent":20,"limit_window_seconds":18000,"reset_at":2000000000},"secondary_window":{"used_percent":50,"limit_window_seconds":604800,"reset_at":2000600000}}}"#;
+    let usage_server = spawn_server(http_ok_response(usage_body, "application/json"));
+    fs::write(
+        paths.auth_codex.join("config.toml"),
+        format!("chatgpt_base_url = \"{usage_server}/backend-api\"\n"),
+    )
+    .unwrap();
+
+    let refresh_body = format!(
+        "{{\"access_token\":\"fresh-access\",\"id_token\":\"{}\",\"refresh_token\":\"fresh-refresh\"}}",
+        build_id_token("alpha@example.com", "team")
+    );
+    let refresh_server = spawn_server(http_ok_response(&refresh_body, "application/json"));
+    let _refresh_env = set_env_guard("CODEX_REFRESH_TOKEN_URL_OVERRIDE", Some(&refresh_server));
+
+    let payload = switch_preview(&paths, "alpha").unwrap();
+    let profile = &payload.profiles[0];
+    assert!(payload.can_switch);
+    assert_eq!(profile.unavailable_reason, None);
+    assert_eq!(profile.seven_day_remaining, "50%");
+    assert_eq!(profile.five_hour_remaining, "80%");
+
+    let refreshed = read_tokens(&profile_path_for_id(
+        &paths.profiles,
+        "alpha@example.com-team",
+    ))
+    .unwrap();
+    assert_eq!(refreshed.access_token.as_deref(), Some("fresh-access"));
+    assert_eq!(refreshed.refresh_token.as_deref(), Some("fresh-refresh"));
 }

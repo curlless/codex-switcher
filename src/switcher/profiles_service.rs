@@ -128,7 +128,11 @@ pub(super) fn profiles_overview(paths: &Paths) -> Result<ProfilesOverviewPayload
     }
 
     Ok(ProfilesOverviewPayload {
-        workspace_label: format!("Shared runtime: {} profile{}", profiles.len(), if profiles.len() == 1 { "" } else { "s" }),
+        workspace_label: format!(
+            "Shared runtime: {} profile{}",
+            profiles.len(),
+            if profiles.len() == 1 { "" } else { "s" }
+        ),
         profiles,
         events,
         last_refresh: Local::now().format("%Y-%m-%d %H:%M %:z").to_string(),
@@ -254,10 +258,7 @@ fn load_profile_query_context(paths: &Paths) -> Result<ProfileQueryContext, Stri
     Ok(ProfileQueryContext { snapshot, rows })
 }
 
-fn build_switch_plan(
-    paths: &Paths,
-    requested_profile: Option<&str>,
-) -> Result<SwitchPlan, String> {
+fn build_switch_plan(paths: &Paths, requested_profile: Option<&str>) -> Result<SwitchPlan, String> {
     let context = load_profile_query_context(paths)?;
     let recommended = best_ready_row(&context.rows);
     let active_profile = context.rows.iter().find(|row| row.is_current);
@@ -314,8 +315,7 @@ fn switch_profiles(
             } else {
                 None
             };
-            let (seven_day_remaining, five_hour_remaining, unavailable_reason) =
-                usage_strings(row);
+            let (seven_day_remaining, five_hour_remaining, unavailable_reason) = usage_strings(row);
             SwitchProfilePayload {
                 label: profile_selection_label(row),
                 plan: profile_plan(paths, snapshot, row),
@@ -332,9 +332,7 @@ fn switch_profiles(
         .collect()
 }
 
-fn usage_strings(
-    row: &profile_priority::PriorityRow,
-) -> (String, String, Option<String>) {
+fn usage_strings(row: &profile_priority::PriorityRow) -> (String, String, Option<String>) {
     match &row.state {
         profile_priority::PriorityState::Ready(usage) => (
             format!("{}%", usage.seven_day_left),
@@ -392,14 +390,20 @@ fn switch_summary(
         return format!("{label} is not currently switchable: {reason}.");
     }
     if recommended.is_some_and(|row| row.id == selected.id) {
-        return format!("{label} is the current best switch candidate from the shared Rust runtime.");
+        return format!(
+            "{label} is the current best switch candidate from the shared Rust runtime."
+        );
     }
     let recommended = recommended.map(profile_selection_label);
     match recommended {
         Some(recommended) => {
-            format!("{label} is available, but {recommended} is currently the best switch candidate.")
+            format!(
+                "{label} is available, but {recommended} is currently the best switch candidate."
+            )
         }
-        None => format!("{label} is available, but no recommended auto-switch candidate could be derived."),
+        None => format!(
+            "{label} is available, but no recommended auto-switch candidate could be derived."
+        ),
     }
 }
 
@@ -421,9 +425,9 @@ fn switch_manual_hints(
                 .to_string(),
         );
     }
-    if selected.is_some_and(|row| {
-        matches!(row.state, profile_priority::PriorityState::Unavailable(_))
-    }) {
+    if selected
+        .is_some_and(|row| matches!(row.state, profile_priority::PriorityState::Unavailable(_)))
+    {
         hints.push(
             "Refresh usage data or repair the saved profile before attempting an automatic switch."
                 .to_string(),
@@ -513,15 +517,14 @@ fn profile_card(
     }
 }
 
-fn profile_plan(
-    paths: &Paths,
-    snapshot: &Snapshot,
-    row: &profile_priority::PriorityRow,
-) -> String {
+fn profile_plan(paths: &Paths, snapshot: &Snapshot, row: &profile_priority::PriorityRow) -> String {
     let tokens = if row.id == "__current__" {
         read_tokens(&paths.auth).ok()
     } else {
-        snapshot.tokens.get(&row.id).and_then(|result| result.clone().ok())
+        snapshot
+            .tokens
+            .get(&row.id)
+            .and_then(|result| result.clone().ok())
     };
     let Some(tokens) = tokens else {
         return "Unknown plan".to_string();
