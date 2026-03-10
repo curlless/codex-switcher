@@ -9,10 +9,6 @@ interface SavedWindowState {
   height: number;
 }
 
-function isTauriWindowAvailable(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
 function loadSavedWindowState(): SavedWindowState | null {
   try {
     const saved = localStorage.getItem(WINDOW_STATE_KEY);
@@ -41,42 +37,99 @@ function saveWindowState(state: SavedWindowState) {
   localStorage.setItem(WINDOW_STATE_KEY, JSON.stringify(state));
 }
 
+function resolveCurrentWindow() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return getCurrentWindow();
+  } catch {
+    return null;
+  }
+}
+
+async function readCurrentWindowState(
+  currentWindow: ReturnType<typeof getCurrentWindow>,
+): Promise<SavedWindowState | null> {
+  try {
+    const scaleFactor = await currentWindow.scaleFactor();
+    const currentSize = (await currentWindow.outerSize()).toLogical(scaleFactor);
+
+    return {
+      width: Math.max(800, Math.round(currentSize.width)),
+      height: Math.max(600, Math.round(currentSize.height)),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function useDesktopWindowState() {
   useEffect(() => {
-    if (!isTauriWindowAvailable()) {
+    const resolvedWindow = resolveCurrentWindow();
+    if (!resolvedWindow) {
       return;
     }
+    const currentWindow = resolvedWindow;
 
     let disposed = false;
     let unlistenResize: (() => void) | null = null;
+    let unlistenClose: (() => void) | null = null;
     let saveTimer: number | null = null;
-    const currentWindow = getCurrentWindow();
+
+    function clearSaveTimer() {
+      if (saveTimer !== null) {
+        window.clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+    }
+
+    async function flushWindowState() {
+      if (disposed || (await currentWindow.isMaximized())) {
+        return;
+      }
+
+      const state = await readCurrentWindowState(currentWindow);
+      if (state) {
+        saveWindowState(state);
+      }
+    }
+
+    async function scheduleWindowStateSave() {
+      const state = await readCurrentWindowState(currentWindow);
+      if (!state || disposed) {
+        return;
+      }
+
+      clearSaveTimer();
+      saveTimer = window.setTimeout(() => {
+        saveWindowState(state);
+      }, WINDOW_STATE_SAVE_DELAY_MS);
+    }
 
     async function restoreAndTrackWindow() {
       const saved = loadSavedWindowState();
       if (saved) {
+        if (await currentWindow.isMaximized()) {
+          await currentWindow.unmaximize();
+        }
         await currentWindow.setSize(new LogicalSize(saved.width, saved.height));
+      } else {
+        await flushWindowState();
       }
 
-      const scaleFactor = await currentWindow.scaleFactor();
-      const currentSize = (await currentWindow.innerSize()).toLogical(scaleFactor);
-      saveWindowState({ width: currentSize.width, height: currentSize.height });
-
-      unlistenResize = await currentWindow.onResized(async ({ payload }) => {
-        if (disposed || (await currentWindow.isMaximized())) {
+      unlistenResize = await currentWindow.onResized(async () => {
+        if (disposed) {
           return;
         }
 
-        const logicalSize = payload.toLogical(await currentWindow.scaleFactor());
-        if (saveTimer !== null) {
-          window.clearTimeout(saveTimer);
-        }
-        saveTimer = window.setTimeout(() => {
-          saveWindowState({
-            width: logicalSize.width,
-            height: logicalSize.height,
-          });
-        }, WINDOW_STATE_SAVE_DELAY_MS);
+        await scheduleWindowStateSave();
+      });
+
+      unlistenClose = await currentWindow.onCloseRequested(async () => {
+        clearSaveTimer();
+        await flushWindowState();
       });
     }
 
@@ -84,10 +137,9 @@ export function useDesktopWindowState() {
 
     return () => {
       disposed = true;
-      if (saveTimer !== null) {
-        window.clearTimeout(saveTimer);
-      }
+      clearSaveTimer();
       unlistenResize?.();
+      unlistenClose?.();
     };
   }, []);
 }

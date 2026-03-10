@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const WORKSPACE_LAYOUT_KEY = "codex-switcher-workspace-layout";
 const DEFAULT_RATIO = 0.33;
@@ -64,7 +64,7 @@ export function useWorkspaceLayout() {
     return () => window.removeEventListener("resize", handleWindowResize);
   }, []);
 
-  function updateProfilePaneWidth(width: number) {
+  const updateProfilePaneWidth = useCallback((width: number) => {
     setLayout((prev) => {
       const next = {
         ...prev,
@@ -73,7 +73,7 @@ export function useWorkspaceLayout() {
       localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify(next));
       return next;
     });
-  }
+  }, []);
 
   return {
     profilePaneWidth: layout.profilePaneWidth,
