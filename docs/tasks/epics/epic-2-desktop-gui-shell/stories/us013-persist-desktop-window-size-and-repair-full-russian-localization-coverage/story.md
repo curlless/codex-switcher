@@ -1,6 +1,6 @@
 # US013: Persist desktop window size and repair full Russian localization coverage
 
-**Status:** In Progress
+**Status:** Done
 **Epic:** Epic 2
 **Linear:** KGS-241
 **Labels:** user-story

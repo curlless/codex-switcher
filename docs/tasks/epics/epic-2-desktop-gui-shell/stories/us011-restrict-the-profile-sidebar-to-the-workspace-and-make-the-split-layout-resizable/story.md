@@ -1,6 +1,6 @@
 # US011: Restrict the profile sidebar to the workspace and make the split layout resizable
 
-**Status:** In Progress
+**Status:** Done
 **Epic:** Epic 2
 **Linear:** KGS-239
 **Labels:** user-story

@@ -1,6 +1,6 @@
 # US012: Make refresh non-blocking and add periodic background limit refresh
 
-**Status:** In Progress
+**Status:** Done
 **Epic:** Epic 2
 **Linear:** KGS-240
 **Labels:** user-story

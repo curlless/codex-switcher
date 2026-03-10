@@ -1,11 +1,11 @@
 # US010: Promote Quick Switch to the primary panel and add direct best-profile switching
 
-**Status:** In Progress
+**Status:** Done
 **Epic:** Epic 2
 **Linear:** KGS-238
 **Labels:** user-story
 **Created:** 2026-03-10
-**Updated:** 2026-03-10
+**Updated:** 2026-03-11
 
 ## Story
 
