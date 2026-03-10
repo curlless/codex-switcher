@@ -221,7 +221,7 @@ fn render_switcher_config(config: &SwitcherConfig) -> String {
     rendered.push_str("# This file is stored next to your saved profiles index.\n");
     rendered.push_str("#\n");
     rendered.push_str("# reload.primary_target controls the default target for `reload-app`\n");
-    rendered.push_str("# and for auto-reload after `switch` when enabled below.\n");
+    rendered.push_str("# and for auto-reload after `switch`/`load` when enabled below.\n");
     rendered.push_str("\n[reload]\n");
     rendered.push_str(&format!(
         "primary_target = {}\n",

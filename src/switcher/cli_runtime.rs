@@ -94,7 +94,14 @@ fn run(cli: Cli) -> Result<(), String> {
     match cli.command {
         Commands::Config { .. } => unreachable!("config handled before startup checks"),
         Commands::Save { label } => save_profile(&paths, label),
-        Commands::Load { label } => load_profile(&paths, label),
+        Commands::Load { label } => {
+            let reload_target = switch_reload_target(&paths, None)?;
+            load_profile(&paths, label)?;
+            if let Some(reload_target) = reload_target {
+                reload_app(&paths, false, reload_target)?;
+            }
+            Ok(())
+        }
         Commands::List => list_profiles(&paths, false, false, false, false),
         Commands::Status {
             all: show_all,

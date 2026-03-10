@@ -134,6 +134,18 @@ fn write_config(home: &Path, base_url: &str) {
     .expect("write config");
 }
 
+fn write_switcher_reload_config(home: &Path, target: &str, reload_after_switch: bool) {
+    let profiles_dir = home.join(".codex").join("profiles");
+    fs::create_dir_all(&profiles_dir).expect("create profiles dir");
+    fs::write(
+        profiles_dir.join("config.toml"),
+        format!(
+            "[reload]\nprimary_target = \"{target}\"\n\n[switch]\nreload_after_switch = {reload_after_switch}\n"
+        ),
+    )
+    .expect("write switcher config");
+}
+
 fn read_profiles_index(home: &Path) -> serde_json::Value {
     let path = home.join(".codex").join("profiles").join("profiles.json");
     serde_json::from_str(&fs::read_to_string(path).expect("read profiles index"))
@@ -348,6 +360,60 @@ fn switcher_load_by_label_allows_reserved_profile() {
 
     let auth = fs::read_to_string(home.join(".codex").join("auth.json")).expect("read auth");
     assert!(auth.contains("access-reserved"), "auth: {auth}");
+
+    let _ = fs::remove_dir_all(home);
+}
+
+#[test]
+fn switcher_load_uses_configured_reload_path() {
+    let home = make_home();
+    write_auth(
+        &home,
+        "acct-current",
+        "current@example.com",
+        "plus",
+        "access-current",
+    );
+    write_saved_profile(
+        &home,
+        "current@example.com-plus",
+        "acct-current",
+        "current@example.com",
+        "plus",
+        "access-current",
+    );
+    write_saved_profile(
+        &home,
+        "reload@example.com-plus",
+        "acct-reload",
+        "reload@example.com",
+        "plus",
+        "access-reload",
+    );
+    write_profiles_index(
+        &home,
+        &[
+            ("current@example.com-plus", 3),
+            ("reload@example.com-plus", 2),
+        ],
+        &[("reload@example.com-plus", "reloadable")],
+        Some("current@example.com-plus"),
+    );
+    write_switcher_reload_config(&home, "cursor", true);
+
+    let output = run_switcher(&["load", "--label", "reloadable"], &home);
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Loaded profile"), "stdout: {stdout}");
+    assert!(stdout.contains("Reload hint:"), "stdout: {stdout}");
+
+    let auth = fs::read_to_string(home.join(".codex").join("auth.json")).expect("read auth");
+    assert!(auth.contains("access-reload"), "auth: {auth}");
 
     let _ = fs::remove_dir_all(home);
 }
