@@ -49,7 +49,6 @@ export async function bootstrapWorkspaceShell(
 
   if (activeStatusResult.ok) {
     activeStatus = activeStatusResult.data;
-    selectedLabel = activeStatusResult.data.activeProfile;
   } else {
     lastError = activeStatusResult.error;
   }
@@ -58,6 +57,16 @@ export async function bootstrapWorkspaceShell(
     reloadTargets = reloadTargetsResult.data;
   } else {
     lastError = reloadTargetsResult.error;
+  }
+
+  const knownLabels = new Set(
+    (overview?.profiles ?? current.overview?.profiles ?? []).map((profile) => profile.label),
+  );
+  const activeProfileLabel = activeStatus?.activeProfile ?? "";
+  if (!selectedLabel) {
+    selectedLabel = activeProfileLabel;
+  } else if (selectedLabel && knownLabels.size > 0 && !knownLabels.has(selectedLabel)) {
+    selectedLabel = activeProfileLabel;
   }
 
   return {

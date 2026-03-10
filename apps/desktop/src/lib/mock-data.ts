@@ -175,3 +175,7 @@ export function mockSwitchExecute(
     ]
   };
 }
+
+export function mockBestSwitchExecute(): SwitchExecutePayload {
+  return mockSwitchExecute("work-main");
+}

@@ -1,8 +1,8 @@
 use codex_switcher::switcher::{
     ActiveProfileStatusPayload, ProfilesOverviewPayload, ReloadAppTarget,
     ReloadOutcomePayload, SwitchExecutionPayload, SwitchPreviewPayload,
-    active_profile_status, ensure_paths, execute_reload_outcome, execute_switch,
-    profiles_overview, resolve_paths, switch_preview, write_atomic,
+    active_profile_status, ensure_paths, execute_best_switch, execute_reload_outcome,
+    execute_switch, profiles_overview, resolve_paths, switch_preview, write_atomic,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -109,23 +109,43 @@ fn smoke_trace_path(paths: &codex_switcher::switcher::Paths) -> PathBuf {
 }
 
 #[tauri::command]
-pub fn desktop_profiles_overview() -> DesktopCommandResult<ProfilesOverviewPayload> {
-    match switcher_paths().and_then(|paths| profiles_overview(&paths)) {
-        Ok(payload) => DesktopCommandResult::ok(payload),
-        Err(message) => {
-            DesktopCommandResult::err("switcher-query-failed", &message, true)
+pub async fn desktop_profiles_overview() -> DesktopCommandResult<ProfilesOverviewPayload> {
+    tauri::async_runtime::spawn_blocking(|| {
+        match switcher_paths().and_then(|paths| profiles_overview(&paths)) {
+            Ok(payload) => DesktopCommandResult::ok(payload),
+            Err(message) => {
+                DesktopCommandResult::err("switcher-query-failed", &message, true)
+            }
         }
-    }
+    })
+    .await
+    .unwrap_or_else(|error| {
+        DesktopCommandResult::err(
+            "switcher-query-failed",
+            &format!("failed to join desktop profiles query: {error}"),
+            true,
+        )
+    })
 }
 
 #[tauri::command]
-pub fn desktop_active_profile_status() -> DesktopCommandResult<ActiveProfileStatusPayload> {
-    match switcher_paths().and_then(|paths| active_profile_status(&paths)) {
-        Ok(payload) => DesktopCommandResult::ok(payload),
-        Err(message) => {
-            DesktopCommandResult::err("switcher-query-failed", &message, true)
+pub async fn desktop_active_profile_status() -> DesktopCommandResult<ActiveProfileStatusPayload> {
+    tauri::async_runtime::spawn_blocking(|| {
+        match switcher_paths().and_then(|paths| active_profile_status(&paths)) {
+            Ok(payload) => DesktopCommandResult::ok(payload),
+            Err(message) => {
+                DesktopCommandResult::err("switcher-query-failed", &message, true)
+            }
         }
-    }
+    })
+    .await
+    .unwrap_or_else(|error| {
+        DesktopCommandResult::err(
+            "switcher-query-failed",
+            &format!("failed to join desktop active-profile query: {error}"),
+            true,
+        )
+    })
 }
 
 #[tauri::command]
@@ -161,6 +181,16 @@ pub fn desktop_switch_execute(
     }
 
     match switcher_paths().and_then(|paths| execute_switch(&paths, &request.profile_label, None)) {
+        Ok(payload) => DesktopCommandResult::ok(payload),
+        Err(message) => {
+            DesktopCommandResult::err("switcher-execute-failed", &message, true)
+        }
+    }
+}
+
+#[tauri::command]
+pub fn desktop_switch_best_execute() -> DesktopCommandResult<SwitchExecutionPayload> {
+    match switcher_paths().and_then(|paths| execute_best_switch(&paths, None)) {
         Ok(payload) => DesktopCommandResult::ok(payload),
         Err(message) => {
             DesktopCommandResult::err("switcher-execute-failed", &message, true)

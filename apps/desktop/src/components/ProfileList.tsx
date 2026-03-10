@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { ProfileCard } from "../lib/contracts";
 import type { Locale } from "../lib/i18n";
@@ -16,6 +17,7 @@ export function ProfileList({
   onReserve,
   recentActions,
   locale,
+  paneWidth,
 }: {
   profiles: ProfileCard[];
   selectedLabel: string;
@@ -24,6 +26,7 @@ export function ProfileList({
   onReserve: (label: string, reserve: boolean) => void;
   recentActions: string[];
   locale: Locale;
+  paneWidth?: number;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -62,7 +65,14 @@ export function ProfileList({
   }
 
   return (
-    <aside className="sidebar">
+    <aside
+      className="sidebar"
+      style={
+        paneWidth
+          ? ({ "--profile-pane-width": `${paneWidth}px` } as CSSProperties)
+          : undefined
+      }
+    >
       <button
         className="sidebar__section-toggle"
         onClick={() => setProfilesOpen(!profilesOpen)}

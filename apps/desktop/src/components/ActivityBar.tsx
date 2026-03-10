@@ -22,7 +22,7 @@ export function ActivityBar({
   onViewChange: (view: ActivityView) => void;
   locale: Locale;
 }) {
-  const mainViews: ActivityView[] = ["profiles", "switch", "reload"];
+  const mainViews: ActivityView[] = ["switch", "profiles", "reload"];
 
   return (
     <nav className="activity-bar" aria-label={t(locale, "viewNavigation")}>

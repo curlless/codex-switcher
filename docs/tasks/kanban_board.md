@@ -2,13 +2,22 @@
 
 ### Backlog
 
+- **Epic 2: Desktop GUI Shell**
+
 ### Todo
 
 ### In Progress
+- **Epic 2: Desktop GUI Shell**
+  - [book] [US010: Promote Quick Switch to the primary panel and add direct best-profile switching](epics/epic-2-desktop-gui-shell/stories/us010-promote-quick-switch-to-the-primary-panel-and-add-direct-best-profile-switching/story.md)
+    - [gear] T001-T004; direct best-switch seam now reuses the canonical Rust CLI-equivalent path, Quick Switch is the default primary panel, and the sidebar is hidden outside the workspace view
+  - [book] [US011: Restrict the profile sidebar to the workspace and make the split layout resizable](epics/epic-2-desktop-gui-shell/stories/us011-restrict-the-profile-sidebar-to-the-workspace-and-make-the-split-layout-resizable/story.md)
+    - [gear] T001-T005; the workspace pane is now desktop-only, resizable, and persisted across restarts through the shared React/localStorage layout seam
+  - [book] [US012: Make refresh non-blocking and add periodic background limit refresh](epics/epic-2-desktop-gui-shell/stories/us012-make-refresh-non-blocking-and-add-periodic-background-limit-refresh/story.md)
+    - [gear] T001-T005; refresh now uses async desktop queries, one-minute background polling, overlap-safe shell orchestration, and selection-preserving snapshot application
+  - [book] [US013: Persist desktop window size and repair full Russian localization coverage](epics/epic-2-desktop-gui-shell/stories/us013-persist-desktop-window-size-and-repair-full-russian-localization-coverage/story.md)
+    - [gear] T001-T005; the desktop shell now restores the last window size and the repository-owned RU locale is repaired, completed, and parity-checked against EN
 
 ### In Review
-
-- None
 
 ### Done
 
@@ -41,6 +50,7 @@
 - `linear-kgsedds` remains the active story and task tracker; this file mirrors the current worktree state after tracker updates land.
 - Epic 2 is complete as of 2026-03-09: US002-US005 are merged to `develop` and reflected as `Done` in `linear-kgsedds`.
 - Epic 2 reopened on 2026-03-10 for US009, a post-release shared-runtime taxonomy update covering precise availability/error tags across the Rust seam, CLI rendering, and GUI surfaces, and was re-closed the same day after the rollout checks passed.
+- Epic 2 reopened again on 2026-03-10 for a desktop UX stabilization cycle covering Quick Switch promotion, workspace-only sidebar layout, non-blocking refresh with periodic limit polling, persisted desktop/window layout state, and complete Russian localization repair.
 - Intake-only artifacts `apps/desktop/src/_backup/*`, `attached_assets/*`, `.replit`, and `replit.md` are excluded from Epic 2 story scope unless separately planned.
 - Epic 3 completed the artifact-hygiene and history-aware secret-scan gates on 2026-03-09. The repository now has a tracked-file cleanup pass and a reproducible `gitleaks git` pass with no leaks found.
 - The latest post-release runtime hotfix lives under US003/T006 because the recoverable `UNAVAILABLE` defect was inside the shared switcher service seam rather than the GUI-only shell.

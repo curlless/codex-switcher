@@ -7,6 +7,7 @@ pub fn run() {
             commands::desktop_active_profile_status,
             commands::desktop_switch_preview,
             commands::desktop_switch_execute,
+            commands::desktop_switch_best_execute,
             commands::desktop_smoke_mode,
             commands::desktop_record_smoke_trace,
             commands::desktop_reload_targets,

@@ -217,10 +217,16 @@ button:focus-visible {
   overflow: hidden;
 }
 
+.app--resizing,
+.app--resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* ==================== SIDEBAR ==================== */
 
 .sidebar {
-  width: 220px;
+  width: var(--profile-pane-width, 220px);
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
@@ -229,6 +235,31 @@ button:focus-visible {
   flex-shrink: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--surface1) transparent;
+}
+
+.workspace-resizer {
+  width: 8px;
+  flex-shrink: 0;
+  position: relative;
+  background: transparent;
+  border-right: 1px solid transparent;
+  cursor: col-resize;
+}
+
+.workspace-resizer::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transition: background 100ms ease;
+}
+
+.workspace-resizer:hover::before,
+.workspace-resizer:focus-visible::before {
+  background: var(--accent);
 }
 
 .sidebar::-webkit-scrollbar {
@@ -1071,13 +1102,20 @@ button:focus-visible {
 .quick-switch {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  max-width: 900px;
 }
 
 .quick-switch__section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.quick-switch__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .quick-switch__section-label {
@@ -1112,6 +1150,11 @@ button:focus-visible {
   cursor: pointer;
 }
 
+.quick-switch__card--hero {
+  align-items: stretch;
+  gap: 16px;
+}
+
 .quick-switch__card--clickable:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.04);
   border-color: var(--border-active);
@@ -1130,7 +1173,7 @@ button:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .quick-switch__card-name {
@@ -1170,6 +1213,9 @@ button:focus-visible {
   text-align: center;
   color: var(--text-dim);
   font-size: 13px;
+  border: 1px dashed var(--border-active);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .quick-switch__hint {
@@ -1446,5 +1492,12 @@ button:focus-visible {
     border-right: none;
     border-bottom: 1px solid var(--border);
     max-height: 200px;
+  }
+  .workspace-resizer {
+    display: none;
+  }
+  .quick-switch__card--hero {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

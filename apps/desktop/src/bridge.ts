@@ -13,6 +13,7 @@ import {
   mockActiveStatus,
   mockOverview,
   mockReloadTargets,
+  mockBestSwitchExecute,
   mockSwitchExecute,
   mockSwitchPreview
 } from "./lib/mock-data";
@@ -128,6 +129,24 @@ export async function executeSwitch(
   } catch {
     return fallbackError(
       "The native desktop bridge is unavailable, so switch execution could not be completed."
+    );
+  }
+}
+
+export async function executeBestSwitch(): Promise<
+  DesktopCommandResult<SwitchExecutePayload>
+> {
+  if (!isTauriAvailable()) {
+    return mockOk(mockBestSwitchExecute());
+  }
+
+  try {
+    return await invoke<DesktopCommandResult<SwitchExecutePayload>>(
+      "desktop_switch_best_execute"
+    );
+  } catch {
+    return fallbackError(
+      "The native desktop bridge is unavailable, so direct best-profile switching could not be completed."
     );
   }
 }
