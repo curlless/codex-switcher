@@ -1,6 +1,6 @@
 import type { ProfileCard, SwitchProfilePayload } from "../lib/contracts";
 import type { Locale } from "../lib/i18n";
-import { t } from "../lib/i18n";
+import { formatWorkspaceLabel, getAvailabilityLabel, localizeRuntimeText, t } from "../lib/i18n";
 
 function parsePercent(s: string): number {
   const n = parseInt(s, 10);
@@ -19,6 +19,7 @@ export function ProfileDetail({
   summary,
   reservedProfiles,
   workspaceLabel,
+  profileCount,
   events,
   locale,
   onReserve,
@@ -28,6 +29,7 @@ export function ProfileDetail({
   summary: string | null;
   reservedProfiles: number;
   workspaceLabel: string;
+  profileCount: number;
   events: string[];
   locale: Locale;
   onReserve: (label: string, reserve: boolean) => void;
@@ -63,11 +65,15 @@ export function ProfileDetail({
     reservedProfiles > 0 && !summary
       ? [`${reservedProfiles} ${t(locale, "reserved").toLowerCase()}`, ...events].slice(0, 3)
       : events.slice(0, 3);
+  const breadcrumbWorkspaceLabel =
+    workspaceLabel.startsWith("Shared runtime:")
+      ? formatWorkspaceLabel(locale, profileCount)
+      : localizeRuntimeText(locale, workspaceLabel);
 
   return (
     <div className="detail">
       <div className="breadcrumb">
-        <span className="breadcrumb__item">{workspaceLabel}</span>
+        <span className="breadcrumb__item">{breadcrumbWorkspaceLabel}</span>
         <span className="breadcrumb__sep">/</span>
         <span className="breadcrumb__item breadcrumb__item--active">{profile.label}</span>
       </div>
@@ -88,7 +94,7 @@ export function ProfileDetail({
             <span
               className={`tag ${availability.retryable ? "tag--availability-retryable" : "tag--availability-hard"}`}
             >
-              {availability.label}
+              {getAvailabilityLabel(locale, availability.tag, availability.label)}
             </span>
           )}
         </div>
@@ -131,7 +137,7 @@ export function ProfileDetail({
         </div>
       </div>
 
-      {summary && <p className="detail__summary">{summary}</p>}
+      {summary && <p className="detail__summary">{localizeRuntimeText(locale, summary)}</p>}
 
       {profile.status !== "active" && (
         <>
@@ -149,7 +155,7 @@ export function ProfileDetail({
       {availability && (
         <div className="detail__warning">
           <span aria-hidden="true">!</span>
-          {availability.reason}
+          {localizeRuntimeText(locale, availability.reason)}
         </div>
       )}
 
@@ -158,7 +164,7 @@ export function ProfileDetail({
           <div className="detail__events-label">{t(locale, "recentEvents")}</div>
           {eventsToRender.map((event, index) => (
             <div key={index} className="detail__event">
-              {event}
+              {localizeRuntimeText(locale, event)}
             </div>
           ))}
         </div>

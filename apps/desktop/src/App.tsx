@@ -21,7 +21,13 @@ import { useDesktopWindowState } from "./hooks/useDesktopWindowState";
 import { useRecentActions } from "./hooks/useRecentActions";
 import { useToasts } from "./hooks/useToasts";
 import { useWorkspaceLayout } from "./hooks/useWorkspaceLayout";
-import { t } from "./lib/i18n";
+import {
+  formatWorkspaceLabel,
+  getReloadTargetDescription,
+  getReloadTargetLabel,
+  localizeRuntimeText,
+  t,
+} from "./lib/i18n";
 import type { Locale } from "./lib/i18n";
 import { sortProfiles } from "./lib/sorting";
 import {
@@ -133,6 +139,9 @@ export function App() {
   useDesktopWindowState();
 
   const locale: Locale = settings.locale;
+  const workspaceLabel = overview
+    ? formatWorkspaceLabel(locale, overview.profiles.length)
+    : t(locale, "workspace");
 
   async function bootstrapShell() {
     const snapshot = await bootstrapWorkspaceShell({
@@ -381,7 +390,7 @@ export function App() {
     }
 
     setCommandError(result.error);
-    addToast("error", t(locale, "previewFailed"), result.error.message);
+    addToast("error", t(locale, "previewFailed"), localizeRuntimeText(locale, result.error.message));
   }
 
   async function handleQuickSwitch() {
@@ -391,7 +400,7 @@ export function App() {
 
     if (!result.ok) {
       setCommandError(result.error);
-      addToast("error", t(locale, "switchFailed"), result.error.message);
+      addToast("error", t(locale, "switchFailed"), localizeRuntimeText(locale, result.error.message));
       return;
     }
 
@@ -401,8 +410,8 @@ export function App() {
     addToast(
       result.data.success ? "success" : "warning",
       t(locale, result.data.success ? "switched" : "switchIncomplete"),
-      result.data.summary,
-      result.data.manualHints,
+      localizeRuntimeText(locale, result.data.summary),
+      result.data.manualHints.map((hint) => localizeRuntimeText(locale, hint)),
     );
     setSmokeEvent(result.data.success ? "quick-switch-executed" : "quick-switch-warning");
     addRecent(`${t(locale, "switched")} -> ${result.data.switchedTo}`);
@@ -426,15 +435,15 @@ export function App() {
     setSwitchExecuting(false);
 
     if (!result.ok) {
-      addToast("error", t(locale, "switchFailed"), result.error.message);
+      addToast("error", t(locale, "switchFailed"), localizeRuntimeText(locale, result.error.message));
       return;
     }
 
     addToast(
       result.data.success ? "success" : "warning",
       t(locale, result.data.success ? "switched" : "switchIncomplete"),
-      result.data.summary,
-      result.data.manualHints,
+      localizeRuntimeText(locale, result.data.summary),
+      result.data.manualHints.map((hint) => localizeRuntimeText(locale, hint)),
     );
     setSwitchPreview(null);
     setSmokeEvent(result.data.success ? "switch-executed" : "switch-warning");
@@ -466,6 +475,7 @@ export function App() {
   }, [phase]);
 
   async function handleReloadTarget(target: ReloadTargetInfo) {
+    const targetLabel = getReloadTargetLabel(locale, target.id, target.label);
     setReloadingTargets((prev) => new Set(prev).add(target.id));
     const result = await reloadTarget(target.id);
     setReloadingTargets((prev) => {
@@ -481,9 +491,9 @@ export function App() {
           : result.data.attempted
             ? "warning"
             : "error",
-        target.label,
-        result.data.message,
-        result.data.manualHints,
+        targetLabel,
+        localizeRuntimeText(locale, result.data.message),
+        result.data.manualHints.map((hint) => localizeRuntimeText(locale, hint)),
       );
       setCommandError(null);
       setSmokeEvent(
@@ -491,11 +501,11 @@ export function App() {
           ? `reload-${target.id}-success`
           : `reload-${target.id}-warning`,
       );
-      addRecent(`${t(locale, "reload")} ${target.label}`);
+      addRecent(`${t(locale, "reload")} ${targetLabel}`);
       return;
     }
 
-    addToast("error", t(locale, "reloadFailed"), result.error.message);
+    addToast("error", t(locale, "reloadFailed"), localizeRuntimeText(locale, result.error.message));
   }
 
   function handleReserve(label: string, reserve: boolean) {
@@ -554,7 +564,7 @@ export function App() {
           <h2>{t(locale, "unableToConnect")}</h2>
           <p className="error-screen__detail">
             {commandError
-              ? `${commandError.code}: ${commandError.message}`
+              ? `${commandError.code}: ${localizeRuntimeText(locale, commandError.message)}`
               : t(locale, "bridgeNotResponding")}
           </p>
           {commandError?.retryable !== false && (
@@ -617,7 +627,8 @@ export function App() {
           enriched={enrichedProfile}
           summary={activeStatus?.summary ?? null}
           reservedProfiles={activeStatus?.reservedProfiles ?? 0}
-          workspaceLabel={overview?.workspaceLabel ?? t(locale, "workspace")}
+          workspaceLabel={workspaceLabel}
+          profileCount={overview?.profiles.length ?? 0}
           events={overview?.events ?? []}
           locale={locale}
           onReserve={handleReserve}
@@ -641,9 +652,11 @@ export function App() {
               onClick={() => void handleReloadTarget(target)}
               disabled={reloadingTargets.has(target.id)}
               type="button"
-              title={target.description}
+              title={getReloadTargetDescription(locale, target.id, target.description)}
             >
-              {reloadingTargets.has(target.id) ? `${target.label}...` : target.label}
+              {reloadingTargets.has(target.id)
+                ? `${getReloadTargetLabel(locale, target.id, target.label)}...`
+                : getReloadTargetLabel(locale, target.id, target.label)}
             </button>
           ))}
         </div>
@@ -670,7 +683,7 @@ export function App() {
         </div>
         <div className="titlebar__right">
           <span className="titlebar__workspace">
-            {overview?.workspaceLabel ?? t(locale, "workspace")}
+            {workspaceLabel}
           </span>
           <button
             className={`titlebar__btn${refreshing ? " titlebar__btn--spinning" : ""}`}

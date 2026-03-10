@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { ProfileCard } from "../lib/contracts";
 import type { Locale } from "../lib/i18n";
-import { t } from "../lib/i18n";
+import { getAvailabilityLabel, t } from "../lib/i18n";
 
 function parsePercent(s: string): number {
   const n = parseInt(s, 10);
@@ -135,7 +135,11 @@ export function ProfileList({
                           )}
                           {profile.availability && (
                             <span className="profile-item__availability-badge">
-                              {profile.availability.label}
+                              {getAvailabilityLabel(
+                                locale,
+                                profile.availability.tag,
+                                profile.availability.label,
+                              )}
                             </span>
                           )}
                         </span>

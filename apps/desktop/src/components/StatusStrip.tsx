@@ -1,7 +1,7 @@
 import type { ActivityView } from "./ActivityBar";
 import type { DesktopCommandError } from "../lib/contracts";
 import type { Locale } from "../lib/i18n";
-import { t } from "../lib/i18n";
+import { localizeRuntimeText, t } from "../lib/i18n";
 
 const viewLabelKeys: Record<ActivityView, "profiles" | "quickSwitch" | "reload" | "settings"> = {
   profiles: "profiles",
@@ -50,12 +50,14 @@ export function StatusStrip({
       </div>
       {lastReloaded && (
         <div className="statusbar__item" aria-live="polite">
-          <span>{t(locale, "lastReloaded")}: {lastReloaded}</span>
+          <span>{t(locale, "lastReloaded")}: {localizeRuntimeText(locale, lastReloaded)}</span>
         </div>
       )}
       {commandError && (
         <div className="statusbar__item" aria-live="polite">
-          <span className="statusbar__error">{commandError.code}: {commandError.message}</span>
+          <span className="statusbar__error">
+            {commandError.code}: {localizeRuntimeText(locale, commandError.message)}
+          </span>
         </div>
       )}
     </footer>

@@ -1,6 +1,6 @@
 import type { SwitchPreviewPayload } from "../lib/contracts";
 import type { Locale } from "../lib/i18n";
-import { t } from "../lib/i18n";
+import { getAvailabilityLabel, localizeRuntimeText, t } from "../lib/i18n";
 
 export function SwitchPanel({
   preview,
@@ -18,7 +18,7 @@ export function SwitchPanel({
   return (
     <div className="switch-panel" role="region" aria-live="polite">
       <div className="switch-panel__header">
-        <span className="switch-panel__title">{preview.summary}</span>
+        <span className="switch-panel__title">{localizeRuntimeText(locale, preview.summary)}</span>
         <button
           className="switch-panel__close"
           onClick={onDismiss}
@@ -32,7 +32,7 @@ export function SwitchPanel({
       {preview.manualHints.length > 0 && (
         <ul className="switch-panel__hints">
           {preview.manualHints.map((hint) => (
-            <li key={hint}>{hint}</li>
+            <li key={hint}>{localizeRuntimeText(locale, hint)}</li>
           ))}
         </ul>
       )}
@@ -66,7 +66,11 @@ export function SwitchPanel({
                     className={`tag ${candidate.availability.retryable ? "tag--availability-retryable" : "tag--availability-hard"}`}
                     style={{ marginLeft: 6 }}
                   >
-                    {candidate.availability.label}
+                    {getAvailabilityLabel(
+                      locale,
+                      candidate.availability.tag,
+                      candidate.availability.label,
+                    )}
                   </span>
                 )}
                 {isCurrent && (
@@ -84,7 +88,11 @@ export function SwitchPanel({
                 )}
               </div>
               {isUnavailable && (
-                <div className="candidate-row__reason">{candidate.availability?.reason}</div>
+                <div className="candidate-row__reason">
+                  {candidate.availability
+                    ? localizeRuntimeText(locale, candidate.availability.reason)
+                    : ""}
+                </div>
               )}
             </div>
             {!isCurrent && !isUnavailable && preview.canSwitch && (
