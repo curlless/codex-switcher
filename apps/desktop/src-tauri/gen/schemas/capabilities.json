@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default desktop permissions for the Codex Switcher GUI shell.","local":true,"windows":["main"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"Default desktop permissions for the Codex Switcher GUI shell.","local":true,"windows":["main"],"permissions":["core:default","window-state:default"]}}

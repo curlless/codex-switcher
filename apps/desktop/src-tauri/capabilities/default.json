@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Default desktop permissions for the Codex Switcher GUI shell.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "window-state:default"]
 }

@@ -727,7 +727,7 @@ export function App() {
               onMouseDown={handleWorkspaceResizeStart}
               role="separator"
               aria-orientation="vertical"
-              aria-label="Resize profile workspace sidebar"
+              aria-label={t(locale, "resizeSidebar")}
             />
           </>
         )}

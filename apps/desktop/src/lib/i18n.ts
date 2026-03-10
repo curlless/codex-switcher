@@ -90,6 +90,7 @@ const translations = {
     recommended: "recommended",
     viewNavigation: "View navigation",
     statusBar: "Status bar",
+    resizeSidebar: "Resize profile sidebar",
     activeBadge: "active",
     reserveLocally: "Reserve locally",
     clearLocalReserve: "Clear local reserve",
@@ -121,8 +122,8 @@ const translations = {
     reloadFailed: "Не удалось выполнить перезагрузку",
     retry: "Повторить",
     unableToConnect: "Не удалось подключиться",
-    bridgeNotResponding: "Нативный bridge не отвечает.",
-    connectingToBridge: "Подключение к bridge...",
+    bridgeNotResponding: "Нативный мост не отвечает.",
+    connectingToBridge: "Подключение к нативному мосту...",
     selectProfile: "Выберите профиль",
     selectProfileHint:
       "Выберите профиль в боковой панели, чтобы открыть его подробности.",
@@ -189,6 +190,7 @@ const translations = {
     recommended: "рекомендуется",
     viewNavigation: "Навигация по разделам",
     statusBar: "Строка состояния",
+    resizeSidebar: "Изменить ширину панели профилей",
     activeBadge: "активен",
     reserveLocally: "Зарезервировать локально",
     clearLocalReserve: "Снять локальный резерв",
@@ -245,7 +247,7 @@ export function formatWorkspaceLabel(locale: Locale, profileCount: number): stri
     return `Shared runtime: ${profileCount} profile${profileCount === 1 ? "" : "s"}`;
   }
 
-  return `Общий runtime: ${profileCount} ${russianProfileWord(profileCount)}`;
+  return `Общий рантайм: ${profileCount} ${russianProfileWord(profileCount)}`;
 }
 
 export function getReloadTargetLabel(
@@ -282,7 +284,7 @@ export function getReloadTargetDescription(
     case "codex":
       return "Обновить сессию Codex после переключения аккаунта.";
     case "cursor":
-      return "Обновить Cursor, когда bootstrap shell меняет editor-side auth.";
+      return "Обновить Cursor после изменения авторизации редактора.";
     case "all":
       return "Обновить все доступные IDE-сессии после смены профиля.";
     default:
@@ -322,29 +324,29 @@ export function getAvailabilityLabel(
 }
 
 const exactRuRuntimeTexts: Record<string, string> = {
-  "Shared Rust reload services are ready.": "Сервисы перезагрузки Rust готовы.",
+  "Shared Rust reload services are ready.": "Сервисы перезагрузки готовы.",
   "Current auth session is not saved yet; the shared service still exposes it as the active profile.":
-    "Текущая auth-сессия еще не сохранена, но общий сервис уже показывает ее как активный профиль.",
+    "Текущая сессия авторизации еще не сохранена, но общий сервис уже показывает ее как активный профиль.",
   "No active profile could be derived from the current auth state.":
-    "Не удалось определить активный профиль из текущего auth-состояния.",
+    "Не удалось определить активный профиль из текущего состояния авторизации.",
   "No eligible profile is available for automatic switching.":
     "Нет подходящего профиля для автоматического переключения.",
   "The current auth session is unsaved; save it first if you want label-based switching to stay stable.":
-    "Текущая auth-сессия не сохранена. Сначала сохраните ее, если хотите стабильное переключение по label.",
+    "Текущая сессия авторизации не сохранена. Сначала сохраните ее, если хотите стабильное переключение по имени профиля.",
   "Reserved profiles stay out of automatic-switch candidacy until they are unreserved.":
     "Зарезервированные профили не участвуют в автопереключении, пока с них не снят резерв.",
   "Retry the shared refresh path before forcing a re-login.":
-    "Сначала попробуйте общий refresh-path, прежде чем делать повторный логин.",
+    "Сначала попробуйте общий путь обновления, прежде чем делать повторный вход.",
   "Usage-based switching does not support API key logins.":
-    "Переключение по usage не поддерживает логины через API key.",
+    "Переключение по лимитам не поддерживает вход через API key.",
   "Usage-based switching requires a supported paid Cursor plan.":
-    "Для переключения по usage нужен поддерживаемый платный план Cursor.",
+    "Для переключения по лимитам нужен поддерживаемый платный план Cursor.",
   "Refresh usage windows or inspect account usage data before switching.":
-    "Обновите usage-окна или проверьте usage-данные аккаунта перед переключением.",
+    "Обновите окна лимитов или проверьте данные аккаунта перед переключением.",
   "Repair or resave the saved profile before attempting an automatic switch.":
     "Исправьте или заново сохраните профиль перед автоматическим переключением.",
   "At least one non-reserved profile with readable usage data is required for automatic switching.":
-    "Для автоматического переключения нужен хотя бы один незарезервированный профиль с читаемыми usage-данными.",
+    "Для автоматического переключения нужен хотя бы один незарезервированный профиль с читаемыми данными по лимитам.",
   "Choose a profile before requesting a switch preview.":
     "Сначала выберите профиль, прежде чем запрашивать предпросмотр переключения.",
   "Choose a profile before executing a switch.":
@@ -379,7 +381,7 @@ export function localizeRuntimeText(locale: Locale, text: string): string {
   );
   if (returnedProfilesMatch) {
     const count = Number(returnedProfilesMatch[1]);
-    return `Канонический Rust runtime вернул ${count} ${russianProfileWord(count)} для desktop shell.`;
+    return `Основной рантайм вернул ${count} ${russianProfileWord(count)} для приложения.`;
   }
 
   const activeProfileMatch = text.match(/^Active profile: (.+)\.$/);
@@ -403,8 +405,8 @@ export function localizeRuntimeText(locale: Locale, text: string): string {
     const stateLabel =
       state === "active" ? "активный" : state === "reserved" ? "зарезервированный" : "доступный";
     return details
-      ? `${label} — текущий ${stateLabel} профиль, который отдает общий Rust query service (${localizeRuntimeText(locale, details)}).`
-      : `${label} — текущий ${stateLabel} профиль, который отдает общий Rust query service.`;
+      ? `${label} — текущий ${stateLabel} профиль, который вернул общий сервис запросов (${localizeRuntimeText(locale, details)}).`
+      : `${label} — текущий ${stateLabel} профиль, который вернул общий сервис запросов.`;
   }
 
   const activeAuthJsonMatch = text.match(
@@ -439,7 +441,7 @@ export function localizeRuntimeText(locale: Locale, text: string): string {
     /^(.+) is the current best switch candidate from the shared Rust runtime\.$/,
   );
   if (bestCandidateMatch) {
-    return `${bestCandidateMatch[1]} сейчас является лучшим кандидатом для переключения по общему Rust runtime.`;
+    return `${bestCandidateMatch[1]} сейчас является лучшим кандидатом для переключения по общему рантайму.`;
   }
 
   const betterCandidateMatch = text.match(
@@ -460,33 +462,33 @@ export function localizeRuntimeText(locale: Locale, text: string): string {
     /^Profile '(.+)' is not currently switchable from the shared Rust runtime\.$/,
   );
   if (notSwitchableFromRuntimeMatch) {
-    return `Профиль '${notSwitchableFromRuntimeMatch[1]}' сейчас недоступен для переключения из общего Rust runtime.`;
+    return `Профиль '${notSwitchableFromRuntimeMatch[1]}' сейчас недоступен для переключения из общего рантайма.`;
   }
 
   const loadedViaSwitchServiceMatch = text.match(
     /^Loaded (.+) via the shared Rust switch service and processed (.+) reload guidance\.$/,
   );
   if (loadedViaSwitchServiceMatch) {
-    return `${loadedViaSwitchServiceMatch[1]} загружен через общий Rust switch service, инструкции по перезагрузке обработаны (${loadedViaSwitchServiceMatch[2]}).`;
+    return `${loadedViaSwitchServiceMatch[1]} загружен через общий сервис переключения, инструкции по перезагрузке обработаны (${loadedViaSwitchServiceMatch[2]}).`;
   }
 
   const loadedViaSwitchServiceSimpleMatch = text.match(
     /^Loaded (.+) via the shared Rust switch service\.$/,
   );
   if (loadedViaSwitchServiceSimpleMatch) {
-    return `${loadedViaSwitchServiceSimpleMatch[1]} загружен через общий Rust switch service.`;
+    return `${loadedViaSwitchServiceSimpleMatch[1]} загружен через общий сервис переключения.`;
   }
 
   const failedFetchUsageMatch = text.match(/^failed to fetch usage: http status: (\d+)$/i);
   if (failedFetchUsageMatch) {
-    return `не удалось получить usage: HTTP статус ${failedFetchUsageMatch[1]}`;
+    return `не удалось получить данные по лимитам: HTTP статус ${failedFetchUsageMatch[1]}`;
   }
 
   const nativeBridgeUnavailableMatch = text.match(
     /^The native desktop bridge is unavailable, so (.+)\.$/,
   );
   if (nativeBridgeUnavailableMatch) {
-    return `Нативный desktop bridge недоступен, поэтому ${nativeBridgeUnavailableMatch[1]}.`;
+    return `Нативный мост рабочего стола недоступен, поэтому ${nativeBridgeUnavailableMatch[1]}.`;
   }
 
   return text;
