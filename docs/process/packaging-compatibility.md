@@ -90,6 +90,22 @@ The wrapper package intentionally stays "thin":
 Reproducibility for this surface comes from metadata verification and artifact
 verification, not from installing a non-existent JavaScript dependency graph.
 
+## Windows Desktop Bundling
+
+Windows desktop packaging is expected to run through the normal Tauri bundler
+path, not by manually copying a built `.exe` into an installed app directory.
+
+To keep `npm run tauri:build` reliable on Windows, the repository bootstraps the
+required NSIS and WiX caches before invoking `tauri build`:
+
+1. `scripts/run-tauri-build.mjs` is the package entrypoint behind `npm run tauri:build`
+2. on Windows it runs `scripts/prepare-tauri-bundler-tools.ps1`
+3. that script seeds `%LOCALAPPDATA%\tauri\NSIS` and `%LOCALAPPDATA%\tauri\WixTools314`
+4. it also installs the extra `nsis_tauri_utils.dll` and `ApplicationID` plugin assets required by the Tauri NSIS bundle
+
+If the bundler cache gets corrupted, rerunning `npm run tauri:build` should
+repair the cache automatically from the canonical upstream assets.
+
 ## Maintenance Rule
 
 When adjusting installer, release, or package metadata:

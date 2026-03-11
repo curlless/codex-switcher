@@ -114,6 +114,7 @@ echo "Packaging scope:"
 echo "  - bundle targets from src-tauri/tauri.conf.json: nsis, msi"
 echo "  - updater artifacts: disabled"
 echo "  - code signing: not configured in this story"
+echo "  - Windows tool cache bootstrap: scripts/prepare-tauri-bundler-tools.ps1"
 echo ""
 
 echo "Installing frontend dependencies..."
