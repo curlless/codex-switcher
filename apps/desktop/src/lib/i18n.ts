@@ -125,8 +125,7 @@ const translations = {
     bridgeNotResponding: "Нативный мост не отвечает.",
     connectingToBridge: "Подключение к нативному мосту...",
     selectProfile: "Выберите профиль",
-    selectProfileHint:
-      "Выберите профиль в боковой панели, чтобы открыть его подробности.",
+    selectProfileHint: "Выберите профиль в боковой панели, чтобы открыть его подробности.",
     noProfilesFound: "Профили не найдены",
     createProfileViaCli: "Создайте профиль через CLI.",
     recent: "Недавние",
@@ -153,8 +152,7 @@ const translations = {
     switchBestProfile: "Переключиться на лучший профиль",
     noAvailableProfiles: "Нет доступных профилей для переключения.",
     reloadSessions: "Перезагрузка сессий",
-    reloadDesc:
-      "Перезапустите IDE-сессии, чтобы они подхватили изменения профиля.",
+    reloadDesc: "Перезапустите IDE-сессии, чтобы они подхватили изменения профиля.",
     lastReloaded: "Последняя перезагрузка",
     reloadTip:
       "Совет: после смены профиля перезагрузите IDE, чтобы она применила новые учетные данные.",
@@ -172,8 +170,7 @@ const translations = {
     reloadAfterSwitchDesc:
       "Автоматически перезагружать IDE-сессии после смены профиля.",
     primaryReloadTarget: "Основная цель перезагрузки",
-    primaryReloadTargetDesc:
-      "Какую IDE-сессию перезагружать по умолчанию.",
+    primaryReloadTargetDesc: "Какую IDE-сессию перезагружать по умолчанию.",
     sortBy: "Сортировка",
     sortByRating: "Рейтинг (лучшие сверху)",
     sortByName: "Имя (А-Я)",
@@ -307,7 +304,7 @@ export function getAvailabilityLabel(
     case "apiKeyUnsupported":
       return "Только API key";
     case "freePlanUnsupported":
-      return "Free план";
+      return "Free-план";
     case "missingAccessToken":
       return "Нет auth token";
     case "missingAccountId":
@@ -394,7 +391,9 @@ export function localizeRuntimeText(locale: Locale, text: string): string {
   );
   if (reservedProfilesMatch) {
     const count = Number(reservedProfilesMatch[1]);
-    return `${count} ${count === 1 ? "зарезервированный профиль исключен" : "зарезервированных профиля исключены"} из автопереключения.`;
+    return `${count} ${
+      count === 1 ? "зарезервированный профиль исключен" : "зарезервированных профиля исключены"
+    } из автопереключения.`;
   }
 
   const activeSummaryMatch = text.match(
@@ -403,10 +402,17 @@ export function localizeRuntimeText(locale: Locale, text: string): string {
   if (activeSummaryMatch) {
     const [, label, state, details] = activeSummaryMatch;
     const stateLabel =
-      state === "active" ? "активный" : state === "reserved" ? "зарезервированный" : "доступный";
-    return details
-      ? `${label} — текущий ${stateLabel} профиль, который вернул общий сервис запросов (${localizeRuntimeText(locale, details)}).`
-      : `${label} — текущий ${stateLabel} профиль, который вернул общий сервис запросов.`;
+      state === "active"
+        ? "активный"
+        : state === "reserved"
+          ? "зарезервированный"
+          : "доступный";
+
+    if (details) {
+      return `${label} — текущий ${stateLabel} профиль, который вернул общий сервис запросов (${localizeRuntimeText(locale, details)}).`;
+    }
+
+    return `${label} — текущий ${stateLabel} профиль, который вернул общий сервис запросов.`;
   }
 
   const activeAuthJsonMatch = text.match(

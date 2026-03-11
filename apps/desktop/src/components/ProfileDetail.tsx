@@ -66,7 +66,7 @@ export function ProfileDetail({
       ? [`${reservedProfiles} ${t(locale, "reserved").toLowerCase()}`, ...events].slice(0, 3)
       : events.slice(0, 3);
   const breadcrumbWorkspaceLabel =
-    workspaceLabel.startsWith("Shared runtime:")
+    profileCount > 0
       ? formatWorkspaceLabel(locale, profileCount)
       : localizeRuntimeText(locale, workspaceLabel);
 
