@@ -4,10 +4,10 @@
 
 Manage multiple Codex CLI accounts with fast switching, usage-aware ranking, and reserved profiles for dedicated workloads.
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/1Voin1/codex-switcher/tests.yml?branch=develop&label=tests)](https://github.com/1Voin1/codex-switcher/actions/workflows/tests.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/1Voin1/codex-switcher/tests.yml?branch=main&label=tests)](https://github.com/1Voin1/codex-switcher/actions/workflows/tests.yml)
 [![Release](https://img.shields.io/github/v/release/1Voin1/codex-switcher)](https://github.com/1Voin1/codex-switcher/releases)
 [![License](https://img.shields.io/github/license/1Voin1/codex-switcher?color=2f855a)](LICENSE)
-[![Branch](https://img.shields.io/badge/default-develop-1f6feb)](https://github.com/1Voin1/codex-switcher/tree/develop)
+[![Branch](https://img.shields.io/badge/default-main-1f6feb)](https://github.com/1Voin1/codex-switcher/tree/main)
 
 <p>
   <a href="#why-it-exists"><strong>Why It Exists</strong></a> |
@@ -26,7 +26,8 @@ Manage multiple Codex CLI accounts with fast switching, usage-aware ranking, and
 ## Why It Exists
 
 `codex-switcher` is the maintained repository for a profile manager around Codex CLI
-authentication. It is now published and documented as `codex-switcher`.
+authentication. This branch prepares the canonical public-facing repository surface for
+`codex-switcher`.
 
 > This repository is based on the original
 > [`codex-profiles`](https://github.com/midhunmonachan/codex-profiles) project
@@ -82,28 +83,73 @@ automation, you usually need more than "login once and overwrite auth.json".
 
 ## Install
 
-### Package installs
+> Publication status: this repository is still in pre-publication hardening. The install
+> paths below describe the target public surface, not a guarantee that the current latest
+> historical tag already publishes every CLI and GUI asset. The live `v0.2.1` tag remains
+> a legacy desktop-first snapshot while the hardened split CLI/GUI release lane on `main`
+> is being finalized.
+
+### CLI only
+
+Use the CLI if you want profile save/load/switch flows from the terminal without the desktop shell.
+These are the canonical CLI install paths for the public-ready release lane:
 
 | Source | Command |
 | --- | --- |
 | npm | `npm install -g @1voin1/codex-switcher` |
 | Bun | `bun install -g @1voin1/codex-switcher` |
 | Cargo | `cargo install codex-switcher` |
+| Manual script | `curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/main/install.sh | bash` |
 
-### Manual install
+Manual installer notes:
+
+- `install.sh` installs the CLI only.
+- Without `--version`, it targets the latest GitHub Release tag and expects that tag to
+  publish the matching CLI asset for your platform.
+- Historical desktop-only tags can exist before the canonical split CLI release lane is live.
+- On Windows, the script installs the CLI archive when a Windows CLI asset exists; it does
+  not install the desktop GUI.
+
+Manual installer overrides:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/develop/install.sh | bash
-```
-
-Installer overrides:
-
-```bash
-CODEX_SWITCHER_VERSION=0.2.1 CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
-  curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/develop/install.sh | bash
+CODEX_SWITCHER_VERSION=<version> CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
+  curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/main/install.sh | bash
 ```
 
 Legacy `CODEX_PROFILES_VERSION` and `CODEX_PROFILES_INSTALL_DIR` are still accepted as compatibility aliases.
+
+Windows CLI users should treat the shell installer as the canonical path only once a release
+actually publishes the Windows CLI zip asset. Until then, use npm, Bun, Cargo, or a local build.
+
+### GUI only
+
+Use the desktop app if you want the Windows GUI without installing the CLI globally first.
+The Windows desktop installer is a separate surface from the CLI release lane. Use the Windows
+desktop artifacts from the latest GitHub Release when that release advertises GUI assets:
+
+1. Open the latest [GitHub Release](https://github.com/1Voin1/codex-switcher/releases/latest).
+2. Download one of the Windows desktop artifacts:
+   - the setup executable (`setup.exe`) for the normal installer path
+   - the MSI package (`.msi`) if you prefer MSI deployment
+3. Run the installer and launch `Codex Switcher Desktop` from the Start menu.
+
+The desktop installer ships the GUI only. It does not install the terminal `codex-switcher`
+binary into your global shell `PATH`.
+
+### CLI + GUI together
+
+You can install both surfaces side by side:
+
+1. Install the CLI with npm, Bun, Cargo, or `install.sh`.
+2. Install the Windows desktop app from the latest GitHub Release.
+
+They share the same profile/authentication model but remain separate installation surfaces. Updating one does not require uninstalling the other.
+
+Historical note:
+
+- the existing `v0.2.1` tag should be treated as a pre-publication snapshot, not as the final combined CLI+GUI release contract
+- the hardened release process on `main` is intended to make future tags publish the canonical CLI and GUI surfaces together
 
 Canonical packaging and compatibility rules are summarized in
 [docs/process/packaging-compatibility.md](docs/process/packaging-compatibility.md).

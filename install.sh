@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Installer for codex-switcher
-# Detects OS/arch, downloads binary from releases, verifies checksum from repo
+# Installer for codex-switcher CLI
+# Detects OS/arch, downloads the matching CLI release asset,
+# and verifies it against published checksums when available.
 
 set -euo pipefail
 
-VERSION="${CODEX_SWITCHER_VERSION:-${CODEX_PROFILES_VERSION:-0.2.1}}"
+VERSION="${CODEX_SWITCHER_VERSION:-${CODEX_PROFILES_VERSION:-}}"
 REPO="1Voin1/codex-switcher"
 INSTALL_DIR="${CODEX_SWITCHER_INSTALL_DIR:-${CODEX_PROFILES_INSTALL_DIR:-$HOME/.local/bin}}"
 
@@ -92,13 +93,30 @@ download_file() {
 verify_checksum() {
     local file="$1"
     local checksum_file="$2"
+    local allow_missing="${3:-false}"
 
     local basename
     basename="$(basename "$file")"
     local expected actual
 
-    expected="$(grep "release/$basename" "$checksum_file" | awk '{print $1}')"
+    expected="$(
+        awk -v file="$basename" '
+            $2 == ("release/" file) { print $1; found=1; exit }
+            $2 == file { print $1; found=1; exit }
+            index($2, "/" file) && !found { fallback=$1 }
+            END {
+                if (!found && fallback != "") {
+                    print fallback
+                }
+            }
+        ' "$checksum_file"
+    )"
     if [ -z "$expected" ]; then
+        if [ "$allow_missing" = "true" ]; then
+            warn "checksum not found for $basename in this legacy checksum source"
+            warn "continuing without verification because the selected tag predates the canonical checksum contract"
+            return 0
+        fi
         error "checksum not found for $basename in checksum file"
     fi
 
@@ -124,23 +142,59 @@ cleanup() {
     fi
 }
 
+resolve_latest_release_asset() {
+    local asset_name="$1"
+    local latest_url="https://github.com/$REPO/releases/latest/download/$asset_name"
+
+    if command -v curl > /dev/null 2>&1; then
+        curl -fsSIL -o /dev/null -w '%{url_effective}' "$latest_url"
+        return
+    fi
+
+    if command -v wget > /dev/null 2>&1; then
+        wget -qSO- --max-redirect=20 "$latest_url" 2>&1 \
+            | awk '/^  Location: / { print $2 }' \
+            | tail -1 \
+            | tr -d '\r'
+        return
+    fi
+
+    error "need 'curl' or 'wget' to resolve the latest GitHub release"
+}
+
 main() {
     need_cmd uname
     need_cmd mkdir
     need_cmd chmod
-    need_cmd tar
     
-    info "Installing codex-switcher v$VERSION"
+    info "Installing codex-switcher CLI"
     
     local target
     target="$(detect_platform)"
     info "Detected platform: $target"
     
-    local base_url="https://github.com/$REPO/releases/download/v$VERSION"
     local archive_name="codex-switcher-${target}.tar.gz"
-    local archive_url="$base_url/$archive_name"
-    
-    local checksum_url="https://raw.githubusercontent.com/$REPO/develop/checksums/v${VERSION}.txt"
+    if [[ "$target" == *"windows"* ]]; then
+        archive_name="codex-switcher-${target}.exe.zip"
+    fi
+    local archive_url release_checksum_url repo_checksum_url effective_version
+    if [ -n "$VERSION" ]; then
+        effective_version="${VERSION#v}"
+        local base_url="https://github.com/$REPO/releases/download/v$effective_version"
+        archive_url="$base_url/$archive_name"
+        release_checksum_url="$base_url/SHA256SUMS"
+        repo_checksum_url="https://raw.githubusercontent.com/$REPO/main/checksums/v${effective_version}.txt"
+        info "Requested release: v$effective_version"
+    else
+        archive_url="$(resolve_latest_release_asset "$archive_name")"
+        if [[ -z "$archive_url" || "$archive_url" != *"/releases/download/"* ]]; then
+            error "latest release does not publish the CLI asset '$archive_name' yet"
+        fi
+        effective_version="$(printf '%s' "$archive_url" | sed -E 's#^.*/download/v([^/]+)/.*#\1#')"
+        release_checksum_url="https://github.com/$REPO/releases/download/v${effective_version}/SHA256SUMS"
+        repo_checksum_url=""
+        info "Resolved latest release tag for CLI install: v$effective_version"
+    fi
     
     TMPDIR_INSTALL="$(mktemp -d)"
     trap cleanup EXIT
@@ -150,18 +204,45 @@ main() {
     local checksum_path="$tmpdir/checksums.txt"
     
     info "Downloading binary..."
-    download_file "$archive_url" "$archive_path" "true" || error "failed to download binary from $archive_url"
+    if ! download_file "$archive_url" "$archive_path" "true"; then
+        error "failed to download CLI release asset from $archive_url. This release may not publish the CLI surface for $target yet."
+    fi
     
-    info "Downloading checksums from repo..."
-    if ! download_file "$checksum_url" "$checksum_path" "false"; then
-        warn "Could not download checksum file from repo"
-        warn "Proceeding without verification (not recommended)"
-    else
+    info "Downloading checksums..."
+    if download_file "$release_checksum_url" "$checksum_path" "false"; then
+        info "Using release SHA256SUMS"
         verify_checksum "$archive_path" "$checksum_path"
+    elif [ -n "$repo_checksum_url" ] && download_file "$repo_checksum_url" "$checksum_path" "false"; then
+        warn "Release SHA256SUMS not available, falling back to repository checksums"
+        verify_checksum "$archive_path" "$checksum_path" "true"
+    else
+        warn "Could not download checksum file from release or repo"
+        warn "Proceeding without verification (not recommended)"
     fi
     
     info "Extracting..."
-    tar -xzf "$archive_path" -C "$tmpdir" || error "extraction failed"
+    if [[ "$target" == *"windows"* ]]; then
+        if command -v unzip > /dev/null 2>&1; then
+            unzip -q "$archive_path" -d "$tmpdir" || error "zip extraction failed"
+        elif command -v python > /dev/null 2>&1; then
+            python - "$archive_path" "$tmpdir" <<'PY' || error "zip extraction failed"
+import sys
+import zipfile
+
+archive, out_dir = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(archive) as zf:
+    zf.extractall(out_dir)
+PY
+        elif command -v powershell.exe > /dev/null 2>&1; then
+            powershell.exe -NoProfile -Command "Expand-Archive -Path '$archive_path' -DestinationPath '$tmpdir' -Force" \
+                || error "zip extraction failed"
+        else
+            error "need 'unzip', 'python', or 'powershell.exe' to extract Windows zip releases"
+        fi
+    else
+        need_cmd tar
+        tar -xzf "$archive_path" -C "$tmpdir" || error "tar extraction failed"
+    fi
     
     # Determine binary name based on OS
     local binary_name="codex-switcher"
@@ -222,10 +303,10 @@ usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
-Install codex-switcher by downloading the correct binary for your platform.
+Install the codex-switcher CLI by downloading the matching GitHub Release asset for your platform.
 
 Options:
-  -v, --version VERSION    Install specific version (default: $VERSION)
+  -v, --version VERSION    Install a specific version tag
   -d, --dir DIR            Install to directory (default: $INSTALL_DIR)
   -h, --help               Show this help message
 
@@ -236,12 +317,16 @@ Environment variables:
   CODEX_PROFILES_INSTALL_DIR      Legacy alias for CODEX_SWITCHER_INSTALL_DIR
   NO_COLOR                        Disable colored output
 
-Security:
-  Checksums are downloaded from the git repository (separate from binaries)
-  to protect against compromised release artifacts.
+Notes:
+  - Without --version, the installer targets the latest GitHub Release tag and
+    expects that tag to publish the matching CLI asset for your platform.
+  - Windows desktop GUI installers (.exe/.msi) are a separate installation
+    surface and are not installed by this script.
+  - Checksums are fetched from the GitHub release when available, with a
+    repository fallback for older tags.
 
 Examples:
-  $0                              # Install latest (default: v$VERSION)
+  $0                              # Install the latest release that has your CLI asset
   $0 --version 0.2.0             # Install specific version
   $0 --dir /usr/local/bin        # Install to custom directory
 

@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/1Voin1/codex-switcher/discussions
     about: Use Discussions for support, Q&A, and early-stage ideas.
   - name: Security policy
-    url: https://github.com/1Voin1/codex-switcher/blob/develop/SECURITY.md
+    url: https://github.com/1Voin1/codex-switcher/blob/main/SECURITY.md
     about: Read how to report vulnerabilities privately.

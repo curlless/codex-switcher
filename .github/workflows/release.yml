@@ -18,11 +18,6 @@ on:
         options:
           - core
           - full
-      publish:
-        description: "Allow publish/release side effects during manual dispatch"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
@@ -48,7 +43,6 @@ jobs:
         env:
           INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
           INPUT_BUILD_PROFILE: ${{ inputs.build_profile }}
-          INPUT_PUBLISH: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           cargo_ver="$(grep -m1 '^version' Cargo.toml | sed -E 's/version *= *\"([^\"]+)\".*/\1/')"
@@ -58,11 +52,39 @@ jobs:
               print(json.load(fh)["version"])
           PY
           )"
+          desktop_npm_ver="$(python3 - <<'PY'
+          import json
+          with open("apps/desktop/package.json", "r", encoding="utf-8") as fh:
+              print(json.load(fh)["version"])
+          PY
+          )"
+          desktop_tauri_ver="$(python3 - <<'PY'
+          import json
+          with open("apps/desktop/src-tauri/tauri.conf.json", "r", encoding="utf-8") as fh:
+              print(json.load(fh)["version"])
+          PY
+          )"
+          desktop_cargo_ver="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("apps/desktop/src-tauri/Cargo.toml").read_text(encoding="utf-8")
+          match = re.search(r'^version\\s*=\\s*\"([^\"]+)\"', text, re.M)
+          if not match:
+              raise SystemExit("failed to read desktop Cargo.toml version")
+          print(match.group(1))
+          PY
+          )"
 
           echo "Cargo version: ${cargo_ver}"
           echo "NPM version: ${npm_ver}"
+          echo "Desktop package version: ${desktop_npm_ver}"
+          echo "Desktop tauri version: ${desktop_tauri_ver}"
+          echo "Desktop Cargo version: ${desktop_cargo_ver}"
 
           [[ "${cargo_ver}" == "${npm_ver}" ]] || { echo "Cargo.toml ${cargo_ver} != package.json ${npm_ver}"; exit 1; }
+          [[ "${cargo_ver}" == "${desktop_npm_ver}" ]] || { echo "Cargo.toml ${cargo_ver} != apps/desktop/package.json ${desktop_npm_ver}"; exit 1; }
+          [[ "${cargo_ver}" == "${desktop_tauri_ver}" ]] || { echo "Cargo.toml ${cargo_ver} != apps/desktop/src-tauri/tauri.conf.json ${desktop_tauri_ver}"; exit 1; }
+          [[ "${cargo_ver}" == "${desktop_cargo_ver}" ]] || { echo "Cargo.toml ${cargo_ver} != apps/desktop/src-tauri/Cargo.toml ${desktop_cargo_ver}"; exit 1; }
 
           publish_enabled="false"
           release_version="${cargo_ver}"
@@ -113,20 +135,8 @@ jobs:
               ]'
             fi
 
-            if [[ "${INPUT_PUBLISH:-false}" == "true" ]]; then
-              publish_enabled="true"
-              build_profile="full"
-              build_matrix='[
-                {"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","binary":"codex-switcher"},
-                {"runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","binary":"codex-switcher"},
-                {"runner":"macos-15","target":"x86_64-apple-darwin","binary":"codex-switcher"},
-                {"runner":"macos-15","target":"aarch64-apple-darwin","binary":"codex-switcher"},
-                {"runner":"windows-2025","target":"x86_64-pc-windows-msvc","binary":"codex-switcher.exe"}
-              ]'
-            fi
-
             echo "Manual dispatch release version: ${release_version}"
-            echo "Manual dispatch publish enabled: ${publish_enabled}"
+            echo "Manual dispatch publish enabled: ${publish_enabled} (tag pushes only)"
             echo "Manual dispatch build profile: ${build_profile}"
           fi
 
@@ -211,8 +221,46 @@ jobs:
           path: target/${{ matrix.target }}/release/${{ matrix.binary }}
           if-no-files-found: error
 
+  desktop-build:
+    needs: [tag-check, verify]
+    runs-on: windows-2025
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        continue-on-error: true
+        with:
+          shared-key: ${{ runner.os }}-desktop-${{ hashFiles('rust-toolchain.toml') }}
+      - name: Build desktop release bundle
+        shell: bash
+        run: scripts/build-desktop.sh x86_64-pc-windows-msvc release
+      - name: Collect desktop artifacts
+        shell: pwsh
+        run: |
+          $outDir = "dist/desktop-release"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $targetRoot = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release"
+          Copy-Item "$targetRoot/codex-switcher-desktop.exe" "$outDir/codex-switcher-desktop.exe"
+          Copy-Item "$targetRoot/bundle/nsis/Codex Switcher Desktop_${{ needs.tag-check.outputs.release_version }}_x64-setup.exe" $outDir
+          Copy-Item "$targetRoot/bundle/msi/Codex Switcher Desktop_${{ needs.tag-check.outputs.release_version }}_x64_en-US.msi" $outDir
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-release-windows-x64
+          path: dist/desktop-release/*
+          if-no-files-found: error
+
   package:
-    needs: [tag-check, build, verify]
+    needs: [tag-check, build, desktop-build, verify]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -284,12 +332,12 @@ jobs:
             echo "- npm publish: \`${npm_publish}\` (${npm_reason})"
             if [[ "${cargo_publish}" == "false" || "${npm_publish}" == "false" ]]; then
               echo ""
-              echo "> GitHub Release assets and checksum commit still proceed even when registry publish is skipped."
+              echo "> GitHub Release assets and checksum commit still proceed for tagged releases even when registry publish is skipped."
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Commit checksums to repo
-        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' }}
+        if: ${{ github.event_name == 'push' && needs.tag-check.outputs.publish_enabled == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -304,10 +352,7 @@ jobs:
           fi
           
           echo "Committing checksums to ${GITHUB_REPOSITORY}..."
-          
-          # Copy checksums to repo
-          cp dist/checksums/SHA256SUMS "checksums/v${version}.txt"
-          
+
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -315,18 +360,25 @@ jobs:
           # Fetch and checkout default branch (workflow starts in detached HEAD from tag)
           default_branch="${{ github.event.repository.default_branch }}"
           if [[ -z "${default_branch}" ]]; then
-            default_branch="develop"
+            default_branch="main"
           fi
           git fetch origin "${default_branch}"
           git checkout "${default_branch}"
+
+          mkdir -p checksums
+          cp dist/checksums/SHA256SUMS "checksums/v${version}.txt"
           
           # Commit and push
           git add "checksums/v${version}.txt"
+          if git diff --cached --quiet; then
+            echo "Checksum file already up to date for v${version}; skipping commit."
+            exit 0
+          fi
           git commit -m "chore: add checksums for v${version}"
           git push origin "${default_branch}"
 
       - name: Publish to crates.io
-        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' && steps.publish-readiness.outputs.cargo_publish == 'true' }}
+        if: ${{ github.event_name == 'push' && needs.tag-check.outputs.publish_enabled == 'true' && steps.publish-readiness.outputs.cargo_publish == 'true' }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
@@ -346,7 +398,7 @@ jobs:
           cargo publish --locked --token "${CARGO_REGISTRY_TOKEN}"
 
       - name: Publish to npm
-        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' && steps.publish-readiness.outputs.npm_publish == 'true' }}
+        if: ${{ github.event_name == 'push' && needs.tag-check.outputs.publish_enabled == 'true' && steps.publish-readiness.outputs.npm_publish == 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -376,7 +428,7 @@ jobs:
           npm publish dist/npm-packages/1voin1-codex-switcher-${version}.tgz --access public
 
       - name: Create GitHub release
-        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' }}
+        if: ${{ github.event_name == 'push' && needs.tag-check.outputs.publish_enabled == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -388,7 +440,7 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ contains(needs.tag-check.outputs.release_version, '-') }}
       - name: Summarize release outcome
-        if: ${{ needs.tag-check.outputs.publish_enabled == 'true' }}
+        if: ${{ github.event_name == 'push' && needs.tag-check.outputs.publish_enabled == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -401,4 +453,5 @@ jobs:
             echo "- checksum commit: attempted on default branch"
             echo "- crates.io publish executed: \`${{ steps.publish-readiness.outputs.cargo_publish }}\`"
             echo "- npm publish executed: \`${{ steps.publish-readiness.outputs.npm_publish }}\`"
+            echo "- desktop GUI assets included: \`true\`"
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -1,5 +1,5 @@
 name: Release checklist
-description: Prepare and track a tagged release from develop.
+description: Prepare and track a tagged release from main.
 title: "[release] "
 labels:
   - release

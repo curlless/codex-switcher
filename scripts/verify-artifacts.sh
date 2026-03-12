@@ -19,6 +19,17 @@ homebrew_dir="${out_dir}/homebrew"
 cargo_dir="${out_dir}/cargo"
 checksums_file="${out_dir}/checksums/SHA256SUMS"
 
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print tolower($1)}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print tolower($1)}'
+  else
+    echo "Missing sha256sum/shasum" >&2
+    exit 1
+  fi
+}
+
 expected_npm_package_for_target() {
   case "$1" in
     x86_64-unknown-linux-gnu) echo "1voin1-codex-switcher-linux-x64" ;;
@@ -88,6 +99,23 @@ if [[ "${has_platform_npm_packages}" -eq 0 ]]; then
   exit 1
 fi
 
+desktop_exe="${release_dir}/codex-switcher-desktop-x86_64-pc-windows-msvc.exe"
+desktop_setup_pattern="${release_dir}/codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe"
+desktop_msi_pattern="${release_dir}/codex-switcher-desktop-x86_64-pc-windows-msvc.msi"
+
+if [[ ! -f "${desktop_exe}" ]]; then
+  echo "Missing desktop executable: ${desktop_exe}" >&2
+  exit 1
+fi
+if [[ ! -f "${desktop_setup_pattern}" ]]; then
+  echo "Missing desktop setup installer: ${desktop_setup_pattern}" >&2
+  exit 1
+fi
+if [[ ! -f "${desktop_msi_pattern}" ]]; then
+  echo "Missing desktop MSI installer: ${desktop_msi_pattern}" >&2
+  exit 1
+fi
+
 main_pkg="${npm_packages_dir}/1voin1-codex-switcher-${version}.tgz"
 if [[ ! -f "${main_pkg}" ]]; then
   echo "Missing npm main package: ${main_pkg}" >&2
@@ -112,3 +140,42 @@ if [[ ! -s "${checksums_file}" ]]; then
   echo "Checksums file is empty: ${checksums_file}" >&2
   exit 1
 fi
+
+check_checksum_entry() {
+  local file="$1"
+  local rel_path="$2"
+  local expected_hash actual_hash matches
+
+  matches=$(awk -v rel="${rel_path}" '$2 == rel {print tolower($1)}' "${checksums_file}")
+  if [[ -z "${matches}" ]]; then
+    echo "Missing checksum entry for ${rel_path} in ${checksums_file}" >&2
+    exit 1
+  fi
+
+  if [[ "$(printf '%s\n' "${matches}" | wc -l | tr -d ' ')" -ne 1 ]]; then
+    echo "Duplicate checksum entries for ${rel_path} in ${checksums_file}" >&2
+    exit 1
+  fi
+
+  expected_hash="${matches}"
+  actual_hash="$(sha256_file "${file}")"
+  if [[ "${actual_hash}" != "${expected_hash}" ]]; then
+    echo "Checksum mismatch for ${rel_path}: expected ${expected_hash}, got ${actual_hash}" >&2
+    exit 1
+  fi
+}
+
+shopt -s nullglob
+for release_file in "${release_dir}"/*; do
+  check_checksum_entry "${release_file}" "release/$(basename "${release_file}")"
+done
+for npm_file in "${npm_packages_dir}"/*.tgz; do
+  check_checksum_entry "${npm_file}" "npm-packages/$(basename "${npm_file}")"
+done
+for cargo_file in "${cargo_dir}"/*.crate; do
+  check_checksum_entry "${cargo_file}" "cargo/$(basename "${cargo_file}")"
+done
+for homebrew_file in "${homebrew_dir}"/*.rb; do
+  check_checksum_entry "${homebrew_file}" "homebrew/$(basename "${homebrew_file}")"
+done
+shopt -u nullglob

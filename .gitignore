@@ -10,6 +10,8 @@
 /.code
 /.sisyphus
 /.tmp
+/.tmp-*
+/.factory/
 /.local
 /.pipeline/*
 !/.pipeline/state.json

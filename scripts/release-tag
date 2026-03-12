@@ -7,8 +7,8 @@ usage() {
   cat <<'EOF'
 Usage: scripts/release-tag [--bump patch|minor|major]
 
-If --bump is provided, the script updates Cargo.toml + package.json, commits
-the version bump, and creates the tag.
+If --bump is provided, the script updates the CLI and desktop version surfaces,
+commits the version bump, and creates the tag.
 EOF
 }
 
@@ -42,9 +42,40 @@ with open("package.json", "r", encoding="utf-8") as fh:
     print(json.load(fh)["version"])
 PY
 )
+desktop_npm_ver=$(python3 - <<'PY'
+import json
+with open("apps/desktop/package.json", "r", encoding="utf-8") as fh:
+    print(json.load(fh)["version"])
+PY
+)
+desktop_tauri_ver=$(python3 - <<'PY'
+import json
+with open("apps/desktop/src-tauri/tauri.conf.json", "r", encoding="utf-8") as fh:
+    print(json.load(fh)["version"])
+PY
+)
+desktop_cargo_ver=$(python3 - <<'PY'
+import re
+from pathlib import Path
+text = Path("apps/desktop/src-tauri/Cargo.toml").read_text(encoding="utf-8")
+match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
+if not match:
+    raise SystemExit("Failed to read version from apps/desktop/src-tauri/Cargo.toml")
+print(match.group(1))
+PY
+)
 
 if [[ "$cargo_ver" != "$npm_ver" ]]; then
   echo "Cargo.toml (${cargo_ver}) and package.json (${npm_ver}) versions differ" >&2
+  exit 1
+fi
+if [[ "$cargo_ver" != "$desktop_npm_ver" || "$cargo_ver" != "$desktop_tauri_ver" || "$cargo_ver" != "$desktop_cargo_ver" ]]; then
+  echo "CLI and desktop version surfaces differ:" >&2
+  echo "  root Cargo.toml: ${cargo_ver}" >&2
+  echo "  root package.json: ${npm_ver}" >&2
+  echo "  apps/desktop/package.json: ${desktop_npm_ver}" >&2
+  echo "  apps/desktop/src-tauri/tauri.conf.json: ${desktop_tauri_ver}" >&2
+  echo "  apps/desktop/src-tauri/Cargo.toml: ${desktop_cargo_ver}" >&2
   exit 1
 fi
 
@@ -99,8 +130,37 @@ data = json.loads(path.read_text(encoding="utf-8"))
 data["version"] = "${new_ver}"
 path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 PY
+  python3 - <<PY
+import json
+from pathlib import Path
 
-  git add Cargo.toml package.json
+path = Path("apps/desktop/package.json")
+data = json.loads(path.read_text(encoding="utf-8"))
+data["version"] = "${new_ver}"
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+  python3 - <<PY
+import json
+from pathlib import Path
+
+path = Path("apps/desktop/src-tauri/tauri.conf.json")
+data = json.loads(path.read_text(encoding="utf-8"))
+data["version"] = "${new_ver}"
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+  python3 - <<PY
+import re
+from pathlib import Path
+
+path = Path("apps/desktop/src-tauri/Cargo.toml")
+text = path.read_text(encoding="utf-8")
+text, count = re.subn(r'^(version\s*=\s*")([^"]+)("\s*)$', rf'\g<1>${new_ver}\g<3>', text, count=1, flags=re.M)
+if count != 1:
+    raise SystemExit("Failed to update version in apps/desktop/src-tauri/Cargo.toml")
+path.write_text(text, encoding="utf-8")
+PY
+
+  git add Cargo.toml package.json apps/desktop/package.json apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/Cargo.toml
   git commit -m "chore: bump version to v${new_ver}"
 
   cargo_ver="${new_ver}"

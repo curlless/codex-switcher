@@ -2,16 +2,18 @@
 
 ## Supported versions
 
-Security fixes are applied to the latest code on `develop` and included in the next
-release cut from that branch.
+Security fixes are applied to the latest supported code on `main` and included in
+the next release cut from that branch.
 
 ## Reporting a vulnerability
 
 Do not open a public issue for credential leaks, auth bypasses, token handling bugs,
 or anything that could expose live accounts.
 
-Report privately through GitHub security advisories for this repository, or contact
-the maintainer through an existing private channel if advisories are not enabled.
+Report privately through GitHub security advisories for this repository. If advisories
+are unavailable, use the non-public contact channel exposed on the repository owner's
+GitHub profile at `https://github.com/1Voin1` (for example the profile email/contact
+field) and do not post vulnerability details in a public issue.
 
 Include:
 

@@ -2,8 +2,6 @@
 
 ### Backlog
 
-- **Epic 2: Desktop GUI Shell**
-
 ### Todo
 
 ### In Progress
@@ -38,18 +36,38 @@
 
 - **Epic 3: Public Release Hardening**
   - [book] [US006: Remove intake artifacts and verify public-safe tracked files](epics/epic-3-public-release-hardening/stories/us006-remove-intake-artifacts-and-verify-public-safe-tracked-files/story.md) [APPROVED]
-    - [gear] T001-T003; merged to `develop` with intake-only tracked artifacts removed and a recorded publication-focused tracked-file sweep
+    - [gear] T001-T003; merged to `main` with intake-only tracked artifacts removed and a recorded publication-focused tracked-file sweep
   - [book] [US007: Resolve history-aware secret scan blockers for public publication](epics/epic-3-public-release-hardening/stories/us007-resolve-history-aware-secret-scan-blockers-for-public-publication/story.md) [APPROVED]
     - [gear] T001-T003; reproducible `gitleaks git` pass now returns no leaks after a narrow historical test-fixture allowlist
   - [book] [US008: Suppress the extra Windows console window in the desktop executable](epics/epic-3-public-release-hardening/stories/us008-suppress-the-extra-windows-console-window-in-the-desktop-executable/story.md) [APPROVED]
     - [gear] T001; release builds now use the Windows GUI subsystem and no longer spawn an extra console window beside the desktop app
 
+- **Epic 4: Public Repository Readiness**
+  - [book] [US014: Refresh public safety evidence and final publication scans](epics/epic-4-public-repository-readiness/stories/us014-refresh-public-safety-and-publication-evidence/story.md) [APPROVED]
+    - [gear] T001-T003; 2026-03-13 evidence refresh recorded a clean `gitleaks git` result and no tracked secret-file blocker on the current branch
+  - [book] [US015: Align public-facing docs, default branch, and maintainer guidance](epics/epic-4-public-repository-readiness/stories/us015-align-public-facing-docs-and-default-branch-surface/story.md) [APPROVED]
+    - [gear] T001-T004; README, release docs, workflow defaults, and security/reporting wording now align to `main` and no longer overstate the current publication state
+
+- **Epic 5: CLI and GUI Distribution Split**
+  - [book] [US016: Separate CLI-only and GUI-only installation surfaces](epics/epic-5-cli-and-gui-distribution-split/stories/us016-separate-cli-and-gui-installation-surfaces/story.md) [APPROVED]
+    - [gear] T001-T004; public docs now expose `CLI only`, `GUI only`, and `CLI + GUI together` as separate install paths
+  - [book] [US017: Separate CLI and GUI release assets and upgrade guidance](epics/epic-5-cli-and-gui-distribution-split/stories/us017-separate-cli-and-gui-release-assets-and-upgrade-guidance/story.md) [APPROVED]
+    - [gear] T001-T003; future tagged releases now have a canonical combined CLI+GUI release contract while historical `v0.2.1` is explicitly treated as a legacy pre-publication snapshot
+
+- **Epic 6: Publication Closeout**
+  - [book] [US018: Prepare public repository presentation and community surface](epics/epic-6-publication-closeout/stories/us018-prepare-public-repository-presentation-and-community-surface/story.md) [APPROVED]
+    - [gear] T001-T003; README/community surface is coherent for first-time public visitors and the repo-name recommendation is to keep `codex-switcher`
+  - [book] [US019: Run final publication verification and handoff](epics/epic-6-publication-closeout/stories/us019-run-final-publication-verification-and-handoff/story.md) [APPROVED]
+    - [gear] T001-T003; final verification packet is recorded with a `NO-GO` verdict pending a fresh canonical release tag and the user-provided publication URL
+
 ## Notes
 
 - `linear-kgsedds` remains the active story and task tracker; this file mirrors the current worktree state after tracker updates land.
-- Epic 2 is complete as of 2026-03-09: US002-US005 are merged to `develop` and reflected as `Done` in `linear-kgsedds`.
+- A new active project, `codex-switcher Public Publication Readiness`, holds the publication-hardening scope in `linear-kgsedds`; workspace issue limits currently block full issue/task decomposition there, so the detailed epic/story/task structure is mirrored locally and via a Linear project document until issue capacity is available.
+- Epic 2 is complete as of 2026-03-09: US002-US005 are merged to `main` and reflected as `Done` in `linear-kgsedds`.
 - Epic 2 reopened on 2026-03-10 for US009, a post-release shared-runtime taxonomy update covering precise availability/error tags across the Rust seam, CLI rendering, and GUI surfaces, and was re-closed the same day after the rollout checks passed.
-- Epic 2 reopened again on 2026-03-10 for a desktop UX stabilization cycle covering Quick Switch promotion, workspace-only sidebar layout, non-blocking refresh with periodic limit polling, persisted desktop/window layout state, and complete Russian localization repair, then re-closed on 2026-03-11 after US010-US013 merged to `develop`.
+- Epic 2 reopened again on 2026-03-10 for a desktop UX stabilization cycle covering Quick Switch promotion, workspace-only sidebar layout, non-blocking refresh with periodic limit polling, persisted desktop/window layout state, and complete Russian localization repair, then re-closed on 2026-03-11 after US010-US013 merged to `main`.
 - Intake-only artifacts `apps/desktop/src/_backup/*`, `attached_assets/*`, `.replit`, and `replit.md` are excluded from Epic 2 story scope unless separately planned.
 - Epic 3 completed the artifact-hygiene and history-aware secret-scan gates on 2026-03-09. The repository now has a tracked-file cleanup pass and a reproducible `gitleaks git` pass with no leaks found.
 - The latest post-release runtime hotfix lives under US003/T006 because the recoverable `UNAVAILABLE` defect was inside the shared switcher service seam rather than the GUI-only shell.
+- Publication-hardening reopened on 2026-03-13 for a final public-repo readiness pass covering fresh safety evidence, branch/docs drift, CLI-vs-GUI distribution separation, and a stop-before-push closeout packet.

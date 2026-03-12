@@ -30,6 +30,7 @@ rm -rf "${release_dir}" "${npm_dir}" "${npm_packages_dir}" "${homebrew_dir}" "${
 mkdir -p "${release_dir}" "${npm_packages_dir}" "${homebrew_dir}" "${cargo_dir}" "${checksums_dir}"
 
 # Convert to absolute paths for use in subshells
+out_dir_abs="$(cd "${out_dir}" && pwd)"
 release_dir="$(cd "${release_dir}" && pwd)"
 npm_packages_dir="$(cd "${npm_packages_dir}" && pwd)"
 homebrew_dir="$(cd "${homebrew_dir}" && pwd)"
@@ -60,6 +61,21 @@ for artifact_dir in "${artifacts_dir}"/codex-switcher-*; do
     tar -C "${artifact_dir}" -czf "${release_dir}/codex-switcher-${target}.tar.gz" "${binary}"
   fi
 done
+
+desktop_artifacts_dir="${artifacts_dir}/desktop-release-windows-x64"
+if [[ -d "${desktop_artifacts_dir}" ]]; then
+  desktop_exe="${desktop_artifacts_dir}/codex-switcher-desktop.exe"
+  desktop_setup="${desktop_artifacts_dir}/Codex Switcher Desktop_${version}_x64-setup.exe"
+  desktop_msi="${desktop_artifacts_dir}/Codex Switcher Desktop_${version}_x64_en-US.msi"
+
+  [[ -f "${desktop_exe}" ]] || { echo "Missing desktop executable artifact: ${desktop_exe}" >&2; exit 1; }
+  [[ -f "${desktop_setup}" ]] || { echo "Missing desktop NSIS artifact: ${desktop_setup}" >&2; exit 1; }
+  [[ -f "${desktop_msi}" ]] || { echo "Missing desktop MSI artifact: ${desktop_msi}" >&2; exit 1; }
+
+  cp "${desktop_exe}" "${release_dir}/codex-switcher-desktop-x86_64-pc-windows-msvc.exe"
+  cp "${desktop_setup}" "${release_dir}/codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe"
+  cp "${desktop_msi}" "${release_dir}/codex-switcher-desktop-x86_64-pc-windows-msvc.msi"
+fi
 
 scripts/package-npm.sh "${version}" "${artifacts_dir}" "${npm_dir}"
 while IFS= read -r package_json; do
@@ -125,7 +141,7 @@ files=(
   "${homebrew_dir}"/*.rb
 )
 for file in "${files[@]}"; do
-  rel_path="${file#${out_dir}/}"
+  rel_path="${file#${out_dir_abs}/}"
   printf "%s  %s\n" "$(sha256_file "${file}")" "${rel_path}" >> "${checksums_file}"
 done
 shopt -u nullglob

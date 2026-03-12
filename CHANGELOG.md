@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Windows desktop release artifacts for the current `develop` head, including
+- Windows desktop release artifacts for the current `main` head, including
   a Tauri installer and packaged executable
 - precise availability tags across CLI and GUI so usage failures no longer
   collapse into a single generic unavailable state

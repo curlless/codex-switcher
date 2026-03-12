@@ -71,8 +71,32 @@ jobs:
           gh release download "${{ steps.meta.outputs.tag }}" \
             --repo "${GITHUB_REPOSITORY}" \
             --pattern "${{ matrix.asset }}" \
+            --pattern "SHA256SUMS" \
             --dir dist
           ls -la dist
+
+      - name: Verify asset checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256_file() {
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$1" | awk '{print tolower($1)}'
+            else
+              shasum -a 256 "$1" | awk '{print tolower($1)}'
+            fi
+          }
+
+          checksum_path="release/${{ matrix.asset }}"
+          expected_hash="$(awk -v rel="${checksum_path}" '$2 == rel {print tolower($1)}' dist/SHA256SUMS)"
+          [[ -n "${expected_hash}" ]] || { echo "Missing checksum entry for ${checksum_path}"; exit 1; }
+
+          actual_hash="$(sha256_file "dist/${{ matrix.asset }}")"
+          [[ "${actual_hash}" == "${expected_hash}" ]] || {
+            echo "Checksum mismatch for ${checksum_path}: expected ${expected_hash}, got ${actual_hash}"
+            exit 1
+          }
 
       - name: Extract tar asset
         if: ${{ matrix.extract == 'tar' }}
@@ -97,3 +121,163 @@ jobs:
           output="$(./smoke/${{ matrix.binary }} --version)"
           echo "${output}"
           grep -F "codex-switcher ${{ steps.meta.outputs.version }}" <<< "${output}" >/dev/null
+
+  desktop-assets:
+    name: desktop-${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-desktop-exe
+            asset: codex-switcher-desktop-x86_64-pc-windows-msvc.exe
+          - label: windows-desktop-setup
+            asset: codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe
+          - label: windows-desktop-msi
+            asset: codex-switcher-desktop-x86_64-pc-windows-msvc.msi
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve tag
+        id: meta
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            tag="${RELEASE_TAG:-${GITHUB_REF_NAME}}"
+          else
+            tag="${INPUT_TAG}"
+          fi
+
+          [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
+            || { echo "Invalid release tag '${tag}'"; exit 1; }
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download desktop asset and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download "${{ steps.meta.outputs.tag }}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "${{ matrix.asset }}" \
+            --pattern "SHA256SUMS" \
+            --dir dist
+          ls -la dist
+
+      - name: Verify desktop checksum entry
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256_file() {
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$1" | awk '{print tolower($1)}'
+            else
+              shasum -a 256 "$1" | awk '{print tolower($1)}'
+            fi
+          }
+
+          checksum_path="release/${{ matrix.asset }}"
+          expected_hash="$(awk -v rel="${checksum_path}" '$2 == rel {print tolower($1)}' dist/SHA256SUMS)"
+          [[ -n "${expected_hash}" ]] || { echo "Missing checksum entry for ${checksum_path}"; exit 1; }
+
+          actual_hash="$(sha256_file "dist/${{ matrix.asset }}")"
+          [[ "${actual_hash}" == "${expected_hash}" ]] || {
+            echo "Checksum mismatch for ${checksum_path}: expected ${expected_hash}, got ${actual_hash}"
+            exit 1
+          }
+
+  desktop-smoke:
+    name: desktop-smoke-windows
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve tag
+        id: meta
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            tag="${RELEASE_TAG:-${GITHUB_REF_NAME}}"
+          else
+            tag="${INPUT_TAG}"
+          fi
+
+          [[ "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
+            || { echo "Invalid release tag '${tag}'"; exit 1; }
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${tag#v}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download desktop release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download "${{ steps.meta.outputs.tag }}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "codex-switcher-desktop-x86_64-pc-windows-msvc.exe" \
+            --pattern "codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe" \
+            --pattern "codex-switcher-desktop-x86_64-pc-windows-msvc.msi" \
+            --pattern "SHA256SUMS" \
+            --dir dist
+          ls -la dist
+
+      - name: Verify desktop assets
+        shell: pwsh
+        run: |
+          $version = "${{ steps.meta.outputs.version }}"
+          $desktopExe = "dist/codex-switcher-desktop-x86_64-pc-windows-msvc.exe"
+          $setupExe = "dist/codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe"
+          $msi = "dist/codex-switcher-desktop-x86_64-pc-windows-msvc.msi"
+
+          foreach ($path in @($desktopExe, $setupExe, $msi)) {
+            if (!(Test-Path $path)) {
+              throw "Missing desktop release asset: $path"
+            }
+            if ((Get-Item $path).Length -le 0) {
+              throw "Desktop release asset is empty: $path"
+            }
+          }
+
+          $checksumLines = Get-Content "dist/SHA256SUMS"
+          foreach ($pair in @(
+            @{ Path = $desktopExe; Entry = "release/codex-switcher-desktop-x86_64-pc-windows-msvc.exe" },
+            @{ Path = $setupExe; Entry = "release/codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe" },
+            @{ Path = $msi; Entry = "release/codex-switcher-desktop-x86_64-pc-windows-msvc.msi" }
+          )) {
+            $checksumLine = $checksumLines | Where-Object { $_ -match "  $([regex]::Escape($pair.Entry))$" }
+            if (-not $checksumLine) {
+              throw "Missing checksum entry for $($pair.Entry)"
+            }
+          }
+
+          $desktopInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path $desktopExe))
+          $setupInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path $setupExe))
+
+          if ($desktopInfo.ProductName -ne "Codex Switcher Desktop") {
+            throw "Unexpected ProductName for desktop exe: $($desktopInfo.ProductName)"
+          }
+          if (-not $desktopInfo.ProductVersion.StartsWith($version)) {
+            throw "Unexpected ProductVersion for desktop exe: $($desktopInfo.ProductVersion)"
+          }
+          if ($setupInfo.ProductName -ne "Codex Switcher Desktop") {
+            throw "Unexpected ProductName for setup exe: $($setupInfo.ProductName)"
+          }
+          if (-not $setupInfo.ProductVersion.StartsWith($version)) {
+            throw "Unexpected ProductVersion for setup exe: $($setupInfo.ProductVersion)"
+          }

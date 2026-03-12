@@ -111,7 +111,7 @@ unless you are explicitly proving the full tagged matrix. `core` covers Linux,
 Linux ARM, and Windows and avoids turning routine dry runs into false failures
 when macOS hosted runners are unavailable for billing reasons.
 
-That `core` path has now been verified on `develop` end-to-end through:
+That `core` path has now been verified on `main` end-to-end through:
 
 - `tag-check`
 - `verify`
