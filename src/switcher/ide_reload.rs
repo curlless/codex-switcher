@@ -7,6 +7,8 @@ use serde_json::Value;
 #[cfg(windows)]
 use std::fs;
 #[cfg(windows)]
+use std::os::windows::process::CommandExt;
+#[cfg(windows)]
 use std::path::Path;
 use std::path::PathBuf;
 #[cfg(windows)]
@@ -193,7 +195,7 @@ fn reload_windows(
 
     if !dry_run {
         for pid in &standalone_app_pids {
-            let output = Command::new("taskkill")
+            let output = hidden_console_command("taskkill")
                 .args(["/PID", &pid.to_string(), "/F"])
                 .output();
             match output {
@@ -362,6 +364,16 @@ fn reload_windows(
     }
 }
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[cfg(windows)]
+fn hidden_console_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    let mut command = Command::new(program);
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
+}
+
 fn cursor_manual_hint() -> &'static str {
     "Cursor Codex extension: run Command Palette -> Developer: Reload Window."
 }
@@ -505,7 +517,7 @@ fn local_cursor_exe_path() -> Option<PathBuf> {
 
 #[cfg(windows)]
 fn query_cursor_protocol_command() -> Option<String> {
-    let output = Command::new("powershell")
+    let output = hidden_console_command("powershell")
         .args([
             "-NoProfile",
             "-NonInteractive",
@@ -733,7 +745,7 @@ pub fn detect_codex_app_discovery(
 
 #[cfg(windows)]
 fn query_codex_app_packages() -> Result<Vec<AppxPackageInfo>, String> {
-    let output = Command::new("powershell")
+    let output = hidden_console_command("powershell")
         .args([
             "-NoProfile",
             "-NonInteractive",
@@ -792,7 +804,7 @@ fn codex_launch_target_from_package(package: &AppxPackageInfo) -> Option<CodexAp
 
 #[cfg(windows)]
 fn list_reload_targets() -> Result<Vec<WindowsProcessInfo>, String> {
-    let output = Command::new("powershell")
+    let output = hidden_console_command("powershell")
         .args([
             "-NoProfile",
             "-NonInteractive",
