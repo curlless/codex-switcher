@@ -83,11 +83,9 @@ automation, you usually need more than "login once and overwrite auth.json".
 
 ## Install
 
-> Publication status: this repository is still in pre-publication hardening. The install
-> paths below describe the target public surface, not a guarantee that the current latest
-> historical tag already publishes every CLI and GUI asset. The live `v0.2.1` tag remains
-> a legacy desktop-first snapshot while the hardened split CLI/GUI release lane on `main`
-> is being finalized.
+> Release note: the historical `v0.2.1` tag remains a legacy desktop-first snapshot.
+> The canonical public install surface is the split CLI/GUI release contract documented
+> below and expected from the next hardened release cut from `main`.
 
 ### CLI only
 
@@ -148,7 +146,7 @@ They share the same profile/authentication model but remain separate installatio
 
 Historical note:
 
-- the existing `v0.2.1` tag should be treated as a pre-publication snapshot, not as the final combined CLI+GUI release contract
+- the existing `v0.2.1` tag should be treated as a historical desktop-first snapshot, not as the final combined CLI+GUI release contract
 - the hardened release process on `main` is intended to make future tags publish the canonical CLI and GUI surfaces together
 
 Canonical packaging and compatibility rules are summarized in

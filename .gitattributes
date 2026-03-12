@@ -15,3 +15,6 @@
 *.html text eol=lf
 *.svg text eol=lf
 *.ps1 text eol=crlf
+scripts/release-tag text eol=lf
+scripts/pre-commit text eol=lf
+scripts/pre-push text eol=lf

@@ -186,3 +186,4 @@ fi
 git tag -a "${tag}" -m "${tag}"
 echo "Created tag ${tag}"
 echo "Push with: git push origin ${tag}"
+echo "Then watch the tagged release workflow and validate published assets."

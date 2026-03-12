@@ -70,7 +70,7 @@ Public availability can lag behind the intended surface:
 - GitHub Release assets may exist before registry publication is live
 - npm, crates.io, and Homebrew publication depend on the tagged release workflow plus the required registry credentials
 - treat this document as the target publication model, not a guarantee that every surface is already public for the latest tag
-- the historical `v0.2.1` release is a legacy desktop-first snapshot and should not be treated as proof that the canonical split CLI/GUI contract is already live
+- the historical `v0.2.1` release is a legacy desktop-first snapshot and should not be treated as proof of the canonical split CLI/GUI contract
 - older tags may still use a legacy or incomplete asset surface while the repository is finishing publication hardening
 
 The npm wrapper is intentionally scoped because the unscoped `codex-switcher`
