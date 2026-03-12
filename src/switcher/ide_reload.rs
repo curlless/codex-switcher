@@ -430,7 +430,7 @@ fn resolve_cursor_protocol_automation() -> Option<CursorProtocolAutomation> {
 
 #[cfg(windows)]
 fn dispatch_cursor_protocol_reload(automation: &CursorProtocolAutomation) -> Result<(), String> {
-    let status = Command::new(&automation.cursor_exe)
+    let status = hidden_console_command(&automation.cursor_exe)
         .args(["--open-url", "--", &automation.uri])
         .status()
         .map_err(|err| format!("failed to launch Cursor protocol handler ({err})"))?;
@@ -637,7 +637,7 @@ fn standalone_codex_executable_path(process: &WindowsProcessInfo) -> Option<Path
 fn dispatch_codex_app_reload(launch_target: &CodexAppLaunchTarget) -> Result<(), String> {
     let mut errors = Vec::new();
     if let Some(app_user_model_id) = launch_target.app_user_model_id.as_deref() {
-        let status = Command::new("explorer.exe")
+        let status = hidden_console_command("explorer.exe")
             .arg(format!(r"shell:AppsFolder\{app_user_model_id}"))
             .status();
         match status {
@@ -647,7 +647,7 @@ fn dispatch_codex_app_reload(launch_target: &CodexAppLaunchTarget) -> Result<(),
         }
     }
 
-    Command::new(&launch_target.executable_path)
+    hidden_console_command(&launch_target.executable_path)
         .spawn()
         .map(|_| ())
         .map_err(|err| {
