@@ -417,3 +417,114 @@ fn switcher_load_uses_configured_reload_path() {
 
     let _ = fs::remove_dir_all(home);
 }
+
+#[test]
+fn switcher_load_can_skip_configured_reload_path() {
+    let home = make_home();
+    write_auth(
+        &home,
+        "acct-current",
+        "current@example.com",
+        "plus",
+        "access-current",
+    );
+    write_saved_profile(
+        &home,
+        "current@example.com-plus",
+        "acct-current",
+        "current@example.com",
+        "plus",
+        "access-current",
+    );
+    write_saved_profile(
+        &home,
+        "reload@example.com-plus",
+        "acct-reload",
+        "reload@example.com",
+        "plus",
+        "access-reload",
+    );
+    write_profiles_index(
+        &home,
+        &[
+            ("current@example.com-plus", 3),
+            ("reload@example.com-plus", 2),
+        ],
+        &[("reload@example.com-plus", "reloadable")],
+        Some("current@example.com-plus"),
+    );
+    write_switcher_reload_config(&home, "cursor", true);
+
+    let output = run_switcher(&["load", "--label", "reloadable", "--no-reload-app"], &home);
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Loaded profile"), "stdout: {stdout}");
+    assert!(!stdout.contains("Reload hint:"), "stdout: {stdout}");
+
+    let auth = fs::read_to_string(home.join(".codex").join("auth.json")).expect("read auth");
+    assert!(auth.contains("access-reload"), "auth: {auth}");
+
+    let _ = fs::remove_dir_all(home);
+}
+
+#[test]
+fn switcher_load_can_force_reload_when_config_disabled() {
+    let home = make_home();
+    write_auth(
+        &home,
+        "acct-current",
+        "current@example.com",
+        "plus",
+        "access-current",
+    );
+    write_saved_profile(
+        &home,
+        "current@example.com-plus",
+        "acct-current",
+        "current@example.com",
+        "plus",
+        "access-current",
+    );
+    write_saved_profile(
+        &home,
+        "reload@example.com-plus",
+        "acct-reload",
+        "reload@example.com",
+        "plus",
+        "access-reload",
+    );
+    write_profiles_index(
+        &home,
+        &[
+            ("current@example.com-plus", 3),
+            ("reload@example.com-plus", 2),
+        ],
+        &[("reload@example.com-plus", "reloadable")],
+        Some("current@example.com-plus"),
+    );
+    write_switcher_reload_config(&home, "cursor", false);
+
+    let output = run_switcher(
+        &["load", "--label", "reloadable", "--reload-app", "codex"],
+        &home,
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Loaded profile"), "stdout: {stdout}");
+    assert!(stdout.contains("Reload hint:"), "stdout: {stdout}");
+
+    let auth = fs::read_to_string(home.join(".codex").join("auth.json")).expect("read auth");
+    assert!(auth.contains("access-reload"), "auth: {auth}");
+
+    let _ = fs::remove_dir_all(home);
+}

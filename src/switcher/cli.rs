@@ -28,6 +28,17 @@ pub enum Commands {
         #[arg(value_name = "label")]
         #[arg(long)]
         label: Option<String>,
+        /// After loading, reload only the selected app target
+        #[arg(
+            long = "reload-app",
+            value_enum,
+            value_name = "target",
+            conflicts_with = "no_reload_app"
+        )]
+        reload_app: Option<ReloadAppTarget>,
+        /// Skip app reload after loading even if config enables it
+        #[arg(long)]
+        no_reload_app: bool,
     },
     /// List profiles ordered by last used
     List,
@@ -137,6 +148,6 @@ pub fn command_with_examples() -> Command {
 
 fn examples_root(name: &str) -> String {
     format!(
-        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} switch\n  {name} switch --reload-app codex\n  {name} switch --reload-app cursor\n  {name} reload-app\n  {name} reload-app codex --dry-run\n  {name} reload-app cursor --dry-run\n  {name} config show\n  {name} config edit\n  {name} config detect-codex-app --write-env\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
+        "Examples:\n  {name} save --label work\n  {name} load --label work\n  {name} load --label work --reload-app codex\n  {name} load --label work --no-reload-app\n  {name} switch\n  {name} switch --reload-app codex\n  {name} switch --reload-app cursor\n  {name} reload-app\n  {name} reload-app codex --dry-run\n  {name} reload-app cursor --dry-run\n  {name} config show\n  {name} config edit\n  {name} config detect-codex-app --write-env\n  {name} reserve --label vps-a\n  {name} unreserve --label vps-a\n  {name} migrate\n  {name} relay-login --url \"http://localhost:1455/auth/callback?code=...&state=...\"\n  {name} list\n  {name} status\n  {name} status --current\n  {name} delete --label work"
     )
 }
