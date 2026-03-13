@@ -85,7 +85,9 @@ pub fn reload_ide_target_best_effort_with_codex_override(
         IdeReloadOutcome {
             attempted: false,
             restarted: false,
-            message: "IDE auto-reload is only implemented for Windows in this build.".to_string(),
+            message:
+                "Reload hint: IDE auto-reload is only implemented for Windows in this build."
+                    .to_string(),
             manual_hints: default_manual_hints(target),
         }
     }
@@ -113,7 +115,9 @@ pub fn inspect_ide_reload_target_with_codex_override(
         IdeReloadOutcome {
             attempted: false,
             restarted: false,
-            message: "IDE auto-reload is only implemented for Windows in this build.".to_string(),
+            message:
+                "Reload hint: IDE auto-reload is only implemented for Windows in this build."
+                    .to_string(),
             manual_hints: default_manual_hints(target),
         }
     }

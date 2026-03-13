@@ -1,6 +1,6 @@
 {
   "name": "@1voin1/codex-switcher",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "description": "Manage multiple Codex CLI auth profiles with usage-aware switching and reserved accounts.",
   "license": "MIT",
   "bin": {
@@ -11,11 +11,11 @@
     "node": ">=16"
   },
   "optionalDependencies": {
-    "@1voin1/codex-switcher-darwin-arm64": "0.2.3",
-    "@1voin1/codex-switcher-darwin-x64": "0.2.3",
-    "@1voin1/codex-switcher-linux-arm64": "0.2.3",
-    "@1voin1/codex-switcher-linux-x64": "0.2.3",
-    "@1voin1/codex-switcher-win32-x64": "0.2.3"
+    "@1voin1/codex-switcher-darwin-arm64": "0.2.5",
+    "@1voin1/codex-switcher-darwin-x64": "0.2.5",
+    "@1voin1/codex-switcher-linux-arm64": "0.2.5",
+    "@1voin1/codex-switcher-linux-x64": "0.2.5",
+    "@1voin1/codex-switcher-win32-x64": "0.2.5"
   },
   "files": [
     "bin"
