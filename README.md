@@ -74,6 +74,27 @@ automation, you usually need more than "login once and overwrite auth.json".
   </tr>
 </table>
 
+## Desktop GUI
+
+The Windows desktop app sits on top of the same Rust runtime and exposes profile overview,
+quick switching, reload actions, and local settings in a dedicated GUI shell.
+
+![Codex Switcher Desktop profiles workspace](docs/project/assets/gui/desktop-profiles-demo.png)
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="docs/project/assets/gui/desktop-quick-switch-demo.png" alt="Codex Switcher Desktop quick switch view" />
+    </td>
+    <td width="33%">
+      <img src="docs/project/assets/gui/desktop-reload-demo.png" alt="Codex Switcher Desktop reload view" />
+    </td>
+    <td width="33%">
+      <img src="docs/project/assets/gui/desktop-settings-demo.png" alt="Codex Switcher Desktop settings view" />
+    </td>
+  </tr>
+</table>
+
 ## Requirements
 
 - [Codex CLI](https://developers.openai.com/codex/cli/)
