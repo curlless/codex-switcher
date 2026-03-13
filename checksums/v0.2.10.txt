@@ -1,0 +1,16 @@
+827b6b19762ed485a06bed02fbd21604f20f1c8c2fdbfc79a0f6829a118e7080  release/codex-switcher-aarch64-apple-darwin.tar.gz
+69c17b38d5af2e96a8493d815a37e37551b5d4abe78cd270e4bb6d8522aad5ed  release/codex-switcher-aarch64-unknown-linux-gnu.tar.gz
+859bb9b3f54e1e9a6684e1f737095298c55985ee1d192ae9ba414d5d7965c5ce  release/codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe
+b23366b004af43ff4c50081b073d7f6f27b6bb0e2d7c9409bb1197f47dd83d2b  release/codex-switcher-desktop-x86_64-pc-windows-msvc.exe
+e150ee21065bb56bf15b1e1e1ae686c8206e1de8da7acaf35faba0874b5cf22c  release/codex-switcher-desktop-x86_64-pc-windows-msvc.msi
+959536987dc027f6878e6847dcb75248b939c32aa428897eaed392786386103e  release/codex-switcher-x86_64-apple-darwin.tar.gz
+0480aacc1290ef7ce0b1bd1a286c41081cddb40e806db062a3ca24a71e062d31  release/codex-switcher-x86_64-pc-windows-msvc.exe.zip
+13156de399fa5a1ea38598a77464b076dc65f7e2dfb6925c8e36d3c6df4c66ba  release/codex-switcher-x86_64-unknown-linux-gnu.tar.gz
+ffbb669745b15a9b19475a42cc84d592b5f4fa12a13bc088ea5ac305aad4d8ec  npm-packages/1voin1-codex-switcher-0.2.10.tgz
+1ab27fd925efff06e1ec292c200ef65db7f051fe919e941601e24658f1f69652  npm-packages/1voin1-codex-switcher-darwin-arm64-0.2.10.tgz
+0dfd34fb4247dd1630e2e064424261a630010d3e13e1e608fa3624bdaf30ca07  npm-packages/1voin1-codex-switcher-darwin-x64-0.2.10.tgz
+65ce56323d804b069e68d87c31dd0ecb35c3fc7719fe9bd66be53cc1ee95009e  npm-packages/1voin1-codex-switcher-linux-arm64-0.2.10.tgz
+fdcfc0188c6ad5e786041c4cf3914f4637323b2eb546db62fd4be839722be5a4  npm-packages/1voin1-codex-switcher-linux-x64-0.2.10.tgz
+3929ffa755705e53fb05ac4a801d02194cbf0ff1d2e8b17df7d8d96f58504548  npm-packages/1voin1-codex-switcher-win32-x64-0.2.10.tgz
+8af1a805fa67965bde1a45e6235a2e8fb3c5976a13a3bf7f7084f5f0a4fcc410  cargo/codex-switcher-0.2.10.crate
+8999f8b0d01ab596b4028db28706f7b09ece159cfdb3bfef087146726bc67bee  homebrew/codex-switcher.rb
