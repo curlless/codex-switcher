@@ -4,12 +4,8 @@
 
 Manage multiple Codex CLI accounts with fast switching, usage-aware ranking, and reserved profiles for dedicated workloads.
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/1Voin1/codex-switcher/tests.yml?branch=main&label=tests)](https://github.com/1Voin1/codex-switcher/actions/workflows/tests.yml)
-[![Release](https://img.shields.io/github/v/release/1Voin1/codex-switcher)](https://github.com/1Voin1/codex-switcher/releases)
-[![License](https://img.shields.io/github/license/1Voin1/codex-switcher?color=2f855a)](LICENSE)
-[![Branch](https://img.shields.io/badge/default-main-1f6feb)](https://github.com/1Voin1/codex-switcher/tree/main)
-
 <p>
+  <a href="#desktop-gui"><strong>Desktop GUI</strong></a> |
   <a href="#why-it-exists"><strong>Why It Exists</strong></a> |
   <a href="#install"><strong>Install</strong></a> |
   <a href="#quick-start"><strong>Quick Start</strong></a> |
@@ -22,6 +18,26 @@ Manage multiple Codex CLI accounts with fast switching, usage-aware ranking, and
 </div>
 
 ---
+
+## Desktop GUI
+
+The Windows desktop app sits on top of the same Rust runtime and exposes profile overview,
+quick switching, reload actions, and local settings in a dedicated GUI shell.
+
+![Codex Switcher Desktop profiles workspace](docs/project/assets/gui/desktop-profiles-demo.png)
+
+![Codex Switcher Desktop quick switch view](docs/project/assets/gui/desktop-quick-switch-demo.png)
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/project/assets/gui/desktop-reload-demo.png" alt="Codex Switcher Desktop reload view" />
+    </td>
+    <td width="50%">
+      <img src="docs/project/assets/gui/desktop-settings-demo.png" alt="Codex Switcher Desktop settings view" />
+    </td>
+  </tr>
+</table>
 
 ## Why It Exists
 
@@ -70,27 +86,6 @@ automation, you usually need more than "login once and overwrite auth.json".
     <td width="50%">
       <strong>Login relay support</strong><br />
       Forward an existing callback URL into the local Codex login listener.
-    </td>
-  </tr>
-</table>
-
-## Desktop GUI
-
-The Windows desktop app sits on top of the same Rust runtime and exposes profile overview,
-quick switching, reload actions, and local settings in a dedicated GUI shell.
-
-![Codex Switcher Desktop profiles workspace](docs/project/assets/gui/desktop-profiles-demo.png)
-
-<table>
-  <tr>
-    <td width="33%">
-      <img src="docs/project/assets/gui/desktop-quick-switch-demo.png" alt="Codex Switcher Desktop quick switch view" />
-    </td>
-    <td width="33%">
-      <img src="docs/project/assets/gui/desktop-reload-demo.png" alt="Codex Switcher Desktop reload view" />
-    </td>
-    <td width="33%">
-      <img src="docs/project/assets/gui/desktop-settings-demo.png" alt="Codex Switcher Desktop settings view" />
     </td>
   </tr>
 </table>
