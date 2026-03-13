@@ -1,5 +1,5 @@
-use super::*;
 use super::profile_priority::{AvailabilityState, AvailabilityTag};
+use super::*;
 use crate::switcher::profile_identity::{
     profile_base, rename_profile_id, sanitize_part, short_account_suffix, unique_id,
 };

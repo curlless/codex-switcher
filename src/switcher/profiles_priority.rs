@@ -376,20 +376,16 @@ fn fetch_priority_limits(
     if should_refresh_before_usage(tokens)
         && let Some(profile_path) = profile_path
     {
-        refresh_profile_tokens(profile_path, tokens).map_err(|err| {
-            AvailabilityState::new(AvailabilityTag::UsageFetchError, err, true)
-        })?;
+        refresh_profile_tokens(profile_path, tokens)
+            .map_err(|err| AvailabilityState::new(AvailabilityTag::UsageFetchError, err, true))?;
     }
-    let access_token = tokens
-        .access_token
-        .as_deref()
-        .ok_or_else(|| {
-            AvailabilityState::new(
-                AvailabilityTag::MissingAccessToken,
-                "Missing access token",
-                has_refresh_token(tokens),
-            )
-        })?;
+    let access_token = tokens.access_token.as_deref().ok_or_else(|| {
+        AvailabilityState::new(
+            AvailabilityTag::MissingAccessToken,
+            "Missing access token",
+            has_refresh_token(tokens),
+        )
+    })?;
     let account_id = token_account_id(tokens).ok_or_else(|| {
         AvailabilityState::new(
             AvailabilityTag::MissingAccountId,
@@ -408,16 +404,13 @@ fn fetch_priority_limits(
             refresh_profile_tokens(profile_path, tokens).map_err(|refresh_err| {
                 AvailabilityState::new(AvailabilityTag::UsageFetchError, refresh_err, true)
             })?;
-            let access_token = tokens
-                .access_token
-                .as_deref()
-                .ok_or_else(|| {
-                    AvailabilityState::new(
-                        AvailabilityTag::MissingAccessToken,
-                        "Missing access token",
-                        true,
-                    )
-                })?;
+            let access_token = tokens.access_token.as_deref().ok_or_else(|| {
+                AvailabilityState::new(
+                    AvailabilityTag::MissingAccessToken,
+                    "Missing access token",
+                    true,
+                )
+            })?;
             let account_id = token_account_id(tokens).ok_or_else(|| {
                 AvailabilityState::new(
                     AvailabilityTag::MissingAccountId,
@@ -425,14 +418,13 @@ fn fetch_priority_limits(
                     true,
                 )
             })?;
-            fetch_usage_limits(base_url, access_token, account_id, now)
-                .map_err(|retry_err| {
-                    AvailabilityState::new(
-                        AvailabilityTag::UsageFetchError,
-                        normalize_error(&retry_err.message()),
-                        true,
-                    )
-                })
+            fetch_usage_limits(base_url, access_token, account_id, now).map_err(|retry_err| {
+                AvailabilityState::new(
+                    AvailabilityTag::UsageFetchError,
+                    normalize_error(&retry_err.message()),
+                    true,
+                )
+            })
         }
         Err(err) => Err(AvailabilityState::new(
             AvailabilityTag::UsageFetchError,

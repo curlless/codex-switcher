@@ -340,22 +340,16 @@ fn switch_profiles(
 
 fn usage_strings(
     row: &profile_priority::PriorityRow,
-) -> (
-    String,
-    String,
-    Option<AvailabilityPayload>,
-) {
+) -> (String, String, Option<AvailabilityPayload>) {
     match &row.state {
         profile_priority::PriorityState::Ready(usage) => (
             format!("{}%", usage.seven_day_left),
             format!("{}%", usage.five_hour_left),
             None,
         ),
-        profile_priority::PriorityState::Unavailable(state) => (
-            "--".to_string(),
-            "--".to_string(),
-            Some(state.payload()),
-        ),
+        profile_priority::PriorityState::Unavailable(state) => {
+            ("--".to_string(), "--".to_string(), Some(state.payload()))
+        }
     }
 }
 
@@ -460,8 +454,7 @@ fn switch_manual_hints(
             }
             profile_priority::AvailabilityTag::MissingFiveHourWindow
             | profile_priority::AvailabilityTag::MissingSevenDayWindow => {
-                "Refresh usage windows or inspect account usage data before switching."
-                    .to_string()
+                "Refresh usage windows or inspect account usage data before switching.".to_string()
             }
             profile_priority::AvailabilityTag::TokenUnreadable => {
                 "Repair or resave the saved profile before attempting an automatic switch."
@@ -557,11 +550,9 @@ fn profile_card(
 fn availability_summary(row: &profile_priority::PriorityRow) -> Option<String> {
     match &row.state {
         profile_priority::PriorityState::Ready(_) => None,
-        profile_priority::PriorityState::Unavailable(state) => Some(format!(
-            "{}: {}",
-            state.cli_state_label(),
-            state.reason
-        )),
+        profile_priority::PriorityState::Unavailable(state) => {
+            Some(format!("{}: {}", state.cli_state_label(), state.reason))
+        }
     }
 }
 

@@ -68,7 +68,7 @@ jobs:
           import re
           from pathlib import Path
           text = Path("apps/desktop/src-tauri/Cargo.toml").read_text(encoding="utf-8")
-          match = re.search(r'^version\\s*=\\s*\"([^\"]+)\"', text, re.M)
+          match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
           if not match:
               raise SystemExit("failed to read desktop Cargo.toml version")
           print(match.group(1))
