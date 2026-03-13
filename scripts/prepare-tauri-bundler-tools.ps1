@@ -88,7 +88,7 @@ function Copy-Tree {
 function Resolve-ArchiveContentRoot {
   param([string]$ExtractedPath)
 
-  $children = Get-ChildItem -LiteralPath $ExtractedPath -Force
+  $children = @(Get-ChildItem -LiteralPath $ExtractedPath -Force)
   if ($children.Count -eq 1 -and $children[0].PSIsContainer) {
     return $children[0].FullName
   }
