@@ -85,11 +85,99 @@ function Copy-Tree {
   Copy-Item -Path (Join-Path $Source "*") -Destination $Destination -Recurse -Force
 }
 
+function Resolve-ArchiveContentRoot {
+  param([string]$ExtractedPath)
+
+  $children = Get-ChildItem -LiteralPath $ExtractedPath -Force
+  if ($children.Count -eq 1 -and $children[0].PSIsContainer) {
+    return $children[0].FullName
+  }
+
+  return $ExtractedPath
+}
+
 function Assert-PathExists {
   param([string]$Path)
   if (-not (Test-Path -LiteralPath $Path)) {
     throw "Required Tauri bundler path is missing: $Path"
   }
+}
+
+function Get-FirstRecursiveMatch {
+  param(
+    [string]$Root,
+    [string]$LeafName
+  )
+
+  if (-not (Test-Path -LiteralPath $Root)) {
+    return $null
+  }
+
+  $matches = Get-ChildItem -LiteralPath $Root -Recurse -File -Filter $LeafName | Sort-Object FullName
+  if ($matches) {
+    return $matches[0].FullName
+  }
+
+  return $null
+}
+
+function Normalize-NsisLayout {
+  param([string]$Root)
+
+  $expectedMakensis = Join-Path $Root "Bin\makensis.exe"
+  if (Test-Path -LiteralPath $expectedMakensis) {
+    return
+  }
+
+  $nestedBinMakensis = Get-ChildItem -LiteralPath $Root -Recurse -File -Filter "makensis.exe" |
+    Where-Object { $_.DirectoryName -match '[\\/]Bin$' } |
+    Sort-Object FullName |
+    Select-Object -First 1
+
+  if ($nestedBinMakensis) {
+    $binDir = Join-Path $Root "Bin"
+    Ensure-Directory -Path $binDir
+    Copy-Item -Path (Join-Path $nestedBinMakensis.DirectoryName "*") -Destination $binDir -Recurse -Force
+    return
+  }
+
+  $fallbackMakensis = Get-FirstRecursiveMatch -Root $Root -LeafName "makensis.exe"
+  if (-not $fallbackMakensis) {
+    return
+  }
+
+  $binDir = Join-Path $Root "Bin"
+  Ensure-Directory -Path $binDir
+  Copy-Item -LiteralPath $fallbackMakensis -Destination (Join-Path $binDir "makensis.exe") -Force
+
+  $fallbackDir = Split-Path -Parent $fallbackMakensis
+  $zlibDll = Join-Path $fallbackDir "zlib1.dll"
+  if (Test-Path -LiteralPath $zlibDll) {
+    Copy-Item -LiteralPath $zlibDll -Destination (Join-Path $binDir "zlib1.dll") -Force
+  }
+}
+
+function Normalize-WixLayout {
+  param([string]$Root)
+
+  $expectedCandle = Join-Path $Root "candle.exe"
+  $expectedLight = Join-Path $Root "light.exe"
+  if ((Test-Path -LiteralPath $expectedCandle) -and (Test-Path -LiteralPath $expectedLight)) {
+    return
+  }
+
+  $candlePath = Get-FirstRecursiveMatch -Root $Root -LeafName "candle.exe"
+  $lightPath = Get-FirstRecursiveMatch -Root $Root -LeafName "light.exe"
+  if (-not $candlePath -or -not $lightPath) {
+    return
+  }
+
+  $candidateDir = Split-Path -Parent $candlePath
+  if ((Split-Path -Parent $lightPath) -ne $candidateDir) {
+    $candidateDir = Split-Path -Parent $lightPath
+  }
+
+  Copy-Item -Path (Join-Path $candidateDir "*") -Destination $Root -Recurse -Force
 }
 
 Write-Step "Preparing Windows bundler cache"
@@ -133,9 +221,13 @@ Ensure-FileDownload `
 
 $globalNsisDir = Join-Path $globalToolsRoot "NSIS"
 $globalWixDir = Join-Path $globalToolsRoot "WixTools314"
+$nsisContentRoot = Resolve-ArchiveContentRoot -ExtractedPath $nsisExtracted
+$wixContentRoot = Resolve-ArchiveContentRoot -ExtractedPath $wixExtracted
 
-Copy-Tree -Source $nsisExtracted -Destination $globalNsisDir
-Copy-Tree -Source $wixExtracted -Destination $globalWixDir
+Copy-Tree -Source $nsisContentRoot -Destination $globalNsisDir
+Copy-Tree -Source $wixContentRoot -Destination $globalWixDir
+Normalize-NsisLayout -Root $globalNsisDir
+Normalize-WixLayout -Root $globalWixDir
 
 $nsisAdditionalDir = Join-Path $globalNsisDir "Plugins\x86-unicode\additional"
 Ensure-Directory -Path $nsisAdditionalDir
