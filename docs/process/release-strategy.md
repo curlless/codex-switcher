@@ -18,6 +18,7 @@ Use semantic version tags:
 - `v0.2.7`
 - `v0.2.8`
 - `v0.2.9`
+- `v0.2.10`
 - `v0.2.0`
 - `v1.0.0`
 
@@ -43,15 +44,16 @@ The latest tagged release currently in the published history is:
 
 The next canonical public-ready tag target from `main` is:
 
-- `v0.2.9`
+- `v0.2.10`
 
 Current interpretation:
 
 - it captures the desktop GUI delivery line, related post-release fixes, the
-  repaired Windows bundler bootstrap path, and the PowerShell single-item archive fix
+  repaired Windows bundler bootstrap path, the PowerShell single-item archive fix,
+  and the regenerated desktop Tauri lockfile
 - it should not be treated as the final public-release contract for every distribution surface
 - it predates the hardened split CLI/GUI release contract and should be treated as a legacy snapshot
-- the next public-ready tagged release should be cut as `v0.2.9` from the current `main` branch plus the hardened combined CLI/GUI release workflow
+- the next public-ready tagged release should be cut as `v0.2.10` from the current `main` branch plus the hardened combined CLI/GUI release workflow
 
 ## Release flow
 
