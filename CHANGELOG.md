@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-03-13
+
+### Fixed
+
+- Windows release bundler bootstrap now normalizes extracted NSIS and WiX tool layouts
+  before asserting Tauri cache paths in CI and maintainer environments
+
 ## [0.2.7] - 2026-03-13
 
 ### Fixed
@@ -118,7 +125,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pre-commit hooks for code quality
 - Binary releases for 5 platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64)
 
-[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.8
 [0.2.7]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.7
 [0.2.1]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.1
 [0.1.2]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.1.2
