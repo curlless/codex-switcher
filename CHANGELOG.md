@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-03-13
+
+### Fixed
+
+- Windows release bundler bootstrap now handles single-item archive roots correctly
+  under `Set-StrictMode`, preventing CI runner failures after NSIS/WiX downloads
+
 ## [0.2.8] - 2026-03-13
 
 ### Fixed
@@ -125,7 +132,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pre-commit hooks for code quality
 - Binary releases for 5 platforms (Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64)
 
-[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/1Voin1/codex-switcher/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.9
 [0.2.8]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.8
 [0.2.7]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.7
 [0.2.1]: https://github.com/1Voin1/codex-switcher/releases/tag/v0.2.1
