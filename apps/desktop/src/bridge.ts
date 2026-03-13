@@ -208,6 +208,18 @@ export async function loadSmokeMode(): Promise<boolean> {
   }
 }
 
+export async function loadDemoMode(): Promise<boolean> {
+  if (!isTauriAvailable()) {
+    return false;
+  }
+
+  try {
+    return await invoke<boolean>("desktop_demo_mode");
+  } catch {
+    return false;
+  }
+}
+
 export async function recordSmokeTrace(snapshot: SmokeTraceSnapshot): Promise<boolean> {
   if (!isTauriAvailable()) {
     return false;

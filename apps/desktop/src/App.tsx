@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   executeBestSwitch,
   executeSwitch,
+  loadDemoMode,
   previewSwitch,
   recordSmokeTrace,
   reloadTarget,
@@ -200,6 +201,23 @@ export function App() {
       return await refreshPromiseRef.current;
     },
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncDemoMode() {
+      const enabled = await loadDemoMode();
+      if (!cancelled && enabled) {
+        setActiveView("profiles");
+      }
+    }
+
+    void syncDemoMode();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     void runShellRefresh("bootstrap");

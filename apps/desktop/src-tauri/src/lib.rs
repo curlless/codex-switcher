@@ -4,6 +4,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
+            commands::desktop_demo_mode,
             commands::desktop_profiles_overview,
             commands::desktop_active_profile_status,
             commands::desktop_switch_preview,
