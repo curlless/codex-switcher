@@ -76,7 +76,11 @@ pub(super) fn codex_override_for_reload_target(
     target: ReloadAppTarget,
 ) -> Result<Option<crate::switcher::CodexAppOverride>, String> {
     if matches!(target, ReloadAppTarget::All | ReloadAppTarget::Codex) {
-        ensure_codex_app_override(paths)
+        if cfg!(windows) {
+            ensure_codex_app_override(paths)
+        } else {
+            codex_app_override(paths)
+        }
     } else {
         codex_app_override(paths)
     }
@@ -94,4 +98,24 @@ fn print_reload_outcome(outcome: &ReloadOutcomePayload) {
         lines.push(format_hint(hint, use_color));
     }
     print_output_block(&lines.join("\n"));
+}
+
+#[cfg(all(test, feature = "switcher-unit-tests"))]
+mod tests {
+    #[cfg(not(windows))]
+    use super::*;
+    #[cfg(not(windows))]
+    use crate::switcher::test_utils::make_paths;
+
+    #[cfg(not(windows))]
+    #[test]
+    fn codex_override_for_reload_target_skips_windows_discovery_on_non_windows() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = make_paths(dir.path());
+
+        let override_value =
+            codex_override_for_reload_target(&paths, ReloadAppTarget::Codex).expect("override");
+
+        assert!(override_value.is_none());
+    }
 }
