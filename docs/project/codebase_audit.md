@@ -135,7 +135,7 @@ Commands run after this remediation slice:
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test
 cargo test --features switcher-unit-tests
-gh workflow run release.yml -R 1Voin1/codex-switcher --ref develop
+gh workflow run release.yml -R curlless/codex-switcher --ref develop
 ```
 
 Result:

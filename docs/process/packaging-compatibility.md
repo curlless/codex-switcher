@@ -12,7 +12,7 @@ aliases where removing them would break existing local installs or scripts.
 | Rust crate | `codex-switcher` |
 | Cargo binary | `codex-switcher` |
 | npm package | `@1voin1/codex-switcher` |
-| GitHub release repo | `1Voin1/codex-switcher` |
+| GitHub release repo | `curlless/codex-switcher` |
 | Homebrew cask | `codex-switcher` |
 | Installer env namespace | `CODEX_SWITCHER_*` |
 

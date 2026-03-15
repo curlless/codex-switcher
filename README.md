@@ -113,7 +113,7 @@ These are the canonical CLI install paths for the public-ready release lane:
 | npm | `npm install -g @1voin1/codex-switcher` |
 | Bun | `bun install -g @1voin1/codex-switcher` |
 | Cargo | `cargo install codex-switcher` |
-| Manual script | `curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/main/install.sh | bash` |
+| Manual script | `curl -fsSL https://raw.githubusercontent.com/curlless/codex-switcher/main/install.sh | bash` |
 
 Manual installer notes:
 
@@ -128,7 +128,7 @@ Manual installer overrides:
 
 ```bash
 CODEX_SWITCHER_VERSION=<version> CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
-  curl -fsSL https://raw.githubusercontent.com/1Voin1/codex-switcher/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/curlless/codex-switcher/main/install.sh | bash
 ```
 
 Legacy `CODEX_PROFILES_VERSION` and `CODEX_PROFILES_INSTALL_DIR` are still accepted as compatibility aliases.
@@ -142,7 +142,7 @@ Use the desktop app if you want the Windows GUI without installing the CLI globa
 The Windows desktop installer is a separate surface from the CLI release lane. Use the Windows
 desktop artifacts from the latest GitHub Release when that release advertises GUI assets:
 
-1. Open the latest [GitHub Release](https://github.com/1Voin1/codex-switcher/releases/latest).
+1. Open the latest [GitHub Release](https://github.com/curlless/codex-switcher/releases/latest).
 2. Download one of the Windows desktop artifacts:
    - the setup executable (`setup.exe`) for the normal installer path
    - the MSI package (`.msi`) if you prefer MSI deployment

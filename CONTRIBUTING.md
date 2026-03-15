@@ -6,7 +6,7 @@ Thanks for helping improve codex-switcher.
 
 **For non-trivial changes (new features, significant refactors, breaking changes):**
 
-Please open an [issue](https://github.com/1Voin1/codex-switcher/issues) or [discussion](https://github.com/1Voin1/codex-switcher/discussions) first to:
+Please open an [issue](https://github.com/curlless/codex-switcher/issues) or [discussion](https://github.com/curlless/codex-switcher/discussions) first to:
 - Discuss your proposed changes
 - Get feedback on your approach
 - Confirm the feature/fix aligns with project goals
@@ -110,4 +110,4 @@ make release-tag ARGS="--bump patch"
 
 ## Questions?
 
-Not sure if your idea fits? Ask in [Discussions](https://github.com/1Voin1/codex-switcher/discussions) and describe the use case you are trying to solve.
+Not sure if your idea fits? Ask in [Discussions](https://github.com/curlless/codex-switcher/discussions) and describe the use case you are trying to solve.

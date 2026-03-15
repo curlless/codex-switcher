@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and design discussions
-    url: https://github.com/1Voin1/codex-switcher/discussions
+  url: https://github.com/curlless/codex-switcher/discussions
     about: Use Discussions for support, Q&A, and early-stage ideas.
   - name: Security policy
-    url: https://github.com/1Voin1/codex-switcher/blob/main/SECURITY.md
+  url: https://github.com/curlless/codex-switcher/blob/main/SECURITY.md
     about: Read how to report vulnerabilities privately.

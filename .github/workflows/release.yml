@@ -344,7 +344,7 @@ jobs:
           version="${{ needs.tag-check.outputs.release_version }}"
           
           # Safety gate: only commit to production repository
-          if [[ "${GITHUB_REPOSITORY}" != "1Voin1/codex-switcher" ]]; then
+          if [[ "${GITHUB_REPOSITORY}" != "curlless/codex-switcher" ]]; then
             echo "Skipping checksum commit: not production repository (current: ${GITHUB_REPOSITORY})"
             echo "Checksums generated but not committed to repo"
             ls -la dist/checksums/
@@ -383,7 +383,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           # Safety gate: only publish from production repository
-          if [[ "${GITHUB_REPOSITORY}" != "1Voin1/codex-switcher" ]]; then
+          if [[ "${GITHUB_REPOSITORY}" != "curlless/codex-switcher" ]]; then
             echo "Skipping crates.io publish: not production repository (current: ${GITHUB_REPOSITORY})"
             exit 0
           fi
@@ -403,7 +403,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           # Safety gate: only publish from production repository
-          if [[ "${GITHUB_REPOSITORY}" != "1Voin1/codex-switcher" ]]; then
+          if [[ "${GITHUB_REPOSITORY}" != "curlless/codex-switcher" ]]; then
             echo "Skipping npm publish: not production repository (current: ${GITHUB_REPOSITORY})"
             exit 0
           fi

@@ -12,7 +12,7 @@ cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 npm run build
 gitleaks git . --redact --no-banner
 node scripts/verify-release-publication.mjs v0.2.1
-gh repo view 1Voin1/codex-switcher --json isPrivate,defaultBranchRef,name,description,url
+gh repo view curlless/codex-switcher --json isPrivate,defaultBranchRef,name,description,url
 ```
 
 ## Results

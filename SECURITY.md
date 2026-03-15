@@ -12,7 +12,7 @@ or anything that could expose live accounts.
 
 Report privately through GitHub security advisories for this repository. If advisories
 are unavailable, use the non-public contact channel exposed on the repository owner's
-GitHub profile at `https://github.com/1Voin1` (for example the profile email/contact
+GitHub profile at `https://github.com/curlless` (for example the profile email/contact
 field) and do not post vulnerability details in a public issue.
 
 Include:

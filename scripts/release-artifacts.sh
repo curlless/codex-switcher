@@ -103,17 +103,17 @@ cask "codex-switcher" do
 
   on_arm do
     sha256 "${darwin_arm_sha}"
-    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-switcher-aarch64-apple-darwin.tar.gz"
+    url "https://github.com/curlless/codex-switcher/releases/download/v#{version}/codex-switcher-aarch64-apple-darwin.tar.gz"
   end
 
   on_intel do
     sha256 "${darwin_x64_sha}"
-    url "https://github.com/1Voin1/codex-switcher/releases/download/v#{version}/codex-switcher-x86_64-apple-darwin.tar.gz"
+    url "https://github.com/curlless/codex-switcher/releases/download/v#{version}/codex-switcher-x86_64-apple-darwin.tar.gz"
   end
 
   name "codex-switcher"
   desc "Manage multiple Codex CLI accounts with usage-aware switching"
-  homepage "https://github.com/1Voin1/codex-switcher"
+  homepage "https://github.com/curlless/codex-switcher"
 
   binary "codex-switcher"
 end

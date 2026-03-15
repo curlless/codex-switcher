@@ -2,7 +2,7 @@
 
 ## Question
 
-What is the minimum professional cleanup needed to present `1Voin1/codex-switcher`
+What is the minimum professional cleanup needed to present `curlless/codex-switcher`
 as a coherent repository instead of an upstream-branded fork snapshot?
 
 ## Context
@@ -32,10 +32,10 @@ metadata still points at the upstream project. That creates user confusion in:
 | Topic | Best practice | Decision for this repo |
 | --- | --- | --- |
 | README ownership | make the landing page match the actual maintained repository | rewrite README for `codex-switcher`, remove promo content, and document the fork-compatible command model |
-| Repository metadata | package metadata must point to the real maintained source repository | update `Cargo.toml` and `package.json` to `https://github.com/1Voin1/codex-switcher` |
+| Repository metadata | package metadata must point to the real maintained source repository | update `Cargo.toml` and `package.json` to `https://github.com/curlless/codex-switcher` |
 | Default branch | switch the default branch before pruning old branches | make `develop` the default branch because that is the active line expected by the maintainer |
 | Branch cleanup | delete stale feature branches once the default branch is safe | remove the old `codex/feature/*` branches from the GitHub repo |
-| Release and update URLs | binaries, release notes, and version checks must resolve to the maintained repo | point installer, workflow, and update-check URLs to `1Voin1/codex-switcher` |
+| Release and update URLs | binaries, release notes, and version checks must resolve to the maintained repo | point installer, workflow, and update-check URLs to `curlless/codex-switcher` |
 | Repo health files | professional repositories benefit from explicit contribution and security expectations | keep `CONTRIBUTING.md` and add `SECURITY.md` plus `CODE_OF_CONDUCT.md` |
 
 ## Conclusions

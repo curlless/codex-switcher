@@ -8,7 +8,7 @@ import path from "node:path";
 
 const args = process.argv.slice(2);
 let requestedVersion = null;
-let repo = "1Voin1/codex-switcher";
+let repo = "curlless/codex-switcher";
 let requireRegistries = false;
 
 for (let i = 0; i < args.length; i += 1) {

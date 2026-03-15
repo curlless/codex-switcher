@@ -6,7 +6,7 @@
 set -euo pipefail
 
 VERSION="${CODEX_SWITCHER_VERSION:-${CODEX_PROFILES_VERSION:-}}"
-REPO="1Voin1/codex-switcher"
+REPO="curlless/codex-switcher"
 INSTALL_DIR="${CODEX_SWITCHER_INSTALL_DIR:-${CODEX_PROFILES_INSTALL_DIR:-$HOME/.local/bin}}"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then

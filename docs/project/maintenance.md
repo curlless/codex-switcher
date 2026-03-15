@@ -84,7 +84,7 @@ Update these documents in the same change when the corresponding code moves:
 Before tagging:
 
 1. confirm `Cargo.toml` and `package.json` versions match
-2. confirm installer URLs and workflow metadata still point to `1Voin1/codex-switcher`
+2. confirm installer URLs and workflow metadata still point to `curlless/codex-switcher`
 3. confirm checksum generation still targets `checksums/vX.Y.Z.txt`
 4. confirm canonical names still prefer `codex-switcher`
 5. run `node scripts/verify-node-packaging.mjs` and confirm `npm pack --dry-run --json` stays green
