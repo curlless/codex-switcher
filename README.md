@@ -41,9 +41,8 @@ quick switching, reload actions, and local settings in a dedicated GUI shell.
 
 ## Why It Exists
 
-`codex-switcher` is the maintained repository for a profile manager around Codex CLI
-authentication. This branch prepares the canonical public-facing repository surface for
-`codex-switcher`.
+`codex-switcher` is the canonical public repository for a profile manager around Codex CLI
+authentication.
 
 > This repository is based on the original
 > [`codex-profiles`](https://github.com/midhunmonachan/codex-profiles) project
@@ -100,13 +99,12 @@ automation, you usually need more than "login once and overwrite auth.json".
 ## Install
 
 > Release note: the historical `v0.2.1` tag remains a legacy desktop-first snapshot.
-> The canonical public install surface is the split CLI/GUI release contract documented
-> below and expected from the next hardened release cut from `main`.
+> The canonical install surface is the split CLI/GUI release contract documented below.
 
 ### CLI only
 
 Use the CLI if you want profile save/load/switch flows from the terminal without the desktop shell.
-These are the canonical CLI install paths for the public-ready release lane:
+These are the canonical CLI install paths for the current release lane:
 
 | Source | Command |
 | --- | --- |
@@ -163,7 +161,7 @@ They share the same profile/authentication model but remain separate installatio
 Historical note:
 
 - the existing `v0.2.1` tag should be treated as a historical desktop-first snapshot, not as the final combined CLI+GUI release contract
-- the hardened release process on `main` is intended to make future tags publish the canonical CLI and GUI surfaces together
+- the current release process on `main` is the canonical path for publishing the CLI and GUI surfaces together
 
 Canonical packaging and compatibility rules are summarized in
 [docs/process/packaging-compatibility.md](docs/process/packaging-compatibility.md).
