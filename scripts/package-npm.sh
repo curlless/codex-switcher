@@ -22,27 +22,27 @@ for artifact_dir in "${artifacts_dir}"/codex-switcher-*; do
 
   case "${target}" in
     x86_64-unknown-linux-gnu)
-      pkg="@1voin1/codex-switcher-linux-x64"
+      pkg="@curlless/codex-switcher-linux-x64"
       os="linux"
       cpu="x64"
       ;;
     aarch64-unknown-linux-gnu)
-      pkg="@1voin1/codex-switcher-linux-arm64"
+      pkg="@curlless/codex-switcher-linux-arm64"
       os="linux"
       cpu="arm64"
       ;;
     x86_64-apple-darwin)
-      pkg="@1voin1/codex-switcher-darwin-x64"
+      pkg="@curlless/codex-switcher-darwin-x64"
       os="darwin"
       cpu="x64"
       ;;
     aarch64-apple-darwin)
-      pkg="@1voin1/codex-switcher-darwin-arm64"
+      pkg="@curlless/codex-switcher-darwin-arm64"
       os="darwin"
       cpu="arm64"
       ;;
     x86_64-pc-windows-msvc)
-      pkg="@1voin1/codex-switcher-win32-x64"
+      pkg="@curlless/codex-switcher-win32-x64"
       os="win32"
       cpu="x64"
       bin_name="codex-switcher.exe"

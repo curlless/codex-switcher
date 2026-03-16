@@ -11,7 +11,7 @@ aliases where removing them would break existing local installs or scripts.
 | --- | --- |
 | Rust crate | `codex-switcher` |
 | Cargo binary | `codex-switcher` |
-| npm package | `@1voin1/codex-switcher` |
+| npm package | `@curlless/codex-switcher` |
 | GitHub release repo | `curlless/codex-switcher` |
 | Homebrew cask | `codex-switcher` |
 | Installer env namespace | `CODEX_SWITCHER_*` |
@@ -73,8 +73,9 @@ Public availability can lag behind the intended surface:
 - the historical `v0.2.1` release is a legacy desktop-first snapshot and should not be treated as proof of the canonical split CLI/GUI contract
 - older tags may still use a legacy or incomplete asset surface while the repository is finishing publication hardening
 
-The npm wrapper is intentionally scoped because the unscoped `codex-switcher`
-name is already occupied in the public npm registry by an unrelated package.
+The npm wrapper is intentionally scoped under `@curlless` because the unscoped
+`codex-switcher` name is already occupied in the public npm registry by an
+unrelated package.
 The Rust crate and CLI binary keep the unscoped `codex-switcher` name.
 
 ## Verification

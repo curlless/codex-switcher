@@ -419,13 +419,13 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
           
           # Publish platform packages
-          for pkg in dist/npm-packages/1voin1-codex-switcher-*-*.tgz; do
+          for pkg in dist/npm-packages/curlless-codex-switcher-*-*.tgz; do
             npm publish "$pkg" --access public
           done
 
           # Publish main wrapper package last so optional platform packages
           # already exist in the registry by the time consumers install it.
-          npm publish dist/npm-packages/1voin1-codex-switcher-${version}.tgz --access public
+          npm publish dist/npm-packages/curlless-codex-switcher-${version}.tgz --access public
 
       - name: Create GitHub release
         if: ${{ github.event_name == 'push' && needs.tag-check.outputs.publish_enabled == 'true' }}

@@ -66,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - scoped npm package family for release publication:
-  `@1voin1/codex-switcher` and `@1voin1/codex-switcher-*`
+  `@curlless/codex-switcher` and `@curlless/codex-switcher-*`
 - `scripts/verify-release-publication.mjs` to verify GitHub release creation,
   checksum commits, release assets, and registry visibility after a tag
 

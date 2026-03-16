@@ -123,8 +123,8 @@ full tagged-release path with macOS artifacts and live registry publication.
 
 For npm publication, the maintained namespace is the scoped package family:
 
-- `@1voin1/codex-switcher`
-- `@1voin1/codex-switcher-*`
+- `@curlless/codex-switcher`
+- `@curlless/codex-switcher-*`
 
 Do not switch this back to the unscoped `codex-switcher` npm name unless the
 registry ownership situation changes. That public unscoped package name is

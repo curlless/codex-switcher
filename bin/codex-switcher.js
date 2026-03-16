@@ -15,11 +15,11 @@ const { platform, arch } = process;
 const require = createRequire(import.meta.url);
 
 const PLATFORM_PACKAGES = {
-  "linux-x64": "@1voin1/codex-switcher-linux-x64",
-  "linux-arm64": "@1voin1/codex-switcher-linux-arm64",
-  "darwin-x64": "@1voin1/codex-switcher-darwin-x64",
-  "darwin-arm64": "@1voin1/codex-switcher-darwin-arm64",
-  "win32-x64": "@1voin1/codex-switcher-win32-x64",
+  "linux-x64": "@curlless/codex-switcher-linux-x64",
+  "linux-arm64": "@curlless/codex-switcher-linux-arm64",
+  "darwin-x64": "@curlless/codex-switcher-darwin-x64",
+  "darwin-arm64": "@curlless/codex-switcher-darwin-arm64",
+  "win32-x64": "@curlless/codex-switcher-win32-x64",
 };
 
 const platformKey = `${platform}-${arch}`;

@@ -15,7 +15,7 @@ Use this checklist before creating a release tag.
 - update `CHANGELOG.md`
 - confirm repository URLs, installer URLs, and release note links still point to `curlless/codex-switcher`
 - confirm canonical packaging names still prefer `codex-switcher`
-- confirm npm docs and workflow still use the scoped package name `@1voin1/codex-switcher`
+- confirm npm docs and workflow still use the scoped package name `@curlless/codex-switcher`
 - confirm any remaining `CODEX_PROFILES_*` aliases are documented, not newly introduced by accident
 - confirm the release docs still distinguish CLI assets from GUI desktop assets clearly
 

@@ -108,8 +108,8 @@ These are the canonical CLI install paths for the current release lane:
 
 | Source | Command |
 | --- | --- |
-| npm | `npm install -g @1voin1/codex-switcher` |
-| Bun | `bun install -g @1voin1/codex-switcher` |
+| npm | `npm install -g @curlless/codex-switcher` |
+| Bun | `bun install -g @curlless/codex-switcher` |
 | Cargo | `cargo install codex-switcher` |
 | Manual script | `curl -fsSL https://raw.githubusercontent.com/curlless/codex-switcher/main/install.sh | bash` |
 

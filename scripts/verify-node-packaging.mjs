@@ -6,8 +6,8 @@ import { spawnSync } from "node:child_process";
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const npmrc = readFileSync(".npmrc", "utf8");
 
-if (pkg.name !== "@1voin1/codex-switcher") {
-  throw new Error("package name must be @1voin1/codex-switcher");
+if (pkg.name !== "@curlless/codex-switcher") {
+  throw new Error("package name must be @curlless/codex-switcher");
 }
 
 if (pkg?.bin?.["codex-switcher"] !== "bin/codex-switcher.js") {
@@ -35,11 +35,11 @@ if (!npmrc.split(/\r?\n/).some((line) => line.trim() === "package-lock=false")) 
 }
 
 const expectedOptionalPackages = [
-  "@1voin1/codex-switcher-darwin-arm64",
-  "@1voin1/codex-switcher-darwin-x64",
-  "@1voin1/codex-switcher-linux-arm64",
-  "@1voin1/codex-switcher-linux-x64",
-  "@1voin1/codex-switcher-win32-x64",
+  "@curlless/codex-switcher-darwin-arm64",
+  "@curlless/codex-switcher-darwin-x64",
+  "@curlless/codex-switcher-linux-arm64",
+  "@curlless/codex-switcher-linux-x64",
+  "@curlless/codex-switcher-win32-x64",
 ];
 const optionalDependencies = pkg.optionalDependencies ?? {};
 const actualOptionalPackages = Object.keys(optionalDependencies).sort();
