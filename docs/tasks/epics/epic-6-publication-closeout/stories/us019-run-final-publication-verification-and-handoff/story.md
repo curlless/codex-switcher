@@ -1,5 +1,9 @@
 # US019: Run final publication verification and stop before public push
 
+> Historical note (2026-03-16): this story recorded the final stop-before-push
+> handoff. The repository is now public, so the remaining blockers below are the
+> blockers that existed at the time of the handoff, not the current state.
+
 **Status:** Done
 **Epic:** Epic 6
 **Labels:** user-story
@@ -8,11 +12,11 @@
 
 ## Story
 
-As a maintainer preparing the final public-repo flip, I want one last verification pass and a clean handoff package before the actual publication push, so that the repo can be published confidently once the target URL and final approval are provided.
+As a maintainer preparing the final public-repo flip, I want one last verification pass and a clean handoff package before the actual publication push, so that the repo could be published confidently once the target URL and final approval were provided.
 
 ## Context
 
-The user explicitly asked to stop before the final `ln-003-push-all` stage and provide the publication target later. That means the repository needs a final pre-publish verification story that ends with a clean decision packet rather than an immediate public push.
+The user explicitly asked to stop before the final `ln-003-push-all` stage and provide the publication target later. That meant the repository needed a final pre-publish verification story that ended with a clean decision packet rather than an immediate public push.
 
 ## Acceptance Criteria
 
@@ -45,4 +49,4 @@ _Intentionally left empty. Test planning belongs to the later test-planning stag
 ## Execution Notes
 
 - Final verification packet completed on 2026-03-13.
-- Verdict is `NO-GO` until a fresh canonical release is cut and the user provides the final publication target URL/instructions.
+- Verdict at the time was `NO-GO` until a fresh canonical release was cut and the user provided the final publication target URL/instructions.

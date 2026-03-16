@@ -1,5 +1,9 @@
 # US015: Align public-facing docs, default branch, and maintainer guidance
 
+> Historical note (2026-03-16): this story captured a public-surface cleanup
+> pass before publication. The repository is now public, and the wording below
+> should be read as the problem statement that existed at the time.
+
 **Status:** Done
 **Epic:** Epic 4
 **Labels:** user-story
@@ -12,7 +16,7 @@ As a user or maintainer arriving at `codex-switcher` for the first time, I want 
 
 ## Context
 
-The current repository still exposes `develop` in several public-facing places, including `README.md`, `docs/process/release-checklist.md`, and `SECURITY.md`. These references conflict with the current repository state, confuse new users, and weaken the final publication story.
+At the time, the repository still exposed `develop` in several public-facing places, including `README.md`, `docs/process/release-checklist.md`, and `SECURITY.md`. These references conflicted with the repository state, confused new users, and weakened the publication story.
 
 ## Acceptance Criteria
 
@@ -48,5 +52,5 @@ _Intentionally left empty. Test planning belongs to the later test-planning stag
 
 - Story opened first because README/default-branch drift is the most visible public-readiness issue.
 - Public-facing branch references were aligned from `develop` to `main` across README, release docs, security docs, issue templates, and workflow defaults.
-- Public wording was tightened so the repository no longer overstates publication state while the repo is still private and registry publication is not live.
+- Public wording was tightened so the repository no longer overstated publication state while the repo was still private and registry publication was not live.
 - The remaining publication blocker moved out of branch/docs drift and into release-surface completion under US017.

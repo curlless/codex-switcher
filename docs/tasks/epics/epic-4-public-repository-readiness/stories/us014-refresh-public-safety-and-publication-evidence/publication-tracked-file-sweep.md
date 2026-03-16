@@ -4,9 +4,13 @@
 **Date:** 2026-03-13
 **Branch:** `codex/public-ready-hardening`
 
+> Historical note (2026-03-16): this sweep captured the tracked-file safety
+> snapshot immediately before publication. The repository is now public at
+> `https://github.com/curlless/codex-switcher`.
+
 ## Scope
 
-Fresh publication-focused tracked-file sweep against the current working branch before public repository publication.
+Fresh publication-focused tracked-file sweep against the current working branch before public repository publication at that time.
 
 ## Commands
 
@@ -39,6 +43,6 @@ No tracked `.env`, private-key, SSH-key, or credential dump file was surfaced by
 
 ## Verdict
 
-**GO** for the safety-evidence portion of public publication.
+**GO** for the safety-evidence portion of public publication at that time.
 
-Safety evidence is current and reproducible on this branch. Remaining public-publication blockers are documentation, release-surface, and distribution-clarity issues rather than a tracked-secret leak.
+Safety evidence was current and reproducible on this branch. Remaining public-publication blockers at the time were documentation, release-surface, and distribution-clarity issues rather than a tracked-secret leak.

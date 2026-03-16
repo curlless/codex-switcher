@@ -1,5 +1,9 @@
 # US006: Remove intake artifacts and verify public-safe tracked files
 
+> Historical note (2026-03-16): this story captured one publication-hardening
+> slice before the repository went public. References below to public-readiness
+> blockers reflect the state at that time.
+
 **Status:** Done
 **Epic:** Epic 3
 **Labels:** user-story
@@ -12,14 +16,14 @@ As a maintainer preparing `codex-switcher` for public GitHub publication, I want
 
 ## Context
 
-The completed desktop GUI merge left several imported artifacts in `develop` that are not part of the canonical product surface:
+The completed desktop GUI merge had left several imported artifacts in `develop` that were not part of the canonical product surface:
 
 - `.replit`
 - `replit.md`
 - `attached_assets/*`
 - `apps/desktop/src/_backup/*`
 
-Current evidence does not show a real credential leak in tracked files yet, but the repository is not clean enough to call public-ready while these artifacts remain.
+At the time, current evidence did not show a real credential leak in tracked files yet, but the repository was not clean enough to call public-ready while these artifacts remained.
 
 ## Acceptance Criteria
 
@@ -42,7 +46,7 @@ _Intentionally left empty. Test planning belongs to the later test-planning stag
 
 - Preserve repository-backed desktop smoke evidence that is intentionally part of US005.
 - Do not rewrite git history in this story; history surgery, if needed, becomes a separate follow-up.
-- Public publication remains `NO-GO` until this hygiene pass is complete and a secret-safe sweep is recorded.
+- At the time, public publication remained `NO-GO` until this hygiene pass was complete and a secret-safe sweep was recorded.
 
 ## Definition of Done
 

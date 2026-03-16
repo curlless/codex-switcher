@@ -58,7 +58,7 @@
   - [book] [US018: Prepare public repository presentation and community surface](epics/epic-6-publication-closeout/stories/us018-prepare-public-repository-presentation-and-community-surface/story.md) [APPROVED]
     - [gear] T001-T003; README/community surface is coherent for first-time public visitors and the repo-name recommendation is to keep `codex-switcher`
   - [book] [US019: Run final publication verification and handoff](epics/epic-6-publication-closeout/stories/us019-run-final-publication-verification-and-handoff/story.md) [APPROVED]
-    - [gear] T001-T003; final verification packet is recorded with a `NO-GO` verdict pending a fresh canonical release tag and the user-provided publication URL
+    - [gear] T001-T003; final verification packet was recorded before publication, and the repository has since been pushed live at `curlless/codex-switcher`
 
 ## Notes
 
@@ -70,4 +70,4 @@
 - Intake-only artifacts `apps/desktop/src/_backup/*`, `attached_assets/*`, `.replit`, and `replit.md` are excluded from Epic 2 story scope unless separately planned.
 - Epic 3 completed the artifact-hygiene and history-aware secret-scan gates on 2026-03-09. The repository now has a tracked-file cleanup pass and a reproducible `gitleaks git` pass with no leaks found.
 - The latest post-release runtime hotfix lives under US003/T006 because the recoverable `UNAVAILABLE` defect was inside the shared switcher service seam rather than the GUI-only shell.
-- Publication-hardening reopened on 2026-03-13 for a final public-repo readiness pass covering fresh safety evidence, branch/docs drift, CLI-vs-GUI distribution separation, and a stop-before-push closeout packet.
+- Publication-hardening reopened on 2026-03-13 for the final public-repo readiness pass covering fresh safety evidence, branch/docs drift, CLI-vs-GUI distribution separation, and the pre-publication closeout packet that preceded the public push.

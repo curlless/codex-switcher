@@ -1,5 +1,9 @@
 # US014: Refresh public safety evidence and final publication scans
 
+> Historical note (2026-03-16): this story recorded the final safety-evidence
+> pass before publication. The repository is now public, so publication
+> references below should be read as pre-launch context.
+
 **Status:** Done
 **Epic:** Epic 4
 **Labels:** user-story

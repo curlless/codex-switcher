@@ -33,9 +33,9 @@ gh repo view curlless/codex-switcher --json isPrivate,defaultBranchRef,name,desc
 - repository visibility -> still `private`
 - default branch -> `main`
 
-## Verdict
+## Historical Verdict
 
-**NO-GO for public publication right now**
+**NO-GO for public publication at that time**
 
 The repository is hardened enough to prepare the public branch surface, but the currently
 published historical release does not satisfy the canonical release contract that the new
