@@ -40,10 +40,6 @@ Rules:
 
 The latest tagged release currently in the published history is:
 
-- `v0.2.1`
-
-The next canonical public-ready tag target from `main` is:
-
 - `v0.2.10`
 
 Current interpretation:
@@ -51,9 +47,15 @@ Current interpretation:
 - it captures the desktop GUI delivery line, related post-release fixes, the
   repaired Windows bundler bootstrap path, the PowerShell single-item archive fix,
   and the regenerated desktop Tauri lockfile
-- it should not be treated as the final public-release contract for every distribution surface
-- it predates the hardened split CLI/GUI release contract and should be treated as a legacy snapshot
-- the next public-ready tagged release should be cut as `v0.2.10` from the current `main` branch plus the hardened combined CLI/GUI release workflow
+- it is the current canonical GitHub Release snapshot for the public repository
+- GitHub Release assets and checksum publication are proven against `v0.2.10`
+- registry publication remains a separate concern and should still be verified
+  directly when crates.io or npm release is expected
+
+Historical note:
+
+- `v0.2.1` remains a legacy desktop-first snapshot and should not be treated as
+  the canonical proof for the current split CLI/GUI distribution contract
 
 ## Release flow
 

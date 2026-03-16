@@ -4,6 +4,12 @@
 **Date:** 2026-03-13
 **Branch:** `codex/public-ready-hardening`
 
+> Historical note (2026-03-16): this verification packet captured the
+> pre-publication stop point. The repository is now public at
+> `https://github.com/curlless/codex-switcher`; branch visibility and push-stage
+> blockers mentioned below were specific to 2026-03-13 and are no longer the
+> current repository state.
+
 ## Verification Commands
 
 ```powershell
@@ -35,11 +41,11 @@ The repository is hardened enough to prepare the public branch surface, but the 
 published historical release does not satisfy the canonical release contract that the new
 documentation and verifiers now expect.
 
-## Explicit Blockers
+## Historical Blockers At The Time
 
 1. A fresh tagged release has not yet been cut from the hardened publication branch/state.
 2. The live `v0.2.1` GitHub Release cannot be used as proof of the final public CLI + GUI release model.
-3. The repository is still private and the user has not yet provided the final target publication URL/instructions for the push stage.
+3. The repository was still private and the user had not yet provided the final target publication URL/instructions for the push stage.
 
 ## What Is Ready
 

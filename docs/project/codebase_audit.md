@@ -2,6 +2,11 @@
 
 Date: `2026-03-07`
 
+> Historical note (2026-03-16): this audit snapshot was recorded before the final
+> public launch. References to `develop` below reflect the branch topology at the
+> time of the audit; the current public branch model uses `main` as the only
+> long-lived maintained branch.
+
 ## Executive Summary
 
 The repository is in a materially healthier state than the initial audit snapshot. The largest migration debt item from the first audit pass has already been removed.

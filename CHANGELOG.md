@@ -39,9 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- release metadata is now aligned for the next canonical public-ready tag target
-- public-facing install and release docs now describe the hardened CLI/GUI split without
-  framing the repository itself as still in pre-publication hardening
+- release metadata was aligned with the canonical public release contract
+- public-facing install and release docs now describe the CLI/GUI split without
+  pre-publication framing
 
 ## [0.2.1] - 2026-03-10
 

@@ -4,6 +4,11 @@
 **Date:** 2026-03-13
 **Branch:** `codex/public-ready-hardening`
 
+> Historical note (2026-03-16): this note captured the last presentation pass
+> before publication. The repository is now public at
+> `https://github.com/curlless/codex-switcher`, and the remaining constraints
+> listed below were subsequently resolved or superseded.
+
 ## Current Public-Facing Surface
 
 - repository name: `codex-switcher`
@@ -46,7 +51,9 @@ Reasoning:
 - issue template entry points align with `main`
 - release language now treats the current `v0.2.1` tag as a historical pre-publication snapshot rather than the final contract
 
-## Remaining Presentation Constraint
+## Historical Remaining Presentation Constraint
 
-- the repository is still private today
-- the next public-facing release should be cut from the hardened `main` flow, not inferred from the historical `v0.2.1` asset set
+- at the time of this note, the repository was still private
+- at the time of this note, the next public-facing release still needed to be cut
+  from the hardened `main` flow rather than inferred from the historical
+  `v0.2.1` asset set

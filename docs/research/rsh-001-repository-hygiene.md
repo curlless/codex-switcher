@@ -1,5 +1,10 @@
 # Repository Hygiene Research
 
+> Historical note (2026-03-16): this research captured the repository-hygiene plan
+> before the final public launch. The public repository now uses `main` as the
+> default branch, and older recommendations that mention switching to `develop`
+> are superseded.
+
 ## Question
 
 What is the minimum professional cleanup needed to present `curlless/codex-switcher`
@@ -33,8 +38,8 @@ metadata still points at the upstream project. That creates user confusion in:
 | --- | --- | --- |
 | README ownership | make the landing page match the actual maintained repository | rewrite README for `codex-switcher`, remove promo content, and document the fork-compatible command model |
 | Repository metadata | package metadata must point to the real maintained source repository | update `Cargo.toml` and `package.json` to `https://github.com/curlless/codex-switcher` |
-| Default branch | switch the default branch before pruning old branches | make `develop` the default branch because that is the active line expected by the maintainer |
-| Branch cleanup | delete stale feature branches once the default branch is safe | remove the old `codex/feature/*` branches from the GitHub repo |
+| Default branch | keep the public default branch aligned with the actively maintained line | keep `main` as the default branch and treat it as the canonical public branch |
+| Branch cleanup | delete stale feature branches once the default branch is safe | remove obsolete short-lived `codex/*` branches from the GitHub repo as needed |
 | Release and update URLs | binaries, release notes, and version checks must resolve to the maintained repo | point installer, workflow, and update-check URLs to `curlless/codex-switcher` |
 | Repo health files | professional repositories benefit from explicit contribution and security expectations | keep `CONTRIBUTING.md` and add `SECURITY.md` plus `CODE_OF_CONDUCT.md` |
 
