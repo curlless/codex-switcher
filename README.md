@@ -116,6 +116,13 @@ Use the CLI if you want profile save/load/switch flows from the terminal.
 | Manual script | `curl -fsSL https://raw.githubusercontent.com/curlless/codex-switcher/main/install.sh | bash` |
 
 `install.sh` installs the CLI only. Without `--version`, it targets the latest GitHub Release and downloads the matching CLI asset for your platform.
+If you browse release assets manually, look for these labels:
+
+- `CLI macOS (Apple Silicon)`
+- `CLI macOS (Intel)`
+- `CLI Linux (x64)`
+- `CLI Linux (ARM64)`
+- `CLI Windows (x64)`
 
 Manual installer override:
 
@@ -131,10 +138,13 @@ Legacy `CODEX_PROFILES_VERSION` and `CODEX_PROFILES_INSTALL_DIR` are still accep
 Use the desktop app if you want the Windows GUI.
 
 1. Open the latest [GitHub Release](https://github.com/curlless/codex-switcher/releases/latest).
-2. Download one of these files:
-   - `codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe` for the normal installer
-   - `codex-switcher-desktop-x86_64-pc-windows-msvc.msi` if you prefer MSI deployment
+2. Download one of these assets:
+   - `Windows desktop installer (.exe)` (`codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe`) for the normal installer
+   - `Windows desktop installer (.msi)` (`codex-switcher-desktop-x86_64-pc-windows-msvc.msi`) if you prefer MSI deployment
 3. Run the installer and launch `Codex Switcher Desktop`.
+
+The release also includes `Windows desktop standalone executable`
+(`codex-switcher-desktop-x86_64-pc-windows-msvc.exe`) if you need the portable GUI binary instead of an installer.
 
 The desktop installer ships the GUI only. It does not install the `codex-switcher` CLI into your shell `PATH`.
 
