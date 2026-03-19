@@ -98,13 +98,15 @@ automation, you usually need more than "login once and overwrite auth.json".
 
 ## Install
 
-> Release note: the historical `v0.2.1` tag remains a legacy desktop-first snapshot.
-> The canonical install surface is the split CLI/GUI release contract documented below.
+For normal users, treat only the latest release as current:
 
-### CLI only
+- CLI: install with npm, Bun, Cargo, or `install.sh`
+- Windows GUI: download the desktop installer from the latest GitHub Release
+- older tags are historical snapshots and should be ignored unless you are debugging an old version
 
-Use the CLI if you want profile save/load/switch flows from the terminal without the desktop shell.
-These are the canonical CLI install paths for the current release lane:
+### CLI
+
+Use the CLI if you want profile save/load/switch flows from the terminal.
 
 | Source | Command |
 | --- | --- |
@@ -113,16 +115,9 @@ These are the canonical CLI install paths for the current release lane:
 | Cargo | `cargo install codex-switcher` |
 | Manual script | `curl -fsSL https://raw.githubusercontent.com/curlless/codex-switcher/main/install.sh | bash` |
 
-Manual installer notes:
+`install.sh` installs the CLI only. Without `--version`, it targets the latest GitHub Release and downloads the matching CLI asset for your platform.
 
-- `install.sh` installs the CLI only.
-- Without `--version`, it targets the latest GitHub Release tag and expects that tag to
-  publish the matching CLI asset for your platform.
-- Historical desktop-only tags can exist before the canonical split CLI release lane is live.
-- On Windows, the script installs the CLI archive when a Windows CLI asset exists; it does
-  not install the desktop GUI.
-
-Manual installer overrides:
+Manual installer override:
 
 ```bash
 CODEX_SWITCHER_VERSION=<version> CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
@@ -131,39 +126,31 @@ CODEX_SWITCHER_VERSION=<version> CODEX_SWITCHER_INSTALL_DIR="$HOME/.local/bin" \
 
 Legacy `CODEX_PROFILES_VERSION` and `CODEX_PROFILES_INSTALL_DIR` are still accepted as compatibility aliases.
 
-Windows CLI users should treat the shell installer as the canonical path only once a release
-actually publishes the Windows CLI zip asset. Until then, use npm, Bun, Cargo, or a local build.
+### Windows GUI
 
-### GUI only
-
-Use the desktop app if you want the Windows GUI without installing the CLI globally first.
-The Windows desktop installer is a separate surface from the CLI release lane. Use the Windows
-desktop artifacts from the latest GitHub Release when that release advertises GUI assets:
+Use the desktop app if you want the Windows GUI.
 
 1. Open the latest [GitHub Release](https://github.com/curlless/codex-switcher/releases/latest).
-2. Download one of the Windows desktop artifacts:
-   - the setup executable (`setup.exe`) for the normal installer path
-   - the MSI package (`.msi`) if you prefer MSI deployment
-3. Run the installer and launch `Codex Switcher Desktop` from the Start menu.
+2. Download one of these files:
+   - `codex-switcher-desktop-x86_64-pc-windows-msvc-setup.exe` for the normal installer
+   - `codex-switcher-desktop-x86_64-pc-windows-msvc.msi` if you prefer MSI deployment
+3. Run the installer and launch `Codex Switcher Desktop`.
 
-The desktop installer ships the GUI only. It does not install the terminal `codex-switcher`
-binary into your global shell `PATH`.
+The desktop installer ships the GUI only. It does not install the `codex-switcher` CLI into your shell `PATH`.
 
-### CLI + GUI together
-
-You can install both surfaces side by side:
+### If You Want Both
 
 1. Install the CLI with npm, Bun, Cargo, or `install.sh`.
 2. Install the Windows desktop app from the latest GitHub Release.
 
-They share the same profile/authentication model but remain separate installation surfaces. Updating one does not require uninstalling the other.
+They share the same profile/authentication model but remain separate installation surfaces.
 
 Historical note:
 
-- the existing `v0.2.1` tag should be treated as a historical desktop-first snapshot, not as the final combined CLI+GUI release contract
-- the current release process on `main` is the canonical path for publishing the CLI and GUI surfaces together
+- `v0.2.10` is the current public release users should install
+- older tags such as `v0.2.1` are archive snapshots, not recommended install targets
 
-Canonical packaging and compatibility rules are summarized in
+Canonical packaging rules are summarized in
 [docs/process/packaging-compatibility.md](docs/process/packaging-compatibility.md).
 
 ## Quick Start
